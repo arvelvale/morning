@@ -9,7 +9,7 @@ import uuid
 
 import httpx
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def main() -> None:

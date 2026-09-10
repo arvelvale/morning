@@ -16,6 +16,19 @@ frontend-demo/.expo/
 /2026-07-24-adventurex-morning-light-messenger-prompt.md
 backend/static/tts_audio/
 
+# HarmonyOS 本地发布密钥遗留副本（签名材料统一存放于 harmony/signing/）
+/mindoff-release.p12
+/mindoff-release.csr
+/morning-release.p12
+/morning-release.csr
+/material/
+
+# 本地工具目录与个人实训材料
+.codex/
+/2023440569*.docx
+/*软件工程工具综合训练报告*.doc
+/scripts/build_training_report.py
+
 deploy/artifacts/
 
 # 本地工具状态，不入库

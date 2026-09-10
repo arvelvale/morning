@@ -35,7 +35,7 @@ type Mode = "login" | "register";
 
 // Edge 会在 password 输入框里渲染原生“显示密码”按钮，隐藏它以免和应用按钮重叠。
 if (Platform.OS === "web" && typeof document !== "undefined") {
-  const styleId = "mindoff-hide-native-reveal";
+  const styleId = "morning-hide-native-reveal";
   if (!document.getElementById(styleId)) {
     const style = document.createElement("style");
     style.id = styleId;

@@ -1,5 +1,5 @@
 """片场 SSE 流式冒烟：需先启动服务。
-    MINDOFF_PORT=8050 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/theater_sse_smoke.py
+    MORNING_PORT=8050 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/theater_sse_smoke.py
 断言：create?stream 收到 beat/choices/done(scene_id)；choices?stream 逐句 beat +
 done(ended=false/closure_ready)。
 """
@@ -9,7 +9,7 @@ import uuid
 
 import httpx
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def read_sse(resp) -> list[tuple[str, dict]]:

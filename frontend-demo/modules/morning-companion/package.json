@@ -1,0 +1,13 @@
+{
+  "name": "morning-companion",
+  "version": "0.1.0",
+  "description": "Morning Android 常驻陪伴前台服务（持续通知 + 已运行时长 + 暂停/打开）",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "private": true,
+  "keywords": ["expo", "react-native", "android", "foreground-service"],
+  "peerDependencies": {
+    "expo": "*",
+    "expo-modules-core": "*"
+  }
+}

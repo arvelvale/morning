@@ -1,5 +1,5 @@
 """候选 confirm 流式揭幕冒烟：需先启动服务。
-    MINDOFF_PORT=8070 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/confirm_sse_smoke.py
+    MORNING_PORT=8070 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/confirm_sse_smoke.py
 断言：confirm?stream 收到 confirmed → 多个 token → choices → done(scene_id)，且场景落库。
 """
 import json
@@ -11,7 +11,7 @@ import httpx
 from app.db import SessionLocal
 from app.services.memory.memory_store import MemoryStore
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def read_sse(resp):

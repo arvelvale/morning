@@ -105,6 +105,23 @@ export const grandmaHouse: SceneSpec = {
 
 /** 样例注册表（按 key 取用，便于预览切换）。 */
 export const SCENE_SAMPLES: Record<string, SceneSpec> = {
+  figurePortrait: {
+    env: { mode: 'outdoor', time: 'day', ground: { color: '#d8cbb7' } },
+    lighting: { ambient: { intensity: 2 }, dir: { intensity: 3, pos: [3, 5, 5] } },
+    characters: [{ type: 'adult', pose: 'standing' }],
+    camera: { pos: [2, 1.9, 4], look: [0, .95, 0] },
+  },
+  figureFamily: {
+    env: { mode: 'outdoor', time: 'day', ground: { color: '#d8cbb7' } },
+    lighting: { ambient: { intensity: 2 }, dir: { intensity: 3, pos: [3, 5, 5] } },
+    characters: [
+      { type: 'child', hairstyle: 'ponytail', outfit: 'skirt', pose: 'waving', pos: [-1.5, 0, 0] },
+      { type: 'student', hairstyle: 'short', outfit: 'uniform', pose: 'walking', pos: [-.5, 0, 0] },
+      { type: 'adult', hairstyle: 'long', outfit: 'casual', pose: 'standing', pos: [.5, 0, 0] },
+      { type: 'elderly', hairstyle: 'bun', outfit: 'coat', pose: 'handsFolded', pos: [1.5, 0, 0] },
+    ],
+    camera: { pos: [1, 2, 6], look: [0, .85, 0] },
+  },
   campfireNight,
   diningDay,
   duskFarewell,

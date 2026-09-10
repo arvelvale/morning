@@ -22,14 +22,26 @@ def reactNativeAndroidDir = new File(
 
 allprojects {
   repositories {
+    maven { url 'file:///D:/bigproject/AdventureX/frontend-demo/android/local-m2' }
     maven {
       // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
       url(reactNativeAndroidDir)
     }
-
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+  }
+  configurations.all {
+    resolutionStrategy {
+      eachDependency { details ->
+        if (details.requested.group == 'org.checkerframework' && details.requested.name == 'checker-qual') {
+          details.useVersion '3.33.0'
+          details.because 'Maven Central TLS blocked in this environment; use cached 3.33.0'
+        }
+      }
+    }
   }
 }
 

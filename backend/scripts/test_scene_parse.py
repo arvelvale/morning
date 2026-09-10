@@ -9,7 +9,7 @@ import uuid
 
 import httpx
 
-BASE = os.environ.get("MINDOFF_API_BASE", "http://223.109.142.152:8000") + "/api/v1"
+BASE = os.environ.get("MORNING_API_BASE", "http://223.109.142.152:8000") + "/api/v1"
 T = 180
 
 user = {"username": "sc_" + uuid.uuid4().hex[:8], "password": "pass1234"}

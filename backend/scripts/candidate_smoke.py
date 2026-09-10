@@ -1,5 +1,5 @@
 """候选片段冒烟：需先启动服务。
-    MINDOFF_PORT=8020 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/candidate_smoke.py
+    MORNING_PORT=8020 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/candidate_smoke.py
 覆盖：列表(排除原始倾倒root) / 次日提醒(只取往日) / confirm / dismiss。
 """
 import datetime as dt
@@ -12,7 +12,7 @@ from app.db import SessionLocal
 from app.models.memory import MemoryItem
 from app.services.memory.memory_store import MemoryStore
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def main() -> None:

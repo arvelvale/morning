@@ -3,7 +3,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Platform, Pressable, ActivityIndicator, Text, View } from "react-native";
-import { BookOpen, ChevronRight, Mic, Moon, Plus, Square, Sun } from "lucide-react-native";
+import { BookOpen, ChevronRight, Mic, MoonStar, Plus, Square, Sun } from "lucide-react-native";
 
 import {
   GlassSurface,
@@ -16,6 +16,7 @@ import {
 import { getCompanionHome, listConversations } from "../../api";
 import { HomePetArtwork } from "../../components/HomePetArtwork";
 import { useVoiceInput } from "../../useVoiceInput";
+import { ambientCalendar } from "../../utils/lunar";
 import { ConversationSummary, shortTitle } from "./shared";
 
 type CompanionIdleProps = {
@@ -60,12 +61,9 @@ export function CompanionIdle({
   const breathe = useRef(new Animated.Value(0)).current;
   const voice = useVoiceInput(onVoiceChat);
 
-  // 环境行：日期 + 星期，像书页天头的页眉；后端的状态语接在后面。
-  const ambientLine = useMemo(() => {
-    const now = new Date();
-    const week = ["日", "一", "二", "三", "四", "五", "六"][now.getDay()];
-    return `${now.getMonth() + 1}月${now.getDate()}日 周${week}`;
-  }, []);
+  // 环境行：农历日期 · 节气 · 时段，像书页天头的页眉；后端的状态语接在后面。
+  const cal = useMemo(() => ambientCalendar(), []);
+  const ambientLine = `${cal.lunar} · ${cal.term} · ${cal.daypart}`;
 
   useEffect(() => {
     if (reducedMotion) return;
@@ -141,6 +139,7 @@ export function CompanionIdle({
     return () => clearTimeout(timer);
   }, [fade, recentConv, reducedMotion, theme.motion.durations.enter, theme.motion.durations.exit]);
 
+  const petSize = isCompact ? 198 : 224;
   return (
     <PageContainer
       maxWidth={1040}
@@ -152,28 +151,23 @@ export function CompanionIdle({
     >
       <View
         style={{
-          alignItems: "center",
-          flexDirection: "row",
-          justifyContent: "space-between",
+          alignItems: "flex-start",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          gap: theme.spacing[2],
         }}
       >
-        <View style={{ flex: 1 }}>
-          {/* 环境行：页眉式小字，日期与它的状态连成一句。 */}
-          <Text
-            style={[
-              theme.typography.textStyles.ambient,
-              { color: theme.colors.textMuted, marginBottom: theme.spacing[2] },
-            ]}
-          >
-            {`${ambientLine} · ${statusText}`}
-          </Text>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: theme.spacing[3],
-            }}
-          >
+        <View style={{ width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            {/* 环境行：页眉式小字（农历 · 节气 · 时段 · 它的状态） */}
+            <Text
+              style={[
+                theme.typography.textStyles.ambient,
+                { color: theme.colors.textMuted, marginBottom: theme.spacing[2] },
+              ]}
+            >
+              {`${ambientLine} · ${statusText}`}
+            </Text>
             <Text
               style={[
                 theme.typography.textStyles.sectionTitle,
@@ -182,52 +176,50 @@ export function CompanionIdle({
             >
               {homePetName ?? petName}
             </Text>
-            {convCount > 0 ? (
-              <Pressable
-                accessibilityLabel={`查看往日，共 ${convCount} 段聊天`}
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={onOpenJournal}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: theme.spacing[1],
-                  paddingHorizontal: theme.spacing[3],
-                  paddingVertical: theme.spacing[1] + 1,
-                  borderRadius: theme.radii.pill,
-                  borderWidth: 1,
-                  borderColor: theme.colors.border,
-                  opacity: pressed ? 0.75 : 1,
-                  transform: [{ scale: pressed ? 0.96 : 1 }],
-                })}
-              >
-                <BookOpen size={13} color={theme.colors.accent} />
-                <Text
-                  style={[
-                    theme.typography.textStyles.label,
-                    { color: theme.colors.accent },
-                  ]}
-                >
-                  往日{" "}
-                  <Text style={{ color: theme.colors.textMuted }}>
-                    {convCount}
-                  </Text>
-                </Text>
-              </Pressable>
-            ) : null}
           </View>
+          <IconButton
+            accessibilityLabel={night ? "切换到日间模式" : "切换到夜间模式"}
+            icon={
+              night ? (
+                <Sun size={20} color={theme.colors.textSecondary} />
+              ) : (
+                <MoonStar size={20} color={theme.colors.textSecondary} />
+              )
+            }
+            onPress={onNightToggle}
+          />
         </View>
-        <IconButton
-          accessibilityLabel={night ? "切换到日间模式" : "切换到夜间模式"}
-          icon={
-            night ? (
-              <Sun size={20} color={theme.colors.textSecondary} />
-            ) : (
-              <Moon size={20} color={theme.colors.textSecondary} />
-            )
-          }
-          onPress={onNightToggle}
-        />
+        {/* 往日：书页式的竖线引导行（原型 ambient-storybook），替代胶囊 */}
+        {convCount > 0 ? (
+          <Pressable
+            accessibilityLabel={`查看往日，共 ${convCount} 段聊天`}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={onOpenJournal}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: theme.spacing[2],
+              borderLeftWidth: 2,
+              borderLeftColor: theme.colors.accent,
+              paddingLeft: theme.spacing[3],
+              paddingVertical: theme.spacing[1],
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <BookOpen size={13} color={theme.colors.accent} />
+            <Text
+              style={[
+                theme.typography.textStyles.body,
+                { color: theme.colors.textPrimary, letterSpacing: 0.4 },
+              ]}
+            >
+              往日{" "}
+              <Text style={{ color: theme.colors.textMuted }}>· {convCount} 段对话</Text>
+            </Text>
+            <ChevronRight size={13} color={theme.colors.textMuted} />
+          </Pressable>
+        ) : null}
       </View>
 
       <Pressable
@@ -249,7 +241,9 @@ export function CompanionIdle({
             style={{
               position: "absolute",
               top: isCompact ? "8%" : "12%",
-              maxWidth: 360,
+              alignSelf: "flex-start",
+              maxWidth: 340,
+              marginLeft: isCompact ? theme.spacing[2] : theme.spacing[6],
               paddingHorizontal: theme.spacing[5],
               paddingVertical: theme.spacing[3],
               borderRadius: theme.radii.card,
@@ -321,6 +315,7 @@ export function CompanionIdle({
           style={{
             zIndex: 1,
             marginTop: bubbleVisible ? (isCompact ? 92 : 78) : 0,
+            alignItems: "center",
             transform: [
               {
                 scale: breathe.interpolate({
@@ -334,7 +329,22 @@ export function CompanionIdle({
           <HomePetArtwork
             fallbackEmoji={petEmoji}
             presetId={petPresetId}
-            size={isCompact ? 198 : 224}
+            size={petSize}
+          />
+          {/* 地面投影：椭圆光斑随呼吸微缩放（原型 groundp 动效） */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              width: petSize * 1.1,
+              height: petSize * 1.1 * 0.16,
+              borderRadius: petSize * 1.1,
+              marginTop: -petSize * 0.08,
+              backgroundColor: night ? "rgba(0,0,0,0.28)" : "rgba(120,95,60,0.18)",
+              opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0.34] }),
+              transform: [{
+                scaleX: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
+              }],
+            }}
           />
         </Animated.View>
         <Text
@@ -382,7 +392,7 @@ export function CompanionIdle({
                   { color: theme.colors.placeholder },
                 ]}
               >
-                说点什么…
+                {`和${homePetName ?? petName}说说…`}
               </Text>
             </Pressable>
             <IconButton

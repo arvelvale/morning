@@ -108,6 +108,17 @@ export function applyPose(p: FigureParts, pose: FigurePose) {
       armR.shoulder.rotation.x = -1.35;
       armR.elbow.rotation.x = -0.15;
       break;
+    case "handsFolded":
+      // 双手温和交叠在身前（迎接/等候），头微低
+      armL.shoulder.rotation.x = -0.5;
+      armR.shoulder.rotation.x = -0.5;
+      armL.elbow.rotation.x = -1.15;
+      armR.elbow.rotation.x = -1.15;
+      armL.elbow.rotation.z = 0.3;      // 前臂向中线内收 → 两手相叠
+      armR.elbow.rotation.z = -0.3;
+      head.rotation.x = 0.1;
+      upper.rotation.x = 0.04;
+      break;
     case "crying":
       // 低头、双手抬到脸前、肩膀抽泣抖动
       head.rotation.x = 0.5;

@@ -27,7 +27,7 @@ from app.services.signals.fusion import _deliver
 
 
 def main() -> None:
-    with tempfile.TemporaryDirectory(prefix="mindoff-mailbox-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="morning-mailbox-") as tmp:
         db_path = Path(tmp) / "mailbox.db"
         engine = create_engine(
             f"sqlite:///{db_path}",

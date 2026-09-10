@@ -9,3 +9,12 @@
 /.clang-tidy
 **/.test
 oh-package-lock.json5
+
+# AGC 应用配置包含客户端密钥，仅保留在本机/构建环境
+**/resources/rawfile/agconnect-services.json
+
+# HarmonyOS 本地签名材料：私钥、证书、Profile 与密码解密材料
+/signing/
+
+# 云调试专用低权限测试账号；仅由本机构建脚本注入，不提交仓库
+/cloud-debug.local.json

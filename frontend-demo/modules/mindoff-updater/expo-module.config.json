@@ -1,7 +1,0 @@
-{
-  "platforms": ["android"],
-  "android": {
-    "modules": ["com.mindoff.updater.MindoffUpdaterModule"],
-    "packageImportPath": "com.mindoff.updater"
-  }
-}

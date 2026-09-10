@@ -36,6 +36,7 @@ const MIRO_WAITING_FRAMES: ImageFrameInfo[] = [
 @Component
 export struct CompanionHome {
   onStartChat: (conversationId: number | null) => void = (_conversationId: number | null): void => {};
+  onStartDump: () => void = (): void => {};
   @StorageProp('isNight') isNight: boolean = false;
   @State loading: boolean = true;
   @State errorText: string = '';
@@ -278,7 +279,7 @@ export struct CompanionHome {
               .fontColor(this.colors().accent)
               .backgroundColor(this.colors().accentSoft)
               .borderRadius(radii.control)
-              .onClick(() => this.actionHint = '更多陪伴模式会随着睡前倾倒一起接通')
+              .onClick(() => this.onStartDump())
           }
           .width('100%')
 

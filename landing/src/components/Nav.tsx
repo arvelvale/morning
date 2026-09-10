@@ -5,7 +5,7 @@ export default function Nav() {
       <a className="brand" href="#hero">
         <img src="/assets/favicon.png" alt="喵灵 logo" />
         <b>喵灵</b>
-        <span>MindOff</span>
+        <span>Morning</span>
       </a>
       <div className="nav-links">
         <a href="#dump">倾倒</a>

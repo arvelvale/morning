@@ -11,7 +11,7 @@ import {
   type ApkDownloadState as NativeApkDownloadState,
   type ApkDownloadStatus,
   type ApkInstallResult,
-} from "mindoff-updater";
+} from "morning-updater";
 
 export { isApkUpdaterAvailable };
 

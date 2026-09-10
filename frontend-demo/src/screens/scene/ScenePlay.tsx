@@ -22,7 +22,7 @@ import { SceneChoice, SceneDetail } from "./shared";
 import { getSceneAdvancePhase } from "./sceneReview";
 
 const bgFill = { position: "absolute" as const, top: 0, left: 0, right: 0, bottom: 0 };
-const NARRATION_VOICE_KEY = "mindoff.sceneNarrationVoice";
+const NARRATION_VOICE_KEY = "morning.sceneNarrationVoice";
 
 /** galgame 动态背景：url 变化时旧图淡出、新图淡入（≤300ms）；
  *  加载前暖色底 + 指示器占位，加载失败退回暖色渐变。 */

@@ -1,5 +1,5 @@
 """片场端到端冒烟：候选→confirm→场景→choices推进→settlement。需先启动服务。
-    MINDOFF_PORT=8040 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/theater_smoke.py
+    MORNING_PORT=8040 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/theater_smoke.py
 LLM 内容不精确断言，只断结构非空与状态流转。
 """
 import os
@@ -10,7 +10,7 @@ import httpx
 from app.db import SessionLocal
 from app.services.memory.memory_store import MemoryStore
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def main() -> None:

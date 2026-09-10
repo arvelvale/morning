@@ -4,15 +4,31 @@
  */
 import * as THREE from "three";
 
-/** 夜空背景渐变（大球内壁） */
-export function createSkyDome({ top = 0x0a1024, bottom = 0x1a2340 }: { top?: number; bottom?: number } = {}) {
+/** 夜空背景穹顶：三段渐变（天顶→中天→地平线）+ 可选太阳方位暖光加成。 */
+export function createSkyDome({
+  top = 0x0a1024, bottom = 0x1a2340, mid, horizon, sunDir, sunGlowStrength = 0, sunTint = 0xffa050,
+}: {
+  top?: number; bottom?: number;
+  /** 中天/地平线色（缺省由 bottom 派生，兼容旧双色调用）。 */
+  mid?: number; horizon?: number;
+  /** 太阳方向（世界系归一前即可），用于地平线一侧的晚霞加成。 */
+  sunDir?: [number, number, number];
+  sunGlowStrength?: number; sunTint?: number;
+} = {}) {
+  const cBottom = new THREE.Color(bottom);
+  const cMid = mid !== undefined ? new THREE.Color(mid) : cBottom.clone().lerp(new THREE.Color(top), 0.45);
+  const cHorizon = horizon !== undefined ? new THREE.Color(horizon) : cBottom.clone().offsetHSL(0, 0.02, 0.1);
   const geo = new THREE.SphereGeometry(120, 24, 16);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
       topColor: { value: new THREE.Color(top) },
-      bottomColor: { value: new THREE.Color(bottom) },
+      midColor: { value: cMid },
+      horizonColor: { value: cHorizon },
+      sunDir: { value: new THREE.Vector3(...(sunDir ?? [0.4, 0.15, 0.9])).normalize() },
+      glowStrength: { value: sunGlowStrength },
+      sunTint: { value: new THREE.Color(sunTint) },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -21,12 +37,20 @@ export function createSkyDome({ top = 0x0a1024, bottom = 0x1a2340 }: { top?: num
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform vec3 topColor;
-      uniform vec3 bottomColor;
+      uniform vec3 topColor, midColor, horizonColor, sunTint;
+      uniform vec3 sunDir;
+      uniform float glowStrength;
       varying vec3 vPos;
       void main() {
-        float h = normalize(vPos).y * 0.5 + 0.5;
-        gl_FragColor = vec4(mix(bottomColor, topColor, pow(h, 0.8)), 1.0);
+        vec3 dir = normalize(vPos);
+        float h = dir.y;
+        // 三段暮色：地平线暖金 → 中天霞色 → 天顶暮紫
+        vec3 col = mix(horizonColor, midColor, smoothstep(-0.02, 0.22, h));
+        col = mix(col, topColor, smoothstep(0.2, 0.72, h));
+        // 太阳方位的晚霞加成：越靠近太阳方向、越贴地平线越暖
+        float toward = pow(max(dot(dir, normalize(sunDir)), 0.0), 3.0);
+        col += sunTint * toward * glowStrength * (1.0 - clamp(abs(h) * 1.4, 0.0, 1.0));
+        gl_FragColor = vec4(col, 1.0);
       }`,
   });
   return new THREE.Mesh(geo, mat);
@@ -96,46 +120,92 @@ export function createMoon({ size = 4, color = 0xf5eeda, distance = 90, height =
   return g;
 }
 
-/** 太阳（发光盘 + 双层光晕）。黄昏用低高度 + 暖色 + 大光晕。 */
+/** 太阳：径向衰减 shader（核心暖白 → 边缘橙晕 → 大范围柔光），彻底告别硬边同心圆。 */
 export function createSun({ size = 5, color = 0xfff2c8, distance = 95, height = 40, angle = 0, haloOpacity = 0.16 }: {
   size?: number; color?: number; distance?: number; height?: number; angle?: number; haloOpacity?: number;
 } = {}) {
   const g = new THREE.Group();
-  const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(size, 32),
-    new THREE.MeshBasicMaterial({ color, fog: false })
-  );
-  const halo1 = new THREE.Mesh(
-    new THREE.CircleGeometry(size * 2.4, 32),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: haloOpacity, fog: false })
-  );
-  const halo2 = new THREE.Mesh(
-    new THREE.CircleGeometry(size * 5, 32),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: haloOpacity * 0.35, fog: false })
-  );
-  halo1.position.z = -0.5;
-  halo2.position.z = -1;
-  g.add(disc, halo1, halo2);
+  const glow = new THREE.Color(color).offsetHSL(0.02, 0.15, -0.08);   // 晕色比核心更橙
+  // 单张大尺寸面片内画「核心 + 内晕 + 大气泛光」三段径向衰减，加法混合融进天空
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    fog: false,
+    uniforms: {
+      coreColor: { value: new THREE.Color(0xfff6dc) },
+      glowColor: { value: new THREE.Color(glow) },
+      intensity: { value: 0.55 + haloOpacity * 2.4 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 coreColor, glowColor;
+      uniform float intensity;
+      varying vec2 vUv;
+      void main() {
+        float d = length(vUv - 0.5) * 2.0;                 // 0 中心 → 1 边缘
+        float core = smoothstep(0.30, 0.24, d);            // 太阳本体（软边）
+        float innerGlow = exp(-d * 3.2) * 0.75;            // 贴日强晕
+        float skyGlow = exp(-d * 1.05) * 0.22;             // 大范围大气泛光
+        vec3 col = coreColor * core + glowColor * (innerGlow + skyGlow);
+        float a = clamp(core + (innerGlow + skyGlow) * 0.85, 0.0, 1.0) * intensity;
+        gl_FragColor = vec4(col, a);
+      }`,
+  });
+  const disc = new THREE.Mesh(new THREE.PlaneGeometry(size * 7, size * 7), mat);
+  g.add(disc);
   g.position.set(Math.sin(angle) * distance, height, -Math.cos(angle) * distance);
   g.lookAt(0, height * 0.3, 0);
   return g;
 }
 
-/** 低多边形远山剪影 */
-export function createMountains({ color = 0x101a2e, count = 7, radius = 70 }: {
+/**
+ * 连绵远山：两层宽扁山脊带（Cylinder 开口扇段 + 顶缘起伏置换），替代陡峭锥体。
+ * 远层色向天空底色偏移（空气透视），配合 mood 雾形成"越远越淡"。
+ * 接口兼容旧调用（color/count/radius）。
+ */
+export function createMountains({ color = 0x101a2e, count = 7, radius = 72 }: {
   color?: number; count?: number; radius?: number;
 } = {}) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
-  for (let i = 0; i < count; i++) {
-    const h = 10 + Math.random() * 14;
-    const w = 18 + Math.random() * 16;
-    const m = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), mat);
-    const a = (i / count) * Math.PI - Math.PI / 2 + (Math.random() - 0.5) * 0.3;
-    m.position.set(Math.sin(a) * radius, h / 2 - 1, -Math.cos(a) * radius);
-    m.rotation.y = Math.random() * Math.PI;
-    g.add(m);
-  }
+  const c = new THREE.Color(color);
+  const skyTint = new THREE.Color(0x8a7490);          // 空气透视的统一远景灰紫
+  const mkRidge = (
+    r: number, h: number, col: THREE.Color, seed: number, thetaStart: number, thetaLen: number,
+  ) => {
+    const geo = new THREE.CylinderGeometry(r, r, h, 64, 1, true, thetaStart, thetaLen);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      if (y < h / 2 - 0.01) continue;                  // 只置换顶缘
+      const a = Math.atan2(pos.getX(i), pos.getZ(i));
+      const ridge =
+        0.5 + 0.5 * Math.sin(a * 3.1 + seed) * 0.55 +
+        0.5 * Math.sin(a * 7.7 + seed * 2.3) * 0.3 +
+        0.5 * Math.sin(a * 13.7 + seed * 4.1) * 0.15;
+      pos.setY(i, h / 2 * (0.18 + 0.82 * THREE.MathUtils.clamp(ridge, 0, 1)));
+    }
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(
+      geo,
+      new THREE.MeshBasicMaterial({ color: col.getHex(), side: THREE.BackSide, fog: true })
+    );
+    m.position.y = 0;
+    return m;
+  };
+  // 扇段覆盖相机常驻的 +z 半圆略多，避免侧转露馅
+  const thetaStart = -Math.PI * 0.15, thetaLen = Math.PI * 1.3;
+  // 远层：更淡（混天空色）、更高远
+  g.add(mkRidge(radius * 1.35, 9.5, c.clone().lerp(skyTint, 0.62), 1.7, thetaStart, thetaLen));
+  // 近层：本色略沉
+  g.add(mkRidge(radius * 1.08, 6.5, c.clone().lerp(skyTint, 0.3), 4.2, thetaStart + 0.25, thetaLen));
+  // 保留 count 参数语义：不再使用（山脊连续无峰数概念），仅为兼容签名
+  void count;
   return g;
 }
 
@@ -148,39 +218,8 @@ export function createGround({ color = 0x1c2733, size = 200 }: { color?: number;
   return ground;
 }
 
-/** 松树（低多边形） */
-export function createPineTree({ height = 3.5, color = 0x14301e }: { height?: number; color?: number } = {}) {
-  const g = new THREE.Group();
-  const leafMat = new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 1 });
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, height * 0.3, 6), trunkMat);
-  trunk.position.y = height * 0.15;
-  g.add(trunk);
-  for (let i = 0; i < 3; i++) {
-    const r = height * 0.28 * (1 - i * 0.26);
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, height * 0.42, 7), leafMat);
-    cone.position.y = height * (0.3 + i * 0.24);
-    cone.castShadow = true;
-    g.add(cone);
-  }
-  return g;
-}
-
-/** 木椅（餐桌/通用） */
-export function createChair({ color = 0x6b4a30 }: { color?: number } = {}) {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.05, 0.44), mat);
-  seat.position.y = 0.42;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.5, 0.05), mat);
-  back.position.set(0, 0.72, -0.2);
-  g.add(seat, back);
-  const legGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.42, 6);
-  ([[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]] as const).forEach(([x, z]) => {
-    const leg = new THREE.Mesh(legGeo, mat);
-    leg.position.set(x, 0.21, z);
-    g.add(leg);
-  });
-  g.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
-  return g;
-}
+/**
+ * 注：具体的正式组件（木椅 createChair、松树 createPineTree）已迁入
+ * generated/props/furniture/createChair.ts 与 generated/props/nature/createPineTree.ts，
+ * 本文件只保留天空/地面/星月山太阳等纯环境底层件。
+ */

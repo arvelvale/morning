@@ -11,15 +11,15 @@
 import { http } from '@kit.NetworkKit';
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
-import { DEBUG } from 'BuildProfile';
+import { CLOUD_DEBUG_TEST_LOGIN, DEBUG } from 'BuildProfile';
 import { readSecureTokens, removeSecureTokens, writeSecureTokens } from './TokenStore';
 
 /** debug 暂时连接现有服务器；release 必须配置 HTTPS 后才能发包。 */
 const DEBUG_API_BASE = 'http://223.109.142.152:8000';
 const RELEASE_API_BASE = '';
 
-const TOKEN_KEY = 'mindoff.tokens';
-const PREF_NAME = 'mindoff';
+const TOKEN_KEY = 'morning.tokens';
+const PREF_NAME = 'morning';
 
 export const DEFAULT_TIMEOUT_MS = 15000;
 /** 纯 LLM 文本（场景整理/角色整理）：一次调用几秒到几十秒。 */
@@ -88,8 +88,10 @@ let _prefs: preferences.Preferences | null = null;
 let _refreshTask: Promise<boolean> | null = null;
 
 export function apiBase(): string {
-  const base = DEBUG ? DEBUG_API_BASE : RELEASE_API_BASE;
-  if (base.length === 0 || (!DEBUG && !base.startsWith('https://'))) {
+  // AGC 云调试只接收 Release 签名包，因此不能只靠 DEBUG 判断测试环境。
+  const isDevelopmentBackend = DEBUG || CLOUD_DEBUG_TEST_LOGIN;
+  const base = isDevelopmentBackend ? DEBUG_API_BASE : RELEASE_API_BASE;
+  if (base.length === 0 || (!isDevelopmentBackend && !base.startsWith('https://'))) {
     throw new ApiError('生产环境尚未配置安全的 HTTPS 服务地址');
   }
   return base;
@@ -316,6 +318,9 @@ export async function request(
 const get = (p: string): Promise<Object> => request(http.RequestMethod.GET, p);
 const post = (p: string, b: Object | null = null, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<Object> =>
   request(http.RequestMethod.POST, p, b, timeoutMs);
+// http.RequestMethod 枚举在本 SDK 无 PATCH 成员，底层支持字符串方法名。
+const patch = (p: string, b: Object | null = null): Promise<Object> =>
+  request('PATCH' as http.RequestMethod, p, b);
 const del = (p: string): Promise<Object> => request(http.RequestMethod.DELETE, p);
 
 // ─── 账号 Auth ───────────────────────────────────────────────────────────
@@ -382,11 +387,122 @@ export const deleteConversation = (id: number): Promise<Object> => del(`/api/v1/
 
 // ─── 信箱 ────────────────────────────────────────────────────────────────
 export const getMailbox = (): Promise<Object> => get('/api/v1/mailbox');
-export const listLetters = (q: string = ''): Promise<Object> => get(`/api/v1/letters${q}`);
-export const listTreasures = (): Promise<Object> => get('/api/v1/treasures');
 
-// ─── 五类存储（待办等）──────────────────────────────────────────────────
-export const listTodos = (q: string = ''): Promise<Object> => get(`/api/v1/todos${q}`);
+/** 桌宠来信（与后端 LetterOut 对齐）。 */
+export interface LetterItem {
+  id: number;
+  type: string;
+  title: string;
+  body: string;
+  pet_id: number | null;
+  ref_memory_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export const listLetters = async (): Promise<LetterItem[]> => await get('/api/v1/letters') as LetterItem[];
+interface LetterReadPatch {
+  read: boolean;
+}
+
+export const markLetterRead = (id: number): Promise<Object> => {
+  const body: LetterReadPatch = { read: true };
+  return patch(`/api/v1/letters/${id}`, body);
+};
+
+/** 「收到啦」回应：LLM 失败时 message 为空，页面退回兜底文案。 */
+export interface LetterAckResult {
+  message: string | null;
+  letter_id: number;
+  is_read: boolean;
+  pet_name: string | null;
+}
+
+export const ackLetter = async (id: number): Promise<LetterAckResult> =>
+  await post(`/api/v1/letters/${id}/ack`) as LetterAckResult;
+
+/** 接受场景邀请信：幂等创建场景（片场页落地前，返回的 scene_id 先只作提示）。 */
+export interface SceneInviteResult {
+  scene_id: number;
+  render_kind: string;
+  theater_id: string | null;
+  already_accepted: boolean;
+}
+
+export const acceptSceneInvite = async (id: number): Promise<SceneInviteResult> =>
+  await post(`/api/v1/letters/${id}/accept-scene`) as SceneInviteResult;
+
+/** 思绪层通用条目（待办/灵感共用后端 StoreItemOut）。 */
+export interface StoreItem {
+  id: number;
+  kind: string;
+  content: string;
+  surface_text: string;
+  status: string | null;
+  due_date: string | null;
+  created_at: string;
+}
+
+export const listTodos = async (status: string = 'pending'): Promise<StoreItem[]> =>
+  await get(`/api/v1/todos?status=${status}`) as StoreItem[];
+interface TodoStatusPatch {
+  status: string;
+}
+
+export const completeTodo = (id: number): Promise<Object> => {
+  const body: TodoStatusPatch = { status: 'done' };
+  return patch(`/api/v1/todos/${id}`, body);
+};
+export const updateTodoStatus = (id: number, done: boolean): Promise<Object> => {
+  const body: TodoStatusPatch = { status: done ? 'done' : 'pending' };
+  return patch(`/api/v1/todos/${id}`, body);
+};
+export const deleteTodo = (id: number): Promise<Object> => del(`/api/v1/todos/${id}`);
+export const listIdeas = async (): Promise<StoreItem[]> => await get('/api/v1/ideas') as StoreItem[];
+
+/** 临时思绪（带保存期，到期后端硬删）。 */
+export interface EphemeralItem {
+  id: number;
+  kind: string;
+  content: string;
+  surface_text: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export const listEphemeral = async (): Promise<EphemeralItem[]> => await get('/api/v1/ephemeral') as EphemeralItem[];
+export const keepEphemeral = (id: number): Promise<Object> => post(`/api/v1/ephemeral/${id}/keep`);
+export const deleteEphemeral = (id: number): Promise<Object> => del(`/api/v1/ephemeral/${id}`);
+
+/** 长久珍藏（「我留下的」）。 */
+export interface TreasureItem {
+  id: number;
+  source_type: string;
+  source_id: number | null;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+export const listTreasures = async (): Promise<TreasureItem[]> => await get('/api/v1/treasures') as TreasureItem[];
+
+/** 「把这封信留下」：以来信为来源创建珍藏。 */
+interface TreasureCreateBody {
+  source_type: string;
+  source_id: number;
+  title: string;
+  content: string;
+}
+
+export const saveLetterTreasure = (letterId: number, title: string, body: string): Promise<Object> => {
+  const b: TreasureCreateBody = { source_type: 'letter', source_id: letterId, title: title, content: body };
+  return post('/api/v1/treasures', b);
+};
+export const deleteTreasure = (id: number): Promise<Object> => del(`/api/v1/treasures/${id}`);
+
+// 睡前倾倒（流式走 SseClient，这里只有事后回取）
+export const getBrainDump = (id: number): Promise<Object> => get(`/api/v1/brain-dumps/${id}`);
+
 
 // ─── 片场 ────────────────────────────────────────────────────────────────
 export const listScenes = (): Promise<Object> => get('/api/v1/scenes');

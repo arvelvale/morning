@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Morning 原型 · 方向① 深夜安睡</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&family=Noto+Serif+SC:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 800px at 50% -10%, #12183a 0%, #070a16 60%, #04060e 100%);
+    min-height: 100vh;
+    font-family: -apple-system, "SF Pro Text", "Noto Serif SC", sans-serif;
+    color: #EDE8DD;
+    padding: 56px 40px 80px;
+  }
+  .page-head { text-align: center; max-width: 900px; margin: 0 auto 52px; }
+  .page-head .kicker { font-size: 13px; letter-spacing: .34em; text-transform: uppercase; color: #E8B87D; opacity: .8; }
+  .page-head h1 { font-family: "Newsreader", serif; font-weight: 400; font-size: 40px; margin: 14px 0 10px; letter-spacing: .01em; }
+  .page-head p { font-size: 15px; line-height: 1.7; color: rgba(237,232,221,.5); max-width: 620px; margin: 0 auto; }
+  .rack { display: flex; flex-wrap: wrap; gap: 40px 30px; justify-content: center; align-items: flex-start; max-width: 1500px; margin: 0 auto; }
+  .cell { display: flex; flex-direction: column; align-items: center; }
+  .cell .cap { font-style: italic; font-family: "Newsreader", serif; font-size: 15px; color: rgba(237,232,221,.55); margin-bottom: 14px; }
+  .cell .cap b { color: #E8B87D; font-style: normal; font-weight: 500; margin-right: 6px; }
+  @keyframes breathe { 0%,100% { transform: scale(1); opacity:.55 } 50% { transform: scale(1.12); opacity:.15 } }
+  @keyframes wave { 0%,100% { transform: scaleY(.35) } 50% { transform: scaleY(1) } }
+  @keyframes floatIn { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform:none } }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <div class="kicker">Morning · Prototype 01</div>
+  <h1>深夜安睡 · Calm Night</h1>
+  <p>睡前调暗房间的隐喻。靛蓝夜色 + 月光琥珀，衬线体与呼吸感留白。信任来自「数量被确认」，卡片逐一熄灭，只剩保管箱亮着。</p>
+</div>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState } = React;
+
+/* ---------- iOS 外壳（来自 skill assets/ios_frame.jsx，darkMode） ---------- */
+const F = {
+  wrapper:{display:'inline-block',padding:11,background:'#05070f',borderRadius:58,boxShadow:'0 0 0 2px #10152b, 0 30px 70px rgba(0,0,0,.55)'},
+  screen:{position:'relative',borderRadius:47,overflow:'hidden'},
+  statusBar:{position:'absolute',top:0,left:0,right:0,height:54,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 32px',fontSize:16,fontWeight:600,zIndex:20,pointerEvents:'none'},
+  island:{position:'absolute',top:12,left:'50%',transform:'translateX(-50%)',width:120,height:35,background:'#000',borderRadius:999,zIndex:30},
+  content:{position:'absolute',top:54,left:0,right:0,bottom:0,overflow:'hidden'},
+  home:{position:'absolute',bottom:9,left:'50%',transform:'translateX(-50%)',width:130,height:5,background:'rgba(255,255,255,.4)',borderRadius:999,zIndex:25},
+};
+function Phone({children, bg, time='23:47'}) {
+  return (
+    <div style={F.wrapper}>
+      <div style={{...F.screen, width:372, height:806, background:bg}}>
+        <div style={{...F.statusBar, color:'#EDE8DD'}}>
+          <span>{time}</span>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{display:'flex',alignItems:'flex-end',gap:2,height:11}}>
+              {[4,6,8,10].map((h,i)=><div key={i} style={{width:3,height:h,background:'currentColor',borderRadius:1}}/>)}
+            </div>
+            <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5a1 1 0 100-2 1 1 0 000 2z" fill="currentColor"/><path d="M3 7.5a7 7 0 0110 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round"/><path d="M1 4.5a11 11 0 0114 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" opacity=".6"/></svg>
+            <div style={{width:25,height:12,border:'1.4px solid currentColor',borderRadius:3,padding:1,opacity:.85,position:'relative'}}>
+              <div style={{width:'82%',height:'100%',background:'currentColor',borderRadius:1}}/>
+              <div style={{position:'absolute',top:3,right:-3,width:2,height:6,background:'currentColor',borderRadius:'0 1px 1px 0'}}/>
+            </div>
+          </div>
+        </div>
+        <div style={F.island}/>
+        <div style={F.content}>{children}</div>
+        <div style={F.home}/>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 设计 token ---------- */
+const AMBER = '#E8B87D';
+const INK = '#EDE8DD';
+const DIM = 'rgba(237,232,221,.5)';
+const serif = '"Newsreader", "Noto Serif SC", serif';
+const card = { background:'rgba(255,255,255,.045)', border:'1px solid rgba(255,255,255,.09)', borderRadius:18 };
+const screenBg = 'linear-gradient(180deg,#0d1330 0%,#141a38 55%,#0b1024 100%)';
+const pad = { padding:'70px 26px 30px' };
+
+/* ---------- 屏 1 · 倾倒入口 ---------- */
+function DumpScreen() {
+  const [listening, setListening] = useState(false);
+  return (
+    <div style={{...pad, height:'100%', display:'flex', flexDirection:'column'}}>
+      <div style={{fontSize:13, letterSpacing:'.2em', color:AMBER, opacity:.85}}>今晚 · 该下班了</div>
+      <h2 style={{fontFamily:serif, fontWeight:400, fontSize:31, lineHeight:1.35, marginTop:16, letterSpacing:'.01em'}}>
+        把今晚放不下的，<br/>说给我。
+      </h2>
+      <p style={{fontSize:14.5, color:DIM, marginTop:14, lineHeight:1.7}}>
+        {listening ? '在听着，慢慢说。想到哪说到哪，说完往下滑。' : '不用有条理，想到什么说什么。我不打断，也不追问。'}
+      </p>
+
+      <div style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:26}}>
+        <div style={{position:'relative', width:150, height:150, display:'grid', placeItems:'center'}}>
+          {listening && [0,1,2].map(i=>(
+            <div key={i} style={{position:'absolute', inset:0, borderRadius:'50%', border:`1px solid ${AMBER}`, animation:`breathe 2.6s ${i*0.7}s ease-in-out infinite`}}/>
+          ))}
+          <button onClick={()=>setListening(v=>!v)} style={{
+            width:112, height:112, borderRadius:'50%', border:'none', cursor:'pointer',
+            background: listening ? 'radial-gradient(circle at 50% 35%, #F0C48C, #C98A45)' : 'rgba(232,184,125,.12)',
+            boxShadow: listening ? '0 0 44px rgba(232,184,125,.5)' : 'inset 0 0 0 1px rgba(232,184,125,.4)',
+            color: listening ? '#2a1c08' : AMBER, display:'grid', placeItems:'center', transition:'all .4s'}}>
+            {listening
+              ? <div style={{display:'flex',alignItems:'center',gap:4,height:34}}>{[0,1,2,3,4].map(i=><div key={i} style={{width:4,height:30,background:'#2a1c08',borderRadius:2,transformOrigin:'center',animation:`wave 0.9s ${i*0.12}s ease-in-out infinite`}}/>)}</div>
+              : <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0012 0M12 17v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>}
+          </button>
+        </div>
+        <div style={{fontFamily:serif, fontStyle:'italic', fontSize:15, color:DIM}}>{listening ? '倾倒中…' : '按住，说给它听'}</div>
+      </div>
+
+      <div style={{...card, padding:'14px 16px', display:'flex', alignItems:'center', gap:10, opacity:.85}}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="1.6"><path d="M4 7h16M4 12h16M4 17h9"/></svg>
+        <span style={{fontSize:14, color:DIM}}>或者，打字也行…</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 屏 2 · 托管回执 ---------- */
+function ReceiptScreen() {
+  const lines = [
+    ['2 件','将在明早重新交给你'],
+    ['1 个灵感','已保存进灵感仓库'],
+    ['1 件','已经有了下一步'],
+    ['2 件','今晚无需处理'],
+  ];
+  return (
+    <div style={{...pad, height:'100%', display:'flex', flexDirection:'column'}}>
+      <div style={{fontSize:13, letterSpacing:'.2em', color:AMBER, opacity:.85}}>妥了</div>
+      <h2 style={{fontFamily:serif, fontWeight:400, fontSize:29, marginTop:14}}>今晚已接管 6 件事</h2>
+
+      <div style={{marginTop:22, display:'flex', flexDirection:'column', gap:12}}>
+        {lines.map(([n,t],i)=>(
+          <div key={i} style={{display:'flex', alignItems:'baseline', gap:10, animation:`floatIn .5s ${i*.12}s both`}}>
+            <span style={{fontFamily:serif, fontSize:19, color:AMBER, minWidth:58}}>{n}</span>
+            <span style={{fontSize:15, color:INK, opacity:.85}}>{t}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{...card, marginTop:20, padding:'13px 16px', display:'flex', alignItems:'center', gap:12, borderColor:'rgba(232,184,125,.35)', background:'rgba(232,184,125,.07)'}}>
+        <span style={{fontSize:18}}>⏰</span>
+        <div>
+          <div style={{fontSize:11, color:AMBER, letterSpacing:'.12em'}}>明早 10:00 · 到点会响</div>
+          <div style={{fontSize:15, marginTop:2}}>交材料</div>
+        </div>
+      </div>
+
+      <div style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:20}}>
+        <div style={{position:'relative', width:96, height:96, display:'grid', placeItems:'center'}}>
+          <div style={{position:'absolute', inset:-14, borderRadius:'50%', background:'radial-gradient(circle,rgba(232,184,125,.28),transparent 70%)'}}/>
+          <svg width="60" height="60" viewBox="0 0 48 48" fill="none">
+            <rect x="7" y="16" width="34" height="25" rx="4" stroke={AMBER} strokeWidth="1.6"/>
+            <path d="M7 22h34" stroke={AMBER} strokeWidth="1.6"/>
+            <rect x="20" y="10" width="8" height="7" rx="2" stroke={AMBER} strokeWidth="1.6"/>
+            <circle cx="24" cy="30" r="2.4" fill={AMBER}/>
+          </svg>
+        </div>
+        <p style={{fontFamily:serif, fontStyle:'italic', fontSize:16, color:INK, textAlign:'center', lineHeight:1.6, opacity:.9}}>
+          它们不会丢。<br/>你现在不需要继续记住。
+        </p>
+      </div>
+      <div style={{textAlign:'center', fontSize:13, color:DIM, letterSpacing:'.1em'}}>↓ 下滑，睡吧</div>
+    </div>
+  );
+}
+
+/* ---------- 屏 3 · 次日归还 ---------- */
+function ReturnScreen() {
+  const [done, setDone] = useState({});
+  const items = [
+    { t:'交材料', s:'昨晚你说 10 点前要交', acts:['加入日历','复制到项目'] },
+    { t:'给妈打个电话', s:'来自那晚的重演结算', acts:['加入待办','暂缓一天'] },
+    { t:'修那个报错', s:'代码里还留着', acts:['加入待办','确认已处理'] },
+  ];
+  return (
+    <div style={{...pad, height:'100%', overflow:'auto'}}>
+      <div style={{fontSize:13, letterSpacing:'.2em', color:AMBER, opacity:.85}}>明早见 · 6:30</div>
+      <h2 style={{fontFamily:serif, fontWeight:400, fontSize:26, marginTop:12, lineHeight:1.4}}>昨晚交给我 6 件，<br/>今天只有 3 件真的需要你。</h2>
+
+      <div style={{marginTop:20, display:'flex', flexDirection:'column', gap:12}}>
+        {items.map((it,i)=>(
+          <div key={i} style={{...card, padding:'15px 16px', opacity: done[i]?.55:1, transition:'opacity .3s'}}>
+            <div style={{display:'flex', alignItems:'center', gap:8}}>
+              <div style={{fontSize:16, fontWeight:500, textDecoration: done[i]?'line-through':'none'}}>{it.t}</div>
+              {done[i] && <span style={{color:AMBER, fontSize:13}}>✓ 已处理</span>}
+            </div>
+            <div style={{fontSize:12.5, color:DIM, marginTop:4}}>{it.s}</div>
+            <div style={{display:'flex', gap:8, marginTop:12, flexWrap:'wrap'}}>
+              {it.acts.map(a=>(
+                <button key={a} onClick={()=>setDone(d=>({...d,[i]:true}))} style={{
+                  fontSize:12.5, padding:'7px 13px', borderRadius:999, cursor:'pointer',
+                  border:'1px solid rgba(232,184,125,.4)', background:'transparent', color:AMBER}}>{a}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{marginTop:20, paddingTop:16, borderTop:'1px dashed rgba(255,255,255,.12)'}}>
+        <div style={{fontSize:12.5, color:DIM, marginBottom:10}}>待补区 · 还差点信息（不急，你补）</div>
+        {[['“下班前”回复客户','缺具体时间'],['寄给老陈的地址','缺地址']].map(([t,s],i)=>(
+          <div key={i} style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 0'}}>
+            <div><div style={{fontSize:14}}>{t}</div><div style={{fontSize:11.5, color:'rgba(232,184,125,.7)'}}>{s}</div></div>
+            <button style={{fontSize:12.5, padding:'6px 12px', borderRadius:999, border:'1px solid rgba(255,255,255,.18)', background:'transparent', color:INK, cursor:'pointer'}}>补全</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 屏 4 · 角色库 ---------- */
+function CastScreen() {
+  const people = [
+    { n:'妈妈', r:'家人 · 12 段记忆', g:'linear-gradient(135deg,#3a4a7a,#6b7bb0)' },
+    { n:'老陈', r:'前同事 · 没说出口的告别', g:'linear-gradient(135deg,#5a6a4a,#8ba06b)' },
+    { n:'那个夏天的自己', r:'过去的自己 · 特殊角色', g:'linear-gradient(135deg,#8a5a3a,#E8B87D)', special:true },
+  ];
+  return (
+    <div style={{...pad, height:'100%', overflow:'auto'}}>
+      <div style={{fontSize:13, letterSpacing:'.2em', color:AMBER, opacity:.85}}>角色库</div>
+      <h2 style={{fontFamily:serif, fontWeight:400, fontSize:27, marginTop:12}}>那些还没说完的人</h2>
+      <p style={{fontSize:13.5, color:DIM, marginTop:8, lineHeight:1.6}}>写下他们的性格、经历、和你的关系。演得越准，越是在看清你自己。</p>
+
+      <div style={{marginTop:20, display:'flex', flexDirection:'column', gap:12}}>
+        {people.map((p,i)=>(
+          <div key={i} style={{...card, padding:'14px', display:'flex', alignItems:'center', gap:14,
+            borderColor: p.special?'rgba(232,184,125,.45)':'rgba(255,255,255,.09)',
+            background: p.special?'rgba(232,184,125,.06)':'rgba(255,255,255,.045)'}}>
+            <div style={{width:50, height:50, borderRadius:'50%', background:p.g, flexShrink:0, boxShadow: p.special?'0 0 20px rgba(232,184,125,.4)':'none'}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:16, fontFamily: p.special?serif:'inherit'}}>{p.n}</div>
+              <div style={{fontSize:12.5, color: p.special?AMBER:DIM, marginTop:3}}>{p.r}</div>
+            </div>
+            <span style={{color:DIM, fontSize:20}}>›</span>
+          </div>
+        ))}
+      </div>
+
+      <button style={{marginTop:16, width:'100%', padding:'15px', borderRadius:16, border:'1px dashed rgba(232,184,125,.4)', background:'transparent', color:AMBER, fontSize:14.5, cursor:'pointer', fontFamily:serif}}>
+        + 写下一个人
+      </button>
+    </div>
+  );
+}
+
+/* ---------- 屏 5 · 剧场（校准 → 重演 → 结算） ---------- */
+function TheaterScreen() {
+  const [step, setStep] = useState(0);
+  const next = ()=>setStep(s=>Math.min(s+1,2));
+  return (
+    <div style={{height:'100%', display:'flex', flexDirection:'column', background:'linear-gradient(180deg,#0a0f26,#161033 60%,#0a0820)'}}>
+      <div style={{padding:'66px 24px 0'}}>
+        <div style={{display:'flex', gap:6, marginBottom:16}}>
+          {['校准','重演','结算'].map((l,i)=>(
+            <div key={i} style={{flex:1, textAlign:'center'}}>
+              <div style={{height:3, borderRadius:2, background: i<=step?AMBER:'rgba(255,255,255,.14)'}}/>
+              <div style={{fontSize:11, marginTop:6, color: i<=step?AMBER:DIM}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{flex:1, padding:'6px 24px', overflow:'auto'}}>
+        {step===0 && (<>
+          <div style={{fontFamily:serif, fontSize:20, marginBottom:6}}>那晚 · 客厅</div>
+          <p style={{fontSize:13, color:DIM, marginBottom:18}}>先教它演对。不对就改——每次纠正，都是你在看清心里那个她。</p>
+          <div style={{...card, padding:'13px 15px', marginBottom:12}}>
+            <div style={{fontSize:11, color:AMBER, marginBottom:5}}>妈妈</div>
+            <div style={{fontSize:14.5, lineHeight:1.6}}>“你怎么又这么晚，跟你说过多少次了。”</div>
+          </div>
+          <button onClick={next} style={{width:'100%', padding:'13px', borderRadius:14, border:'1px solid rgba(232,184,125,.45)', background:'rgba(232,184,125,.08)', color:AMBER, fontSize:14, cursor:'pointer'}}>
+            不对，她不会这么说 →
+          </button>
+          <p style={{fontSize:12, color:DIM, marginTop:14, fontStyle:'italic', fontFamily:serif, lineHeight:1.6}}>
+            她嘴上凶，但那天她其实是先给你留了灯、热了饭。
+          </p>
+        </>)}
+
+        {step===1 && (<>
+          <div style={{fontFamily:serif, fontSize:20, marginBottom:12}}>重演 · 那个雨夜</div>
+          <div style={{height:170, borderRadius:16, background:'linear-gradient(160deg,#2a2140,#4a3a6a)', position:'relative', overflow:'hidden', marginBottom:14, border:'1px solid rgba(255,255,255,.1)'}}>
+            <div style={{position:'absolute', inset:0, background:'radial-gradient(circle at 70% 30%,rgba(232,184,125,.25),transparent 60%)'}}/>
+            <div style={{position:'absolute', bottom:0, left:'50%', transform:'translateX(-50%)', width:70, height:120, background:'linear-gradient(180deg,rgba(232,184,125,.5),rgba(232,184,125,.1))', borderRadius:'40px 40px 0 0'}}/>
+            <div style={{position:'absolute', top:12, left:14, fontSize:11, color:'rgba(255,255,255,.6)', letterSpacing:'.1em'}}>3D 场景 · 命中「客厅」模板</div>
+          </div>
+          <div style={{...card, padding:'13px 15px', marginBottom:12}}>
+            <div style={{fontSize:11, color:AMBER, marginBottom:5}}>妈妈</div>
+            <div style={{fontSize:14.5, lineHeight:1.6}}>“……饭在锅里，还热着。快去洗手。”</div>
+          </div>
+          <button onClick={next} style={{width:'100%', padding:'13px', borderRadius:14, border:'none', background:AMBER, color:'#2a1c08', fontSize:14, fontWeight:600, cursor:'pointer'}}>
+            我有话想对她说 →
+          </button>
+        </>)}
+
+        {step===2 && (<>
+          <div style={{fontFamily:serif, fontSize:20, marginBottom:6}}>结算 · 回到当下</div>
+          <p style={{fontSize:13, color:DIM, marginBottom:16}}>带一件东西回来，这场才不是空聊。</p>
+          <div style={{...card, padding:'16px', marginBottom:12, borderColor:'rgba(232,184,125,.35)', background:'rgba(232,184,125,.06)'}}>
+            <div style={{fontSize:11, color:AMBER, letterSpacing:'.1em', marginBottom:8}}>你的结算物</div>
+            <div style={{fontFamily:serif, fontSize:17, lineHeight:1.6}}>“妈，那天谢谢你留的那盏灯。”</div>
+          </div>
+          {['一句终于说出口的话','一封不寄出的信','明天能做的一个最小行动'].map((o,i)=>(
+            <div key={i} style={{padding:'11px 0', fontSize:14, color: i===0?INK:DIM, display:'flex', gap:10}}>
+              <span style={{color:AMBER}}>{i===0?'●':'○'}</span>{o}
+            </div>
+          ))}
+          <button style={{marginTop:14, width:'100%', padding:'14px', borderRadius:14, border:'none', background:AMBER, color:'#2a1c08', fontSize:14, fontWeight:600, cursor:'pointer'}}>
+            把「给妈打个电话」放进明早 ↩
+          </button>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 屏 6 · 设置 ---------- */
+function Toggle({on:init=false}) {
+  const [on,setOn]=useState(init);
+  return <button onClick={()=>setOn(v=>!v)} style={{width:46,height:27,borderRadius:999,border:'none',cursor:'pointer',background: on?AMBER:'rgba(255,255,255,.18)',position:'relative',transition:'.25s',flexShrink:0}}>
+    <span style={{position:'absolute',top:3,left: on?22:3,width:21,height:21,borderRadius:'50%',background:'#fff',transition:'.25s'}}/>
+  </button>;
+}
+function SettingsScreen() {
+  const groups = [
+    ['隐私 · 你的倾诉只属于你', [['保留原始录音','关掉后只存整理好的卡片',false],['仅在本机识别','敏感内容不出设备',true],['阅后即焚','看过的历史自动清除',true]]],
+    ['提醒', [['到点主动提醒','带时间的事，agent 到点推送',true],['睡前轻唤','每晚 21:30，一次轻提醒',true]]],
+  ];
+  return (
+    <div style={{...pad, height:'100%', overflow:'auto'}}>
+      <div style={{fontSize:13, letterSpacing:'.2em', color:AMBER, opacity:.85}}>设置</div>
+      <h2 style={{fontFamily:serif, fontWeight:400, fontSize:27, marginTop:12}}>越少越好</h2>
+      {groups.map(([title,rows],gi)=>(
+        <div key={gi} style={{marginTop:24}}>
+          <div style={{fontSize:12, color:DIM, letterSpacing:'.06em', marginBottom:10}}>{title}</div>
+          <div style={{...card, overflow:'hidden'}}>
+            {rows.map(([t,s,on],ri)=>(
+              <div key={ri} style={{display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderTop: ri? '1px solid rgba(255,255,255,.07)':'none'}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14.5}}>{t}</div>
+                  <div style={{fontSize:12, color:DIM, marginTop:2}}>{s}</div>
+                </div>
+                <Toggle on={on}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <p style={{fontSize:12, color:DIM, textAlign:'center', marginTop:28, lineHeight:1.7, fontStyle:'italic', fontFamily:serif}}>
+        Morning 从不承诺治疗，<br/>只帮你的大脑，安心下班。
+      </p>
+    </div>
+  );
+}
+
+/* ---------- 布局 ---------- */
+const screens = [
+  ['01','倾倒入口 · 睡前最后一屏', <DumpScreen/>, screenBg, '23:47'],
+  ['02','托管回执「妥了」', <ReceiptScreen/>, screenBg, '23:49'],
+  ['03','次日归还「明早见」', <ReturnScreen/>, screenBg, '6:30'],
+  ['04','角色库 · 建角', <CastScreen/>, screenBg, '22:10'],
+  ['05','剧场「那晚」· 校准→重演→结算', <TheaterScreen/>, '#0a0f26', '22:14'],
+  ['06','设置 · 极简', <SettingsScreen/>, screenBg, '22:16'],
+];
+function App() {
+  return <div className="rack">
+    {screens.map(([n,cap,el,bg,time])=>(
+      <div className="cell" key={n}>
+        <div className="cap"><b>{n}</b>{cap}</div>
+        <Phone bg={bg} time={time}>{el}</Phone>
+      </div>
+    ))}
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

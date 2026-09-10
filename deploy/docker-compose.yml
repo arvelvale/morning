@@ -1,28 +1,28 @@
-# MindOff 后端线上编排。服务器上的布局：
-#   /opt/mindoff/docker-compose.yml   ← 本文件
-#   /opt/mindoff/backend/             ← 后端源码（deploy/deploy.py 同步上传）
-#   /opt/mindoff/.env                 ← 线上密钥（不入库，deploy.py 生成）
+# Morning 后端线上编排。服务器上的布局：
+#   /opt/morning/docker-compose.yml   ← 本文件
+#   /opt/morning/backend/             ← 后端源码（deploy/deploy.py 同步上传）
+#   /opt/morning/.env                 ← 线上密钥（不入库，deploy.py 生成）
 #
-# 起停：cd /opt/mindoff && docker compose up -d --build / docker compose down
+# 起停：cd /opt/morning && docker compose up -d --build / docker compose down
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: mindoff-backend:latest
-    container_name: mindoff-backend
+    image: morning-backend:latest
+    container_name: morning-backend
     restart: unless-stopped
     env_file:
       - .env
     environment:
       # SQLite 落在命名卷里，容器重建不丢
-      DATABASE_URL: sqlite:////data/mindoff.db
+      DATABASE_URL: sqlite:////data/morning.db
       TZ: Asia/Shanghai
     ports:
       - "8000:8000"
     volumes:
-      - mindoff-data:/data
-      - mindoff-static:/app/static
+      - morning-data:/data
+      - morning-static:/app/static
     logging:
       driver: json-file
       options:
@@ -30,5 +30,8 @@ services:
         max-file: "3"
 
 volumes:
-  mindoff-data:
-  mindoff-static:
+  # 改名继承：沿用 mindoff 时代的存量卷名，避免用户数据迁移
+  morning-data:
+    name: mindoff_mindoff-data
+  morning-static:
+    name: mindoff_mindoff-static

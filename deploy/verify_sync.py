@@ -1,6 +1,6 @@
-"""比对本地 backend 与线上 /opt/mindoff/backend 的运行期文件是否一致。
+"""比对本地 backend 与线上 /opt/morning/backend 的运行期文件是否一致。
 
-用法：$env:MINDOFF_SSH_PASSWORD='...'; uv run --with paramiko python deploy/verify_sync.py
+用法：$env:MORNING_SSH_PASSWORD='...'; uv run --with paramiko python deploy/verify_sync.py
 只比对 deploy.py 实际会同步的那些文件（app/ + alembic/ + 少量根文件）。
 一致返回 0，有差异返回 1 并列出具体文件——适合挂在部署前当检查。
 """
@@ -20,7 +20,7 @@ from deploy import (  # noqa: E402
 
 def main() -> None:
     if not PASSWORD:
-        sys.exit("缺少环境变量 MINDOFF_SSH_PASSWORD")
+        sys.exit("缺少环境变量 MORNING_SSH_PASSWORD")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(HOST, port=PORT, username=USER, password=PASSWORD, timeout=25)

@@ -13,8 +13,8 @@ import * as Notifications from "expo-notifications";
 
 import { listLetters } from "./api";
 
-const LAST_SEEN_KEY = "mindoff.lastSeenLetterId";
-const CHANNEL_ID = "mindoff-letters";
+const LAST_SEEN_KEY = "morning.lastSeenLetterId";
+const CHANNEL_ID = "morning-letters";
 const POLL_MS = 60_000;
 const BODY_PREVIEW = 60;
 

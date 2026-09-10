@@ -1,10 +1,10 @@
-# 喵灵（MindOff）手动测试流程
+# 喵灵（Morning）手动测试流程
 
 面向在 App 里点着测的人。**第一部分**全是可以直接复制粘贴进输入框的中文文本；
 **第二部分**是 App 里暂时还没有采集入口的功能（速度/手机使用），用命令模拟。
 
 - 后端：`http://223.109.142.152:8000`（前端默认已连它）
-- 服务器看日志：`ssh root@223.109.142.152 "cd /opt/mindoff && docker compose logs -f backend"`
+- 服务器看日志：`ssh root@223.109.142.152 "cd /opt/morning && docker compose logs -f backend"`
 - 每个步骤都标了「预期」，对不上就把那一段日志贴出来
 
 > ⚠️ 线上是新库 + 新 JWT 密钥。手机上装过旧包的话，先退出登录或清应用数据，
@@ -19,13 +19,13 @@
 ```
 测试账号一
 用户名：miluTest01
-密码：mindoff2026
+密码：morning2026
 ```
 
 ```
 测试账号二
 用户名：miluTest02
-密码：mindoff2026
+密码：morning2026
 ```
 
 **预期**：注册成功直接进主界面，底部四个 Tab（陪伴/信箱/片场/我的）都能点开。
@@ -275,7 +275,7 @@ Web 开发验收可直接打开 `?screen=scene-end`，使用仅限本地直达�
 
 ```powershell
 $B = "http://223.109.142.152:8000/api/v1"
-$u = @{ username = "drive$(Get-Random -Maximum 99999)"; password = "mindoff2026" }
+$u = @{ username = "drive$(Get-Random -Maximum 99999)"; password = "morning2026" }
 $tok = (Invoke-RestMethod "$B/auth/register" -Method Post -Body ($u | ConvertTo-Json) -ContentType "application/json").access_token
 $H = @{ Authorization = "Bearer $tok" }
 Write-Host "账号：$($u.username)"
@@ -299,7 +299,7 @@ $r | ConvertTo-Json -Depth 6
 `message` 是一句 **40 字以内**、不要求你看手机的话，例如
 「注意保持车距哦，周末出行慢一点也没关系～」。
 
-再用同一账号在 App 里登录（用上面打印的用户名 + `mindoff2026`），
+再用同一账号在 App 里登录（用上面打印的用户名 + `morning2026`），
 「信箱 / 桌宠气泡」应该能看到这条主动消息。
 
 ## 8. 手机使用异常（屏幕关心）
@@ -366,8 +366,8 @@ Invoke-RestMethod "$B/signals/deliveries" -Headers $H | ConvertTo-Json -Depth 8 
 ## 11. 手动触发晚间来信 / 周报（不想等到 21:30）
 
 ```powershell
-ssh root@223.109.142.152 "docker exec mindoff-backend python -c ""from app.db import SessionLocal; from app.services.evening_letter import run_evening_letters_all; print(run_evening_letters_all(SessionLocal()))"""
-ssh root@223.109.142.152 "docker exec mindoff-backend python -c ""from app.db import SessionLocal; from app.services.weekly_report import run_weekly_reports_all; print(run_weekly_reports_all(SessionLocal()))"""
+ssh root@223.109.142.152 "docker exec morning-backend python -c ""from app.db import SessionLocal; from app.services.evening_letter import run_evening_letters_all; print(run_evening_letters_all(SessionLocal()))"""
+ssh root@223.109.142.152 "docker exec morning-backend python -c ""from app.db import SessionLocal; from app.services.weekly_report import run_weekly_reports_all; print(run_weekly_reports_all(SessionLocal()))"""
 ```
 
 **预期**：返回每个用户的 `sent: true/false`；App 刷新「信箱 → 桌宠来信」能看到。

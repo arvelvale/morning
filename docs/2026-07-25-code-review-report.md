@@ -1,4 +1,4 @@
-# MindOff 代码审查报告（2026-07-25）
+# Morning 代码审查报告（2026-07-25）
 
 > 全项目只读审查：后端逻辑、前端体验、前后端契约与数据安全。
 > 方法：按域并行只读调查 + 关键文件人工亲验 + 动态验证（typecheck / service 层测试 / git diff --check）。
@@ -108,7 +108,7 @@
 ## 4. P3 —— 轻微/卫生（汇总）
 
 - **认证**：access 7 天/refresh 30 天无轮换无吊销、logout 占位；注册/登录无限流（README 已知）；register 用户名查重非原子；token 无 iss/aud/jti。
-- **安全面**：WS 鉴权 token 走 URL query（realtime.py:80、stt.py:67，可能入代理日志）；`/static/*` 音频/场景图为公开 URL 无鉴权（UUID 文件名，演示可接受）；`.env`/`mindoff.db`/static 均已 gitignore 且 prod 校验默认 JWT 密钥（main.py:27）✓。
+- **安全面**：WS 鉴权 token 走 URL query（realtime.py:80、stt.py:67，可能入代理日志）；`/static/*` 音频/场景图为公开 URL 无鉴权（UUID 文件名，演示可接受）；`.env`/`morning.db`/static 均已 gitignore 且 prod 校验默认 JWT 密钥（main.py:27）✓。
 - **迁移/数据**：alembic 文件名前缀重复（两个 008/两个 009，revision id 唯一、链完整）；`user_profile_enabled` 灰度开关未在 profile 路由层生效；ephemeral `to_dict` 时间无时区标记（前端显示偏差 8h）；「三日寄存」文档 72h vs 实际默认 7 天不一致；create_treasure 来源校验可绕过（treasures.py:68-81）；版本链旧版本残留（inbox.py:84-112）。
 - **契约**：api-design.md 文档漂移（accessToken/petId/ack reply/expiresAt）；约 25 个后端接口前端未接入（signals deliveries 无人轮询致堆积、reminders、weather、pets/{id}、plays、role-profiles、memories 版本链等）。
 - **前端**：并发 401 无 single-flight；DEV_BYPASS 假 token 401 死循环；notifications 轮询 401 静默；synthTts 15s 超时可能误报；SSE 尾部未 flush decoder/无 buf 上限/onEvent 异常不 cancel；TODAY_DATE 模块级固定（跨午夜错）；信封无 accessibilityRole、24×24 按钮低于触控标准；夜间硬编码浅色纸面（Letters/Keepsakes/SceneCreateFlow）；散乱按压 scale 0.94-0.99 不统一；多个页面裸字号/间距（10px 字号低于规格下限）；ContentSignal 表无清理。

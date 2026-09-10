@@ -1,7 +1,7 @@
 """片场 Plays 子资源冒烟：验证 /scenes/{id}/plays 全套接口。
 
 需先启动服务：
-    MINDOFF_PORT=8060 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/test_theater_plays.py
+    MORNING_PORT=8060 PYTHONPATH=. PYTHONUTF8=1 uv run python scripts/test_theater_plays.py
 覆盖：开始体验 / 当前节点 / 提交选择推进 / 结算 / 越权与状态冲突。
 """
 import os
@@ -9,7 +9,7 @@ import uuid
 
 import httpx
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def assert_node_shape(node: dict) -> None:

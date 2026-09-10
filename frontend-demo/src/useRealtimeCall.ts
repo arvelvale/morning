@@ -15,7 +15,7 @@ import {
   isPcmAvailable,
   startPcmCapture,
   stopPcmCapture,
-} from "mindoff-companion";
+} from "morning-companion";
 import type { EventSubscription } from "expo-modules-core";
 
 import { createConversation, detectSceneIntent, getActivePet, streamChatReply, wsAuthUrl } from "./api";

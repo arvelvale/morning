@@ -1,7 +1,7 @@
 [project]
-name = "mindoff-backend"
+name = "morning-backend"
 version = "0.2.0"
-description = "MindOff 后端 — AI 网关 + 双轴记忆系统（LangGraph 编排）"
+description = "Morning 后端 — AI 网关 + 双轴记忆系统（LangGraph 编排）"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",

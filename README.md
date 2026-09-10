@@ -67,11 +67,11 @@
 ### 仓库结构
 
 ```text
-mindoff/
+morning/
 ├─ backend/          # FastAPI 后端、AI 网关、业务 API 与本地记忆系统
 ├─ frontend-demo/    # Expo / React Native 主前端，Web 与移动端共用代码
 ├─ theater/          # 可独立运行的 Three.js 低多边形场景库
-├─ mindoff-proto/    # 早期 Web 交互原型
+├─ morning-proto/    # 早期 Web 交互原型
 ├─ design-system/    # 设计探索与辅助资料
 ├─ docs/             # 产品、设计、API、规格与实施文档
 ├─ scripts/          # 仓库级辅助脚本
@@ -190,8 +190,8 @@ Morning 当前是一个**开发中的原型**：
 
 - [后端说明与 API 验证](backend/README.md)
 - [Three.js 片场场景库](theater/README.md)
-- [项目功能说明](MindOff项目功能文档-精简版.md)
-- [前端视觉重构规格](docs/superpowers/specs/2026-07-25-mindoff-frontend-visual-redesign.md)
+- [项目功能说明](Morning项目功能文档-精简版.md)
+- [前端视觉重构规格](docs/superpowers/specs/2026-07-25-morning-frontend-visual-redesign.md)
 
 ---
 
@@ -199,11 +199,11 @@ Morning 当前是一个**开发中的原型**：
 
 ### Overview
 
-MindOff is a companion agent built around a virtual pet. It gives users a place to unload mixed thoughts—plans, worries, ideas, and emotions—organizes them into appropriate destinations, and turns experiences worth revisiting into interactive scenes for safe rehearsal.
+Morning is a companion agent built around a virtual pet. It gives users a place to unload mixed thoughts—plans, worries, ideas, and emotions—organizes them into appropriate destinations, and turns experiences worth revisiting into interactive scenes for safe rehearsal.
 
-MindOff does not pressure users into completing tasks, create emotional dependency, or provide psychological diagnoses. It behaves more like a quiet companion: receive first, organize second, and leave the final decision to the user.
+Morning does not pressure users into completing tasks, create emotional dependency, or provide psychological diagnoses. It behaves more like a quiet companion: receive first, organize second, and leave the final decision to the user.
 
-> MindOff is currently a prototype under active development. Its core product flows are operational, while the interface, model behavior, mobile experience, and production readiness continue to evolve.
+> Morning is currently a prototype under active development. Its core product flows are operational, while the interface, model behavior, mobile experience, and production readiness continue to evolve.
 
 ### Principles
 
@@ -245,11 +245,11 @@ MindOff does not pressure users into completing tasks, create emotional dependen
 ### Repository Layout
 
 ```text
-mindoff/
+morning/
 ├─ backend/          # FastAPI backend, AI gateway, business APIs, and local memory
 ├─ frontend-demo/    # Main Expo / React Native app shared by Web and mobile
 ├─ theater/          # Standalone Three.js low-poly scene library
-├─ mindoff-proto/    # Early Web interaction prototype
+├─ morning-proto/    # Early Web interaction prototype
 ├─ design-system/    # Design explorations and supporting material
 ├─ docs/             # Product, design, API, specification, and implementation docs
 ├─ scripts/          # Repository-level helper scripts
@@ -352,11 +352,11 @@ npm run typecheck  # TypeScript static check
 - Temporary stored items are deleted after expiry without retaining specific people, places, quotes, or events.
 - When raw-dump retention is disabled, raw references are removed after successful extraction and only organized surface text remains.
 - Sensitive memories are local-first and must pass privacy policy checks before any external transfer.
-- MindOff does not provide psychological diagnoses, treatment conclusions, or personality labels, and it never presents model speculation as fact.
+- Morning does not provide psychological diagnoses, treatment conclusions, or personality labels, and it never presents model speculation as fact.
 
 ### Project Status
 
-MindOff is a **prototype under active development**:
+Morning is a **prototype under active development**:
 
 - Core flows for accounts, chat, bedtime unloading, mailbox, memory, companion switching, and scenes are implemented.
 - A responsive design system supports both Web and mobile from one codebase.
@@ -368,5 +368,5 @@ MindOff is a **prototype under active development**:
 
 - [Backend guide and API verification](backend/README.md)
 - [Three.js theater scene library](theater/README.md)
-- [Product feature overview (Chinese)](MindOff项目功能文档-精简版.md)
-- [Frontend visual redesign specification (Chinese)](docs/superpowers/specs/2026-07-25-mindoff-frontend-visual-redesign.md)
+- [Product feature overview (Chinese)](Morning项目功能文档-精简版.md)
+- [Frontend visual redesign specification (Chinese)](docs/superpowers/specs/2026-07-25-morning-frontend-visual-redesign.md)

@@ -28,6 +28,11 @@ export interface SceneEnv {
 
 /** 零件实例：type 命中 props.ts 目录；pos/rotY/scale 为摆放；params 透传给该零件构造器。 */
 export interface PropInstance {
+  id?: string;
+  /** 解算器保留的人物引用，装配时挂到真实手部骨架。 */
+  heldBy?: string;
+  /** Internal solver attachment, preserving support subtrees through hand animation. */
+  supportId?: string;
   type: string;
   pos?: Vec3;
   rotY?: number;
@@ -40,12 +45,15 @@ export interface PropInstance {
  * pose 含情感动作；type/build/outfit/hairstyle/backpack 描述人物形象。
  */
 export interface CharacterInstance {
+  id?: string;
+  seatContactEnabled?: boolean;
   pos?: Vec3;
   rotY?: number;
   scale?: number;
   pose?:
     | "standing" | "sitting" | "phone"
     | "walking" | "waving" | "lookingBack" | "headDown"
+    | "handsFolded"
     | "arguing" | "comforting" | "hugging" | "handingItem"
     | "crying" | "sittingGround";
   /** 人物类型：儿童/学生/成人/老人（决定身高与默认特征）。 */

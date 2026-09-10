@@ -5,7 +5,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "mindoff-companion": ["./modules/mindoff-companion/src/index.ts"]
+      "morning-companion": ["./modules/morning-companion/src/index.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"]

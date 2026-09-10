@@ -1,5 +1,5 @@
 /**
- * MindOff 前端接口层。见 backend/docs/api-design.md。
+ * Morning 前端接口层。见 backend/docs/api-design.md。
  *
  * - token 持久化：AsyncStorage 存 access/refresh，启动 loadTokens() 恢复登录态；401 自动 refresh 重试一次。
  * - 流式（聊天/倾倒/片场）：用 ./sse 的 streamSSE（expo/fetch 流式）。
@@ -19,7 +19,7 @@ import { streamSSE, type SSEEvent } from "./sse";
 export { streamSSE };
 export type { SSEEvent };
 
-/** 线上后端（223.109.142.152 上的 mindoff-backend 容器，8000 端口）。 */
+/** 线上后端（223.109.142.152 上的 morning-backend 容器，8000 端口）。 */
 const DEFAULT_API_BASE = "http://223.109.142.152:8000";
 
 function resolveApiBase(): string {
@@ -57,7 +57,7 @@ export interface Tokens {
 export class ApiError extends Error {}
 
 // ─── token 存储 ────────────────────────────────────────────────────────────
-const TOKEN_KEY = "mindoff.tokens";
+const TOKEN_KEY = "morning.tokens";
 let _tokens: Tokens | null = null;
 
 export function currentTokens(): Tokens | null {

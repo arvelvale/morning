@@ -8,6 +8,8 @@ import { common } from '@kit.AbilityKit';
 import { currentTokens, getMe, initApi, logout } from '../common/Api';
 import { CompanionHome } from '../features/companion/CompanionHome';
 import { CompanionChat } from '../features/companion/CompanionChat';
+import { Dump } from '../features/dump/Dump';
+import { MailboxHome } from '../features/mailbox/MailboxHome';
 import {
   ColorTokens,
   fontSizes,
@@ -31,9 +33,26 @@ struct IndexPage {
   @State startupHint: string = '';
   @State chatOpen: boolean = false;
   @State chatConversationId: number | null = null;
+  @State dumpOpen: boolean = false;
+  @State mailboxRevision: number = 0;
 
   private getTheme(): MindTheme {
     return themeOf(this.isNight);
+  }
+
+  private openDump(): void {
+    this.dumpOpen = true;
+  }
+
+  private closeDump(): void {
+    this.dumpOpen = false;
+  }
+
+  /** 倾倒回执 → 信箱：切 Tab 并触发信箱刷新。 */
+  private gotoMailbox(): void {
+    this.dumpOpen = false;
+    this.currentTab = 1;
+    this.mailboxRevision += 1;
   }
 
   private colors(): ColorTokens {
@@ -179,27 +198,33 @@ struct IndexPage {
     } else {
       Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
         TabContent() {
-          if (this.chatOpen) {
+          if (this.dumpOpen) {
+            Dump({
+              onBack: () => this.closeDump(),
+              onGotoMailbox: () => this.gotoMailbox()
+            })
+          } else if (this.chatOpen) {
             CompanionChat({
               initialConversationId: this.chatConversationId,
               onBack: () => this.closeChat()
             })
           } else {
             CompanionHome({
-              onStartChat: (conversationId: number | null) => this.openChat(conversationId)
+              onStartChat: (conversationId: number | null) => this.openChat(conversationId),
+              onStartDump: () => this.openDump()
             })
           }
         }
         .tabBar(this.tabBuilder(TAB_TITLES[0], 0))
 
         TabContent() {
-          Column() {
-            this.placeholderCard('信箱', '信件与珍藏即将在这里落座。')
-          }
-          .width('100%')
-          .height('100%')
-          .padding(spacing.s5)
-          .backgroundColor(this.colors().background)
+          MailboxHome({
+            revision: this.mailboxRevision,
+            onReplyLetter: () => {
+              this.currentTab = 0;
+              this.openChat(null);
+            }
+          })
         }
         .tabBar(this.tabBuilder(TAB_TITLES[1], 1))
 
@@ -240,6 +265,9 @@ struct IndexPage {
       .barBackgroundColor(this.colors().surface)
       .onChange((index: number) => {
         this.currentTab = index;
+        if (index === 1) {
+          this.mailboxRevision += 1;
+        }
       })
       .width('100%')
       .height('100%')

@@ -7,7 +7,7 @@
 
 用法：
     cd backend
-    set PYTHONUTF8=1 && set MINDOFF_SSH_PASSWORD=...
+    set PYTHONUTF8=1 && set MORNING_SSH_PASSWORD=...
     uv run --with paramiko python scripts/test_letter_ack.py
 """
 import json
@@ -17,12 +17,12 @@ import uuid
 import httpx
 import paramiko
 
-ROOT = os.environ.get("MINDOFF_API_BASE", "http://223.109.142.152:8000")
+ROOT = os.environ.get("MORNING_API_BASE", "http://223.109.142.152:8000")
 B = ROOT + "/api/v1"
-SSH_HOST = os.environ.get("MINDOFF_SSH_HOST", "223.109.142.152")
-SSH_PASSWORD = os.environ.get("MINDOFF_SSH_PASSWORD")
+SSH_HOST = os.environ.get("MORNING_SSH_HOST", "223.109.142.152")
+SSH_PASSWORD = os.environ.get("MORNING_SSH_PASSWORD")
 
-u = {"username": "ack" + uuid.uuid4().hex[:6], "password": "mindoff2026"}
+u = {"username": "ack" + uuid.uuid4().hex[:6], "password": "morning2026"}
 tok = httpx.post(f"{B}/auth/register", json=u, timeout=60).json()["access_token"]
 H = {"Authorization": f"Bearer {tok}"}
 uid = httpx.get(f"{B}/users/me", headers=H, timeout=60).json()["id"]
@@ -42,7 +42,7 @@ assert pet.get("system_prompt"), "预设桌宠应带人格 prompt"
 letters = httpx.get(f"{B}/letters", headers=H, timeout=60).json()
 if not letters:
     if not SSH_PASSWORD:
-        raise SystemExit("当前账号没有来信，且缺少 MINDOFF_SSH_PASSWORD 无法在服务器上生成")
+        raise SystemExit("当前账号没有来信，且缺少 MORNING_SSH_PASSWORD 无法在服务器上生成")
     print("\n没有来信 → 在服务器容器里生成一封晚间来信…")
     code = (
         "from app.db import SessionLocal; "
@@ -53,7 +53,7 @@ if not letters:
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(SSH_HOST, 22, "root", SSH_PASSWORD, timeout=25)
     _in, out, err = client.exec_command(
-        f'docker exec mindoff-backend python -c "{code}"', timeout=300
+        f'docker exec morning-backend python -c "{code}"', timeout=300
     )
     print("  " + out.read().decode("utf-8", "replace").strip())
     stderr = err.read().decode("utf-8", "replace").strip()

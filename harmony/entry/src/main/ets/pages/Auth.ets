@@ -2,7 +2,12 @@
  * 登录与注册（HarmonyOS 版）。与 frontend-demo/src/screens/Auth.tsx 同文案同交互，
  * 手机端只保留紧凑单列布局；桌面宽屏双栏留待后续响应式阶段。
  */
-import { login, register } from '../common/Api';
+import { ApiError, login, register } from '../common/Api';
+import {
+  CLOUD_DEBUG_PASSWORD,
+  CLOUD_DEBUG_TEST_LOGIN,
+  CLOUD_DEBUG_USERNAME
+} from 'BuildProfile';
 import {
   ColorTokens,
   controlHeights,
@@ -26,6 +31,14 @@ struct AuthPage {
   @State showPassword: boolean = false;
   @State hint: string = '';
   @State loading: boolean = false;
+  @State cloudDebugAttempted: boolean = false;
+
+  aboutToAppear(): void {
+    if (this.isCloudDebugLoginAvailable() && !this.cloudDebugAttempted) {
+      this.cloudDebugAttempted = true;
+      void this.submitCloudDebugLogin();
+    }
+  }
 
   private getTheme(): MindTheme {
     return themeOf(this.isNight);
@@ -44,6 +57,43 @@ struct AuthPage {
     this.hint = '';
     this.password = '';
     this.showPassword = false;
+  }
+
+  private isCloudDebugLoginAvailable(): boolean {
+    return CLOUD_DEBUG_TEST_LOGIN &&
+      CLOUD_DEBUG_USERNAME.length >= 3 &&
+      CLOUD_DEBUG_PASSWORD.length >= 6;
+  }
+
+  /**
+   * 仅 cloudDebug product 可达：首次安装注册专属低权限账号，之后正常登录。
+   * 账号仍走正式 Auth 契约，没有绕过后端鉴权，也不能读取其他用户数据。
+   */
+  private async submitCloudDebugLogin(): Promise<void> {
+    if (this.loading || !this.isCloudDebugLoginAvailable()) {
+      return;
+    }
+    this.hint = '正在进入云调试账号…';
+    this.loading = true;
+    try {
+      try {
+        await register(CLOUD_DEBUG_USERNAME, CLOUD_DEBUG_PASSWORD);
+      } catch (err) {
+        const e = err as Error;
+        if (!e || e.message !== '用户名已被占用') {
+          throw new ApiError(e && e.message ? e.message : '云调试账号注册失败');
+        }
+        await login(CLOUD_DEBUG_USERNAME, CLOUD_DEBUG_PASSWORD);
+      }
+      await this.getUIContext().getRouter().replaceUrl({ url: 'pages/Index' });
+    } catch (err) {
+      const e = err as Error;
+      this.hint = e && e.message
+        ? `云调试登录失败：${e.message}`
+        : '云调试登录失败，请重试';
+    } finally {
+      this.loading = false;
+    }
   }
 
   private async submit(): Promise<void> {
@@ -223,6 +273,24 @@ struct AuthPage {
             .onClick(() => {
               void this.submit();
             });
+
+          if (this.isCloudDebugLoginAvailable()) {
+            Button('使用云调试账号')
+              .width('100%')
+              .height(controlHeights.standard)
+              .backgroundColor(this.colors().surface)
+              .fontColor(this.colors().accent)
+              .fontSize(fontSizes.caption)
+              .borderRadius(radii.pill)
+              .borderWidth(1)
+              .borderColor(this.colors().border)
+              .enabled(!this.loading)
+              .opacity(this.loading ? 0.6 : 1)
+              .margin({ top: spacing.s3 })
+              .onClick(() => {
+                void this.submitCloudDebugLogin();
+              });
+          }
 
           Row({ space: spacing.s2 }) {
             Text(this.isLogin() ? '还没有账号？' : '已经有账号了？')

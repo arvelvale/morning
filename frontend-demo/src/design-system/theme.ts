@@ -1,4 +1,4 @@
-/** MindOff 主题的唯一实现入口。 */
+/** Morning 主题的唯一实现入口。 */
 import { createContext, useContext } from "react";
 import {
   darkColors,

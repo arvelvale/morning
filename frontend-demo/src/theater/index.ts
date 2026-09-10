@@ -19,6 +19,13 @@ export { buildProp, PROP_TYPES } from "./generated/props";
 export { SCENE_SAMPLES } from "./generated/samples";
 export type { SceneSpec, SceneEnv, PropInstance, CharacterInstance } from "./generated/spec";
 
+// 关系式布局（P1）：新格式语义 spec → 解算 → 绝对坐标 → 同一渲染管线。
+export { assembleAnySpec } from "./generated/auto";
+export type { AssembleResult } from "./generated/auto";
+export { isSemanticSpec, solveLayout } from "./generated/layout/solve";
+export { SEMANTIC_FIXTURES } from "./generated/layout/fixtures";
+export type { SemanticSceneSpec, LayoutReport } from "./generated/layout/types";
+
 export const THEATER_SCENES: Record<TheaterSceneId, () => TheaterScene> = {
   campsite: campsite.create,
   bedroom: bedroomWindow.create,

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Morning 原型 · 对齐功能文档（4 Tab · 桌宠占位）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html,body { min-height:100%; }
+  body { font-family: "Noto Serif SC", "Cormorant Garamond", serif; }
+  .stage { min-height:100vh; padding:52px 40px 90px; transition:background .6s ease; }
+  .page-head { text-align:center; max-width:920px; margin:0 auto 26px; }
+  .page-head .kicker { font-size:13px; letter-spacing:.4em; text-transform:uppercase; }
+  .page-head h1 { font-family:"Cormorant Garamond","Noto Serif SC",serif; font-weight:500; font-size:42px; margin:14px 0 12px; letter-spacing:.02em; }
+  .page-head p { font-size:15px; line-height:1.85; max-width:700px; margin:0 auto; }
+  .themebar { display:flex; justify-content:center; margin:0 auto 46px; }
+  .rack { display:flex; flex-wrap:wrap; gap:44px 32px; justify-content:center; align-items:flex-start; max-width:1520px; margin:0 auto; }
+  .cell { display:flex; flex-direction:column; align-items:center; }
+  .cell .cap { font-style:italic; font-family:"Cormorant Garamond",serif; font-size:15px; margin-bottom:16px; letter-spacing:.02em; }
+  .cell .cap b { font-style:normal; font-weight:600; margin-right:7px; }
+  @keyframes wave3 { 0%,100%{transform:scaleY(.3);opacity:.5} 50%{transform:scaleY(1);opacity:1} }
+  @keyframes floatIn3 { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+  @keyframes breathe3 { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:.95;transform:scale(1.06)} }
+  @keyframes flare { 0%,100%{opacity:.7} 50%{opacity:1} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState } = React;
+const serif='"Cormorant Garamond","Noto Serif SC",serif';
+const song='"Noto Serif SC",serif';
+
+/* ============ 昼 / 夜 双主题：同一套排版，只换配色 ============ */
+const THEMES = {
+  night: {
+    key:'night', label:'夜',
+    rgb:'240,168,104', accent:'#F0A868', accent2:'#E8894B', onAccent:'#2a1608',
+    text:'#EDE6DA', sub:'#8f8474', faint:'#5f574c',
+    stageBg:'radial-gradient(1100px 800px at 50% -8%, #1c1512, #0a0807 62%, #050403)',
+    screenBg:'radial-gradient(120% 80% at 50% 0%, #171310, #0b0908 65%, #070605)',
+    stageInk:'#EDE6DA',
+    card:{ background:'rgba(255,255,255,.035)', border:'1px solid rgba(240,168,104,.14)', borderRadius:16 },
+    divider:'1px solid rgba(255,255,255,.06)',
+    frameWrap:{ background:'#161210', boxShadow:'0 0 0 1.5px #2a231d, 0 30px 70px rgba(0,0,0,.7), 0 0 60px rgba(240,168,104,.06)' },
+    homeBg:'rgba(237,230,218,.4)', softBg:'rgba(255,255,255,.06)', previewBase:'#0a0706', glow:true,
+    tabBg:'linear-gradient(0deg, rgba(8,6,5,.97), rgba(8,6,5,.55) 72%, transparent)',
+    island:'#000',
+  },
+  day: {
+    key:'day', label:'昼',
+    rgb:'176,71,47', accent:'#B0472F', accent2:'#8F3A24', onAccent:'#FBF6E7',
+    text:'#2E2A22', sub:'#7c7261', faint:'#a99a82',
+    stageBg:'radial-gradient(1000px 700px at 50% -5%, #ece2c8, #d8cbac 70%)',
+    screenBg:'linear-gradient(180deg,#F6EEDB,#EFE5CE)',
+    stageInk:'#2E2A22',
+    card:{ background:'#FBF6E7', border:'1px solid #DCCFB0', borderRadius:16, boxShadow:'0 1px 0 #fff inset, 0 6px 16px rgba(120,100,60,.1)' },
+    divider:'1px dashed #d8ccae',
+    frameWrap:{ background:'#3a3226', boxShadow:'0 0 0 2px #4a4030, 0 30px 60px rgba(80,60,30,.35)' },
+    homeBg:'rgba(46,42,34,.35)', softBg:'rgba(176,71,47,.08)', previewBase:'#c9b78f', glow:false,
+    tabBg:'linear-gradient(0deg, rgba(246,238,219,.99), rgba(246,238,219,.65) 72%, transparent)',
+    island:'#1a1206',
+  },
+};
+const rgba=(t,a)=>`rgba(${t.rgb},${a})`;
+const glowSh=(t,css)=> t.glow?css:'none';
+const pad={ padding:'70px 24px 30px' };
+const padTab={ padding:'70px 24px 104px' };
+
+/* iOS 外壳 */
+function Phone({children,t,bg,time='23:47'}) {
+  const F={
+    wrapper:{display:'inline-block',padding:11,borderRadius:58,...t.frameWrap},
+    screen:{position:'relative',borderRadius:47,overflow:'hidden',width:372,height:806,background:bg},
+    statusBar:{position:'absolute',top:0,left:0,right:0,height:54,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 32px',fontSize:16,fontWeight:500,zIndex:20,pointerEvents:'none',color:t.text},
+    island:{position:'absolute',top:12,left:'50%',transform:'translateX(-50%)',width:120,height:35,background:t.island,borderRadius:999,zIndex:30},
+    content:{position:'absolute',top:54,left:0,right:0,bottom:0,overflow:'hidden'},
+    home:{position:'absolute',bottom:9,left:'50%',transform:'translateX(-50%)',width:130,height:5,background:t.homeBg,borderRadius:999,zIndex:40},
+  };
+  return <div style={F.wrapper}><div style={F.screen}>
+    <div style={F.statusBar}>
+      <span>{time}</span>
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        <div style={{display:'flex',alignItems:'flex-end',gap:2,height:11}}>{[4,6,8,10].map((h,i)=><div key={i} style={{width:3,height:h,background:'currentColor',borderRadius:1}}/>)}</div>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5a1 1 0 100-2 1 1 0 000 2z" fill="currentColor"/><path d="M3 7.5a7 7 0 0110 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round"/><path d="M1 4.5a11 11 0 0114 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" opacity=".6"/></svg>
+        <div style={{width:25,height:12,border:'1.4px solid currentColor',borderRadius:3,padding:1,opacity:.85,position:'relative'}}><div style={{width:'82%',height:'100%',background:'currentColor',borderRadius:1}}/><div style={{position:'absolute',top:3,right:-3,width:2,height:6,background:'currentColor',borderRadius:'0 1px 1px 0'}}/></div>
+      </div>
+    </div>
+    <div style={F.island}/><div style={F.content}>{children}</div><div style={F.home}/>
+  </div></div>;
+}
+
+/* 底部 Tab 栏：陪伴 / 信箱 / 片场 / 我的 */
+const ICONS={
+  陪伴:(c)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5"><circle cx="12" cy="11" r="7"/><circle cx="9.5" cy="10" r="1" fill={c} stroke="none"/><circle cx="14.5" cy="10" r="1" fill={c} stroke="none"/><path d="M9.5 14c1.5 1.2 3.5 1.2 5 0" strokeLinecap="round"/></svg>,
+  信箱:(c)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 8l9 6 9-6" strokeLinecap="round"/></svg>,
+  片场:(c)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18M8 5l-1 4M13 5l-1 4M18 5l-1 4" strokeLinecap="round"/></svg>,
+  我的:(c)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0115 0" strokeLinecap="round"/></svg>,
+};
+function TabBar({t,active}){
+  return <div style={{position:'absolute',bottom:0,left:0,right:0,paddingTop:12,paddingBottom:26,display:'flex',justifyContent:'space-around',alignItems:'center',background:t.tabBg,backdropFilter:'blur(8px)',zIndex:30}}>
+    {['陪伴','信箱','片场','我的'].map(l=>{
+      const on=l===active, c=on?t.accent:t.faint;
+      return <div key={l} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,filter:on?glowSh(t,`drop-shadow(0 0 6px ${rgba(t,.6)})`):'none'}}>
+        {ICONS[l](c)}<span style={{fontSize:11,fontFamily:serif,color:c,letterSpacing:'.04em'}}>{l}</span>
+      </div>;
+    })}
+  </div>;
+}
+
+/* ===== 1. 陪伴首页（桌宠占位 + 倾倒入口）===== */
+function CompanionHome({t}){
+  const chips=['自由聊聊','一股脑倒出来','说件放不下的事','回看一个片段'];
+  return <div style={{...padTab,height:'100%',display:'flex',flexDirection:'column',position:'relative'}}>
+    <div style={{fontSize:12.5,letterSpacing:'.28em',color:t.accent}}>陪伴 · 今晚</div>
+    <h2 style={{fontFamily:serif,fontWeight:500,fontSize:26,marginTop:10,color:t.text}}>晚上好，我一直在。</h2>
+    {/* 桌宠占位 */}
+    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14}}>
+      <div style={{position:'relative',width:150,height:150,borderRadius:'50%',display:'grid',placeItems:'center',
+        background:`radial-gradient(circle at 50% 42%, ${rgba(t,.22)}, transparent 68%)`,
+        border:`1.5px dashed ${rgba(t,.5)}`}}>
+        <div style={{position:'absolute',inset:26,borderRadius:'50%',background:`radial-gradient(circle at 50% 42%, ${rgba(t,.3)}, transparent 70%)`,animation:'breathe3 3.6s ease-in-out infinite'}}/>
+        <div style={{textAlign:'center',zIndex:1}}>
+          <div style={{fontFamily:serif,fontSize:20,color:t.accent}}>桌宠</div>
+          <div style={{fontSize:10.5,color:t.sub,marginTop:2,letterSpacing:'.06em'}}>形象设计中 · 占位</div>
+        </div>
+      </div>
+      <div style={{fontFamily:serif,fontStyle:'italic',fontSize:15.5,color:t.sub}}>它正靠在屏幕边，打着盹…</div>
+    </div>
+    {/* 睡前倾倒主入口 */}
+    <button style={{width:'100%',padding:'16px',borderRadius:14,border:'none',cursor:'pointer',background:`linear-gradient(90deg,${t.accent},${t.accent2})`,color:t.onAccent,fontSize:15.5,fontFamily:serif,fontWeight:600,boxShadow:glowSh(t,`0 0 26px ${rgba(t,.35)}`)}}>说件放不下的事 · 睡前倾倒</button>
+    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
+      {chips.map(c=><span key={c} style={{fontSize:12.5,padding:'8px 12px',borderRadius:999,border:`1px solid ${rgba(t,.28)}`,color:t.sub}}>{c}</span>)}
+    </div>
+    <TabBar t={t} active="陪伴"/>
+  </div>;
+}
+
+/* ===== 2. 睡前倾倒（语音 + 打字，倾倒中）===== */
+function DumpScreen({t}){
+  const [on,setOn]=useState(false);
+  return <div style={{...pad,height:'100%',display:'flex',flexDirection:'column',position:'relative'}}>
+    <div style={{position:'absolute',top:0,left:0,right:0,height:'100%',background:`radial-gradient(60% 34% at 50% 60%, ${rgba(t,on?.16:.08)}, transparent 70%)`,pointerEvents:'none',transition:'1s'}}/>
+    <div style={{fontSize:12.5,letterSpacing:'.28em',color:t.accent,zIndex:1}}>睡前倾倒</div>
+    <h2 style={{fontFamily:serif,fontWeight:500,fontSize:29,lineHeight:1.34,marginTop:14,zIndex:1,color:t.text}}>一次说完就好。</h2>
+    <p style={{fontSize:14.5,color:t.sub,marginTop:12,lineHeight:1.85,zIndex:1}}>{on?'在听。计划、担忧、灵感、情绪，都可以。':'语音按住即说，或直接打字。不要求条理。'}</p>
+    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28,zIndex:1}}>
+      <button onClick={()=>setOn(v=>!v)} style={{width:126,height:126,borderRadius:'50%',border:'none',cursor:'pointer',background:`radial-gradient(circle at 50% 42%, ${t.accent}, ${t.accent2} 62%, ${t.key==='night'?'#7a4322':'#5e2415'})`,boxShadow: on?glowSh(t,`0 0 56px ${rgba(t,.6)},0 0 110px ${rgba(t,.3)}`):glowSh(t,`0 0 32px ${rgba(t,.28)}`),position:'relative',transition:'.5s',animation: on?'none':'breathe3 3.4s ease-in-out infinite',display:'grid',placeItems:'center'}}>
+        {on
+          ? <div style={{display:'flex',alignItems:'center',gap:4,height:32}}>{[0,1,2,3,4].map(i=><div key={i} style={{width:4,height:28,background:t.onAccent,borderRadius:2,animation:`wave3 1s ${i*.13}s ease-in-out infinite`}}/>)}</div>
+          : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={t.onAccent} strokeWidth="1.8"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>}
+      </button>
+      <div style={{fontFamily:serif,fontStyle:'italic',fontSize:16.5,color: on?t.accent:t.sub,transition:'.4s'}}>{on?'倾倒中…':'按住，说'}</div>
+    </div>
+    <div style={{...t.card,padding:'14px 16px',display:'flex',alignItems:'center',gap:10,zIndex:1}}>
+      <span style={{color:t.faint,fontFamily:serif,fontStyle:'italic',fontSize:15}}>Aa</span>
+      <span style={{fontSize:14,color:t.faint}}>或者，安静地打字…</span>
+    </div>
+  </div>;
+}
+
+/* ===== 3. 托管回执「妥了」（五类整理结果）===== */
+function ReceiptScreen({t}){
+  const cats=[['待办与提醒','2 项 · 保留至完成'],['今日小结','1 张当日卡片'],['灵感收藏','1 个点子已存'],['情绪记录','已承接，不转任务'],['候选片段','1 段 · 静默进草稿箱']];
+  return <div style={{height:'100%',display:'flex',flexDirection:'column',position:'relative',background:`radial-gradient(80% 42% at 50% 24%, ${rgba(t,t.glow?.14:.1)}, transparent 66%)`}}>
+    <div style={{...pad,paddingBottom:0}}>
+      <div style={{fontSize:12.5,letterSpacing:'.28em',color:t.accent,textAlign:'center'}}>妥了</div>
+      <h2 style={{fontFamily:serif,fontWeight:500,fontSize:26,marginTop:10,textAlign:'center',color:t.text}}>都替你分好类、接住了</h2>
+    </div>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:16}}>
+      <div style={{position:'relative',animation:'flare 4s ease-in-out infinite'}}>
+        <div style={{position:'absolute',inset:-38,borderRadius:'50%',background:`radial-gradient(circle, ${rgba(t,t.glow?.35:.18)}, transparent 70%)`}}/>
+        <svg width="86" height="86" viewBox="0 0 48 48" fill="none" stroke={t.accent} strokeWidth="1.4" style={{position:'relative'}}>
+          <rect x="8" y="16" width="32" height="24" rx="3"/><path d="M8 24h32" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="7" rx="1.5" fill={t.accent} stroke="none" opacity=".9"/><path d="M14 16l4-6h12l4 6" opacity=".7"/>
+        </svg>
+      </div>
+    </div>
+    <div style={{flex:1,padding:'14px 24px 0',display:'flex',flexDirection:'column',gap:8}}>
+      {cats.map(([n,d],i)=>(
+        <div key={i} style={{...t.card,padding:'11px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',animation:`floatIn3 .5s ${.15+i*.09}s both`}}>
+          <span style={{fontSize:14.5,color:t.text}}>{n}</span>
+          <span style={{fontSize:12,color:t.sub}}>{d}</span>
+        </div>
+      ))}
+    </div>
+    <div style={{padding:'16px 26px 26px',textAlign:'center'}}>
+      <p style={{fontFamily:serif,fontStyle:'italic',fontSize:15.5,color:t.text,lineHeight:1.7}}>就到这里，别的明早再说。</p>
+      <div style={{fontSize:12.5,color:t.faint,letterSpacing:'.14em',marginTop:8}}>↓ 安心离开</div>
+    </div>
+  </div>;
+}
+
+/* ===== 4. 信箱（今日待启 / 桌宠来信 / 三日寄存 / 长久珍藏）===== */
+function InboxScreen({t}){
+  const [seg,setSeg]=useState(0);
+  const [done,setDone]=useState({});
+  const segs=['今日待启','桌宠来信','三日寄存','长久珍藏'];
+  const todos=[['交材料','昨晚你说 10 点前要交',['加入日历','复制到项目']],['给妈打个电话','来自那晚的片场结算',['加入待办','暂缓一天']],['回复客户','“下班前” · 缺具体时间',['补全时间','确认已处理']]];
+  return <div style={{...padTab,height:'100%',overflow:'auto'}}>
+    <div style={{fontSize:12.5,letterSpacing:'.28em',color:t.accent}}>信箱 · 6:30</div>
+    <h2 style={{fontFamily:serif,fontWeight:500,fontSize:24,marginTop:10,color:t.text}}>昨晚接住的，今天交还你</h2>
+    <div style={{display:'flex',gap:6,marginTop:16,marginBottom:16,flexWrap:'wrap'}}>
+      {segs.map((s,i)=>(
+        <button key={s} onClick={()=>setSeg(i)} style={{fontSize:12.5,padding:'7px 12px',borderRadius:999,cursor:'pointer',fontFamily:serif,border:`1px solid ${seg===i?t.accent:rgba(t,.22)}`,background:seg===i?rgba(t,.1):'transparent',color:seg===i?t.accent:t.sub}}>{s}</button>
+      ))}
+    </div>
+    {seg===0 && <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {todos.map(([tx,s,acts],i)=>(
+        <div key={i} style={{...t.card,padding:'14px 16px',position:'relative',opacity:done[i]?.45:1,transition:'.4s'}}>
+          <div style={{position:'absolute',top:14,right:15}}>{done[i]?<span style={{color:t.faint,fontSize:12}}>✓ 已处理</span>:<span style={{width:8,height:8,borderRadius:'50%',background:t.accent,boxShadow:glowSh(t,`0 0 8px ${t.accent}`),display:'inline-block'}}/>}</div>
+          <div style={{fontSize:16,fontWeight:500,textDecoration:done[i]?'line-through':'none',color:done[i]?t.sub:t.text}}>{tx}</div>
+          <div style={{fontSize:12.5,color:t.sub,marginTop:4}}>{s}</div>
+          <div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
+            {acts.map(a=><button key={a} onClick={()=>setDone(d=>({...d,[i]:true}))} style={{fontSize:12.5,padding:'7px 13px',borderRadius:9,cursor:'pointer',border:`1px solid ${rgba(t,.35)}`,background:rgba(t,.06),color:t.accent}}>{a}</button>)}
+          </div>
+        </div>
+      ))}
+    </div>}
+    {seg===1 && <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {[['一首夜里的歌','《城南》· 你昨晚说想静静'],['一个场景邀请','关于那晚，想不想去片场看看？']].map(([tx,s],i)=>(
+        <div key={i} style={{...t.card,padding:'14px 16px'}}><div style={{fontSize:11,color:t.accent,marginBottom:5}}>桌宠来信</div><div style={{fontSize:15,color:t.text}}>{tx}</div><div style={{fontSize:12.5,color:t.sub,marginTop:4}}>{s}</div></div>
+      ))}
+      <p style={{fontSize:12,color:t.faint,textAlign:'center',marginTop:4}}>每天最多一至两封 · 没合适内容就不发</p>
+    </div>}
+    {seg===2 && <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {[['那点说不清的失落','情绪 · 已承接'],['雨夜路口的片段','候选 · 未确认']].map(([tx,s],i)=>(
+        <div key={i} style={{...t.card,padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><div style={{fontSize:15,color:t.text}}>{tx}</div><div style={{fontSize:12.5,color:t.sub,marginTop:3}}>{s}</div></div><span style={{fontSize:11.5,color:t.accent}}>72h 后清</span></div>
+      ))}
+      <p style={{fontSize:12,color:t.faint,textAlign:'center',marginTop:4}}>默认 72 小时后真正删除</p>
+    </div>}
+    {seg===3 && <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {[['“谢谢你留的那盏灯”','片场结算 · 你主动留下'],['想做的一本手账','灵感 · 你主动留下']].map(([tx,s],i)=>(
+        <div key={i} style={{...t.card,padding:'14px 16px',borderColor:rgba(t,.3)}}><div style={{fontSize:15,color:t.text}}>{tx}</div><div style={{fontSize:12.5,color:t.sub,marginTop:3}}>{s}</div></div>
+      ))}
+      <p style={{fontSize:12,color:t.faint,textAlign:'center',marginTop:4}}>仅保存你主动留下的内容</p>
+    </div>}
+    <TabBar t={t} active="信箱"/>
+  </div>;
+}
+
+/* ===== 5. 片场（候选片段 + 场景创建 + 高频模板）===== */
+function StageScreen({t}){
+  const tpls=['没说出口的话','冲突后的另一种回应','重要时刻预演'];
+  return <div style={{...padTab,height:'100%',overflow:'auto'}}>
+    <div style={{fontSize:12.5,letterSpacing:'.28em',color:t.accent}}>片场</div>
+    <h2 style={{fontFamily:serif,fontWeight:500,fontSize:24,marginTop:10,color:t.text}}>把牵动你的那一幕，演一次</h2>
+    {/* 候选片段 · 次日提醒 */}
+    <div style={{fontSize:12.5,color:t.sub,margin:'18px 0 10px'}}>候选片段 · 次日提醒（确认后成为场景）</div>
+    <div style={{...t.card,padding:'15px 16px',borderColor:rgba(t,.3)}}>
+      <div style={{fontSize:15.5,color:t.text}}>雨夜路口，和妈妈的那通电话</div>
+      <div style={{fontSize:12.5,color:t.sub,marginTop:5,lineHeight:1.6}}>昨晚你反复提到它 · 已静默存进草稿箱</div>
+      <div style={{display:'flex',gap:8,marginTop:13}}>
+        <button style={{flex:1,fontSize:13,padding:'10px',borderRadius:10,border:'none',cursor:'pointer',background:`linear-gradient(90deg,${t.accent},${t.accent2})`,color:t.onAccent,fontWeight:600}}>确认，进片场</button>
+        <button style={{fontSize:13,padding:'10px 16px',borderRadius:10,cursor:'pointer',border:`1px solid ${rgba(t,.3)}`,background:'transparent',color:t.sub}}>忽略</button>
+      </div>
+    </div>
+    {/* 场景创建 */}
+    <button style={{width:'100%',marginTop:14,padding:'14px',borderRadius:12,border:`1px dashed ${rgba(t,.42)}`,background:'transparent',color:t.accent,fontSize:14.5,cursor:'pointer',fontFamily:serif}}>+ 自己创建一个场景</button>
+    {/* 高频模板 */}
+    <div style={{fontSize:12.5,color:t.sub,margin:'22px 0 10px'}}>高频模板</div>
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {tpls.map((tx,i)=>(
+        <div key={i} style={{...t.card,padding:'13px 15px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span style={{fontSize:14.5,color:t.text}}>{tx}</span><span style={{color:t.faint,fontSize:18}}>›</span>
+        </div>
+      ))}
+    </div>
+    <TabBar t={t} active="片场"/>
+  </div>;
+}
+
+/* ===== 6. 片场 · 视觉小说互动 + 结算卡 ===== */
+function VisualNovelScreen({t}){
+  const [step,setStep]=useState(0);
+  return <div style={{height:'100%',display:'flex',flexDirection:'column',position:'relative',background:`linear-gradient(180deg, ${rgba(t,.14)}, ${t.previewBase})`}}>
+    {/* 氛围背景 + 立绘占位 */}
+    <div style={{position:'absolute',inset:0,background:`radial-gradient(70% 46% at 60% 34%, ${rgba(t,.2)}, transparent 62%)`}}/>
+    <div style={{position:'absolute',bottom:step===0?150:220,left:'50%',transform:'translateX(-50%)',width:120,height:230,borderRadius:'60px 60px 0 0',background:`linear-gradient(180deg, ${rgba(t,.4)}, ${rgba(t,.05)})`,filter:'blur(1px)',transition:'.5s'}}/>
+    <div style={{position:'absolute',top:66,left:20,fontSize:11,color:rgba(t,.8),letterSpacing:'.1em'}}>◆ 那晚 · 客厅 · 视觉小说</div>
+    <div style={{flex:1}}/>
+    {step===0 ? (
+      <div style={{position:'relative',padding:'0 22px 30px'}}>
+        <div style={{...t.card,padding:'16px 17px',marginBottom:14}}>
+          <div style={{fontSize:11.5,color:t.accent,marginBottom:6}}>妈妈</div>
+          <div style={{fontSize:15.5,lineHeight:1.75,fontFamily:song,color:t.text}}>“……饭在锅里，还热着。快去洗手吧。”</div>
+        </div>
+        <div style={{fontSize:12,color:t.sub,marginBottom:8,letterSpacing:'.04em'}}>你想怎么回应？</div>
+        {['“妈，谢谢你留的灯。”','沉默，先给她一个拥抱','“对不起，让你担心了。”'].map((o,i)=>(
+          <button key={i} onClick={()=>setStep(1)} style={{width:'100%',textAlign:'left',padding:'12px 15px',marginBottom:8,borderRadius:11,cursor:'pointer',border:`1px solid ${rgba(t,.28)}`,background:rgba(t,.05),color:t.text,fontSize:14,fontFamily:song}}>{o}</button>
+        ))}
+      </div>
+    ) : (
+      <div style={{position:'relative',padding:'0 22px 32px'}}>
+        <div style={{...t.card,padding:'20px 18px',borderColor:rgba(t,.4),background:rgba(t,.06)}}>
+          <div style={{fontSize:11.5,color:t.accent,letterSpacing:'.12em',marginBottom:10}}>场景结算卡</div>
+          <div style={{fontFamily:serif,fontSize:17,lineHeight:1.8,fontStyle:'italic',color:t.text}}>你终于说出了那句“谢谢”。<br/>它不改变那晚，但你带回了一点松动。</div>
+          <div style={{marginTop:14,paddingTop:12,borderTop:t.divider,fontSize:13,color:t.sub,lineHeight:1.7}}>可带走：一句想说的话 · 一个明天的小行动</div>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:14}}>
+          <button onClick={()=>setStep(0)} style={{flex:1,padding:'13px',borderRadius:10,border:'none',cursor:'pointer',background:`linear-gradient(90deg,${t.accent},${t.accent2})`,color:t.onAccent,fontSize:14,fontWeight:600}}>珍藏这张卡</button>
+          <button style={{padding:'13px 16px',borderRadius:10,cursor:'pointer',border:`1px solid ${rgba(t,.3)}`,background:'transparent',color:t.sub,fontSize:14}}>结束后删除</button>
+        </div>
+      </div>
+    )}
+  </div>;
+}
+
+/* ===== 7. 我的（桌宠选择占位 / 记忆 / 隐私 / 偏好）===== */
+function Toggle({t,on:init=false}){const [on,setOn]=useState(init);return <button onClick={()=>setOn(v=>!v)} style={{width:46,height:27,borderRadius:999,border:'none',cursor:'pointer',background:on?t.accent:(t.key==='night'?'rgba(255,255,255,.14)':'#cbbd9c'),position:'relative',transition:'.25s',flexShrink:0,boxShadow:on?glowSh(t,`0 0 12px ${rgba(t,.5)}`):'none'}}><span style={{position:'absolute',top:3,left:on?22:3,width:21,height:21,borderRadius:'50%',background:on?t.onAccent:'#EDE6DA',transition:'.25s'}}/></button>;}
+function MineScreen({t,theme,setTheme}){
+  const groups=[['隐私',[['保留原始倾诉','关掉后只留整理结果',false],['仅在本机识别','敏感内容不出设备',true],['阅后即焚','三日寄存到期真正删除',true]]],['偏好 · 主动陪伴（低频 · 有据才发）',[['到点主动提醒','带时间的事，到点唤你',true],['睡前轻唤','每晚一次轻提醒',true]]]];
+  return <div style={{...padTab,height:'100%',overflow:'auto'}}>
+    <div style={{fontSize:12.5,letterSpacing:'.28em',color:t.accent}}>我的</div>
+    <h2 style={{fontFamily:serif,fontWeight:500,fontSize:24,marginTop:10,color:t.text}}>越少越好</h2>
+    {/* 桌宠选择占位 */}
+    <div style={{...t.card,padding:'15px 16px',marginTop:16,display:'flex',alignItems:'center',gap:14}}>
+      <div style={{width:46,height:46,borderRadius:'50%',border:`1.5px dashed ${rgba(t,.5)}`,display:'grid',placeItems:'center',fontSize:11,color:t.accent,flexShrink:0}}>桌宠</div>
+      <div style={{flex:1}}><div style={{fontSize:15,color:t.text}}>当前桌宠 · 占位</div><div style={{fontSize:12,color:t.sub,marginTop:2}}>形象与切换由设计队友负责</div></div>
+      <span style={{fontSize:12.5,color:t.sub}}>更换</span>
+    </div>
+    {/* 记忆 */}
+    <div style={{...t.card,padding:'15px 16px',marginTop:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div><div style={{fontSize:15,color:t.text}}>记忆</div><div style={{fontSize:12,color:t.sub,marginTop:2}}>查看、修改、删除全部记忆</div></div><span style={{color:t.faint,fontSize:18}}>›</span>
+    </div>
+    {/* 外观昼夜 */}
+    <div style={{marginTop:20}}>
+      <div style={{fontSize:12,color:t.sub,letterSpacing:'.04em',marginBottom:10}}>外观 · 昼夜</div>
+      <div style={{...t.card,padding:'6px',display:'flex',gap:6}}>
+        {[['day','昼 · 暖纸'],['night','夜 · 微光']].map(([k,l])=>(
+          <button key={k} onClick={()=>setTheme(k)} style={{flex:1,padding:'11px 0',borderRadius:11,border:'none',cursor:'pointer',fontFamily:serif,fontSize:14,transition:'.25s',background: theme===k?`linear-gradient(90deg,${t.accent},${t.accent2})`:'transparent',color: theme===k?t.onAccent:t.sub,boxShadow: theme===k?glowSh(t,`0 0 14px ${rgba(t,.4)}`):'none'}}>{l}</button>
+        ))}
+      </div>
+    </div>
+    {groups.map(([title,rows],gi)=>(
+      <div key={gi} style={{marginTop:20}}>
+        <div style={{fontSize:12,color:t.sub,letterSpacing:'.04em',marginBottom:10}}>{title}</div>
+        <div style={{...t.card,overflow:'hidden',padding:0}}>
+          {rows.map(([tx,s,on],ri)=>(
+            <div key={ri} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderTop:ri?t.divider:'none'}}>
+              <div style={{flex:1}}><div style={{fontSize:14.5,color:t.text}}>{tx}</div><div style={{fontSize:12,color:t.sub,marginTop:2}}>{s}</div></div><Toggle t={t} on={on}/>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+    <p style={{fontSize:12.5,color:t.faint,textAlign:'center',margin:'22px 0 6px',lineHeight:1.8,fontStyle:'italic',fontFamily:serif}}>不提供心理诊断 · 不把推测包装成事实</p>
+    <TabBar t={t} active="我的"/>
+  </div>;
+}
+
+/* 顶部昼夜大开关 */
+function ThemeSwitch({theme,setTheme,t}){
+  return <div style={{display:'inline-flex',padding:5,borderRadius:999,background:t.key==='night'?'rgba(255,255,255,.05)':'rgba(255,255,255,.5)',border:`1px solid ${rgba(t,.25)}`,gap:4}}>
+    {[['day','☀︎ 昼 · 暖纸'],['night','☾ 夜 · 微光']].map(([k,l])=>(
+      <button key={k} onClick={()=>setTheme(k)} style={{padding:'9px 20px',borderRadius:999,border:'none',cursor:'pointer',fontFamily:serif,fontSize:15,letterSpacing:'.02em',transition:'.25s',background: theme===k?`linear-gradient(90deg,${t.accent},${t.accent2})`:'transparent',color: theme===k?t.onAccent:t.sub,boxShadow: theme===k?glowSh(t,`0 0 16px ${rgba(t,.4)}`):'none'}}>{l}</button>
+    ))}
+  </div>;
+}
+
+function App(){
+  const [theme,setTheme]=useState(location.hash==='#day'?'day':'night');
+  const t=THEMES[theme];
+  const screens=[
+    ['01','陪伴 · 首页（桌宠占位 + 倾倒入口）',<CompanionHome t={t}/>,t.screenBg,'23:41'],
+    ['02','睡前倾倒（语音 + 打字）',<DumpScreen t={t}/>,t.screenBg,'23:47'],
+    ['03','托管回执「妥了」· 五类整理',<ReceiptScreen t={t}/>,t.screenBg,'23:49'],
+    ['04','信箱（今日待启/来信/寄存/珍藏）',<InboxScreen t={t}/>,t.screenBg,'6:30'],
+    ['05','片场 · 候选片段 + 场景创建',<StageScreen t={t}/>,t.screenBg,'22:08'],
+    ['06','片场 · 视觉小说互动 + 结算卡',<VisualNovelScreen t={t}/>,t.previewBase,'22:12'],
+    ['07','我的（桌宠占位/记忆/隐私/偏好）',<MineScreen t={t} theme={theme} setTheme={setTheme}/>,t.screenBg,'22:16'],
+  ];
+  return <div className="stage" style={{background:t.stageBg}}>
+    <div className="page-head">
+      <div className="kicker" style={{color:t.accent,opacity:.9}}>Morning · 对齐功能文档 · Day / Night</div>
+      <h1 style={{color:t.text}}>四 Tab 结构 · 桌宠占位</h1>
+      <p style={{color:t.sub}}>按功能文档 3、4 章对齐：<b style={{color:t.accent,fontWeight:600}}>陪伴 / 信箱 / 片场 / 我的</b> 四个 Tab，睡前倾倒 → 五类整理回执 → 次日信箱交还 → 片场视觉小说重演与结算。桌宠形象由设计队友负责，此处占位。沿用微光仪式风格，昼夜可手动切换。</p>
+    </div>
+    <div className="themebar"><ThemeSwitch theme={theme} setTheme={setTheme} t={t}/></div>
+    <div className="rack">{screens.map(([n,cap,el,bg,time])=>(
+      <div className="cell" key={n}><div className="cap" style={{color:t.sub}}><b style={{color:t.accent}}>{n}</b>{cap}</div><Phone t={t} bg={bg} time={time}>{el}</Phone></div>
+    ))}</div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

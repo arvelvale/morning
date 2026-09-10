@@ -31,8 +31,8 @@
   4. 珍藏改名「我留下的」，作为来信页内的安静入口，不做并列分区。
 - **落地**：前端 `frontend-demo/src/screens/mailbox/MailboxScreen.tsx` 重构；
   后端 `EPHEMERAL_TTL_DAYS=30`、`LetterStore` 移除每日槽位上限；
-  同步更新 `MindOff项目功能文档-精简版.md` §4.3、`backend/docs/api-design.md` §8 等。
-  详见 Obsidian 笔记 `D:\文档存放\wisdom\Aerchen\MindOff-项目梳理\`。
+  同步更新 `Morning项目功能文档-精简版.md` §4.3、`backend/docs/api-design.md` §8 等。
+  详见 Obsidian 笔记 `D:\文档存放\wisdom\Aerchen\Morning-项目梳理\`。
 
 ## 维护约定
 

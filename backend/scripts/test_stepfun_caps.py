@@ -10,10 +10,10 @@ import uuid
 
 import httpx
 
-ROOT = os.environ.get("MINDOFF_API_BASE", "http://223.109.142.152:8000")
+ROOT = os.environ.get("MORNING_API_BASE", "http://223.109.142.152:8000")
 B = ROOT + "/api/v1"
 
-u = {"username": "cap" + uuid.uuid4().hex[:6], "password": "mindoff2026"}
+u = {"username": "cap" + uuid.uuid4().hex[:6], "password": "morning2026"}
 H = {"Authorization": "Bearer " + httpx.post(f"{B}/auth/register", json=u, timeout=60).json()["access_token"]}
 
 health = httpx.get(f"{ROOT}/health", timeout=30).json()

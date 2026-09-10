@@ -1,4 +1,4 @@
-"""MindOff 后端入口：AI 网关 + 双轴记忆系统。
+"""Morning 后端入口：AI 网关 + 双轴记忆系统。
 
 启动：cd backend && uv run uvicorn app.main:app --reload
 """
@@ -291,7 +291,7 @@ async def lifespan(app: FastAPI):
     bedtime_task.cancel()
 
 
-app = FastAPI(title="MindOff Backend", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="Morning Backend", version="0.3.0", lifespan=lifespan)
 
 # 静态文件：阶跃生图转存目录（/static/scene_images/xxx.png）
 from fastapi.staticfiles import StaticFiles  # noqa: E402

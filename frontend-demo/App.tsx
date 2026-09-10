@@ -1,5 +1,5 @@
 /**
- * MindOff RN — 主入口（屏幕状态机）。
+ * Morning RN — 主入口（屏幕状态机）。
  * 桌宠/设置/记忆已接 /api/v1；原型 mock 仅在离线或 dev bypass 时降级。
  */
 import React, { useEffect, useRef, useState } from "react";
@@ -45,7 +45,7 @@ import {
   type ApkUpdateState,
 } from "./src/apkUpdater";
 import { reportCurrentLocation } from "./src/location";
-import { startCompanion, stopCompanion } from "mindoff-companion";
+import { startCompanion, stopCompanion } from "morning-companion";
 import type { TheaterSceneId } from "./src/theater";
 import { THEATER_SCENE_IDS } from "./src/theater";
 

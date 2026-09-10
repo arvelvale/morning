@@ -4,7 +4,7 @@ APK 落在后端容器的 static 卷里（/app/static/download/），由 FastAPI
 不用另起 web 服务。二维码存到本地 deploy/ 下。
 
 用法：
-    $env:MINDOFF_SSH_PASSWORD='...'
+    $env:MORNING_SSH_PASSWORD='...'
     uv run --with paramiko --with "qrcode[pil]" python deploy/publish_apk.py
 """
 from __future__ import annotations
@@ -21,23 +21,23 @@ import paramiko
 import qrcode
 
 APK = Path(os.environ.get(
-    "MINDOFF_APK",
+    "MORNING_APK",
     r"D:\bigproject\AdventureX\frontend-demo\android\app\build\outputs\apk\release\app-release.apk",
 ))
-HOST = os.environ.get("MINDOFF_SSH_HOST", "223.109.142.152")
-USER = os.environ.get("MINDOFF_SSH_USER", "root")
-PASSWORD = os.environ.get("MINDOFF_SSH_PASSWORD")
-VERIFY_ONLY = os.environ.get("MINDOFF_APK_VERIFY_ONLY", "").strip().lower() in {"1", "true", "yes"}
-PUBLIC_BASE = os.environ.get("MINDOFF_PUBLIC_BASE", f"http://{HOST}:8000").rstrip("/")
+HOST = os.environ.get("MORNING_SSH_HOST", "223.109.142.152")
+USER = os.environ.get("MORNING_SSH_USER", "root")
+PASSWORD = os.environ.get("MORNING_SSH_PASSWORD")
+VERIFY_ONLY = os.environ.get("MORNING_APK_VERIFY_ONLY", "").strip().lower() in {"1", "true", "yes"}
+PUBLIC_BASE = os.environ.get("MORNING_PUBLIC_BASE", f"http://{HOST}:8000").rstrip("/")
 REPO = Path(__file__).resolve().parent.parent
 VERSION_TEMPLATE = REPO / "backend" / "app" / "app_version.json"
 APP_JSON = REPO / "frontend-demo" / "app.json"
 PACKAGE_JSON = REPO / "frontend-demo" / "package.json"
 APP_GRADLE = REPO / "frontend-demo" / "android" / "app" / "build.gradle"
 
-# 容器名 + 卷内路径（/app/static 是 mindoff-static 卷，由 /static 路由托管）
-CONTAINER = "mindoff-backend"
-REMOTE_TMP_ROOT = "/opt/mindoff"
+# 容器名 + 卷内路径（/app/static 是 morning-static 卷，由 /static 路由托管）
+CONTAINER = "morning-backend"
+REMOTE_TMP_ROOT = "/opt/morning"
 IN_CONTAINER_DIR = "/app/static/download"
 QR_PATH = Path(__file__).resolve().parent / "apk-download-qr.png"
 
@@ -79,7 +79,7 @@ def _release_manifest() -> dict:
     base = json.loads(VERSION_TEMPLATE.read_text(encoding="utf-8"))
     sha256 = _sha256(APK)
     size_bytes = APK.stat().st_size
-    filename = f"mindoff-{version}.apk"
+    filename = f"morning-{version}.apk"
     return {
         **base,
         "latest": version,
@@ -96,14 +96,14 @@ def main() -> None:
         sys.exit(f"找不到 APK: {APK}")
     manifest = _release_manifest()
     version = manifest["latest"]
-    filename = f"mindoff-{version}.apk"
+    filename = f"morning-{version}.apk"
     download_url = manifest["apk_url"]
     remote_apk_tmp = f"{REMOTE_TMP_ROOT}/.{filename}.tmp"
     remote_manifest_tmp = f"{REMOTE_TMP_ROOT}/.app_version.json.tmp"
     in_container_apk = f"{IN_CONTAINER_DIR}/{filename}"
     in_container_manifest = f"{IN_CONTAINER_DIR}/app_version.json"
     if not PASSWORD and not VERIFY_ONLY:
-        sys.exit("缺少环境变量 MINDOFF_SSH_PASSWORD")
+        sys.exit("缺少环境变量 MORNING_SSH_PASSWORD")
     print(
         f"[apk] {APK.name}  v{version}({manifest['version_code']})  "
         f"{manifest['size_mb']:.1f}MB  sha256={manifest['apk_sha256'][:12]}…"
@@ -147,8 +147,8 @@ def main() -> None:
         run(f"docker cp {remote_apk_tmp} {CONTAINER}:{in_container_apk}.tmp")
         run(f"docker exec {CONTAINER} mv {in_container_apk}.tmp {in_container_apk}")
         # 保留固定文件名，兼容旧二维码；新版客户端使用版本化 URL，避免缓存拿到旧 APK。
-        run(f"docker exec {CONTAINER} cp {in_container_apk} {IN_CONTAINER_DIR}/mindoff.apk.tmp")
-        run(f"docker exec {CONTAINER} mv {IN_CONTAINER_DIR}/mindoff.apk.tmp {IN_CONTAINER_DIR}/mindoff.apk")
+        run(f"docker exec {CONTAINER} cp {in_container_apk} {IN_CONTAINER_DIR}/morning.apk.tmp")
+        run(f"docker exec {CONTAINER} mv {IN_CONTAINER_DIR}/morning.apk.tmp {IN_CONTAINER_DIR}/morning.apk")
         remote_hash = run(f"docker exec {CONTAINER} sha256sum {in_container_apk}").split()[0]
         if remote_hash.lower() != manifest["apk_sha256"]:
             raise RuntimeError("服务器 APK SHA-256 与本地产物不一致，拒绝切换版本清单")

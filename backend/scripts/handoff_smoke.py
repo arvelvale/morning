@@ -1,6 +1,6 @@
-"""交接信冒烟：需先启动服务（用 MINDOFF_PORT 指定端口）。
+"""交接信冒烟：需先启动服务（用 MORNING_PORT 指定端口）。
 
-    MINDOFF_PORT=8010 uv run python scripts/handoff_smoke.py
+    MORNING_PORT=8010 uv run python scripts/handoff_smoke.py
 覆盖：直接落库两封（模拟切换桌宠生成）→ 列表(倒序) / 详情 / 404 / 无token / 用户隔离。
 """
 import os
@@ -11,7 +11,7 @@ import httpx
 from app.db import SessionLocal
 from app.services.pet.handoff_store import HandoffStore
 
-BASE = f"http://127.0.0.1:{os.environ.get('MINDOFF_PORT', '8000')}/api/v1"
+BASE = f"http://127.0.0.1:{os.environ.get('MORNING_PORT', '8000')}/api/v1"
 
 
 def main() -> None:

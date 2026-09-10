@@ -21,7 +21,7 @@ import {
 import { SseClient } from '../../core/network/SseClient';
 import { SseEvent } from '../../core/network/SseParser';
 
-const TAG = 'MindOffChat';
+const TAG = 'MorningChat';
 
 interface ChatUiMessage {
   key: string;

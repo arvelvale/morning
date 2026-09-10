@@ -2,7 +2,7 @@ import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 
-const TAG = 'MindOffAbility';
+const TAG = 'MorningAbility';
 
 export default class EntryAbility extends UIAbility {
   private syncColorMode(colorMode: ConfigurationConstant.ColorMode | undefined): void {

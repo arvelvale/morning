@@ -1,6 +1,7 @@
 /** 深夜通话 · 露营地：帐篷、篝火、松林、星空 */
 import * as THREE from "three";
-import { createSkyDome, createStars, createMoon, createMountains, createGround, createPineTree } from "../utils";
+import { createSkyDome, createStars, createMoon, createMountains, createGround } from "../utils";
+import { createPineTree } from "../generated/props/nature/pineTree";
 import { createFigure } from "../figure";
 import type { TheaterScene } from "../types";
 

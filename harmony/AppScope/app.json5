@@ -1,7 +1,7 @@
 {
   "app": {
-    "bundleName": "com.mindoff.harmony",
-    "vendor": "mindoff",
+    "bundleName": "com.morning.app",
+    "vendor": "morning",
     "versionCode": 3000900,
     "versionName": "0.3.9",
     "icon": "$media:app_icon",

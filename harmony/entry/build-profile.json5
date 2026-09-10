@@ -2,6 +2,11 @@
   "apiType": "stageMode",
   "buildOption": {
     "arkOptions": {
+      "buildProfileFields": {
+        "CLOUD_DEBUG_TEST_LOGIN": false,
+        "CLOUD_DEBUG_USERNAME": "",
+        "CLOUD_DEBUG_PASSWORD": ""
+      },
       "runtimeOnly": {
         "sources": []
       }
@@ -25,6 +30,20 @@
   "targets": [
     {
       "name": "default"
+    },
+    {
+      "name": "cloudDebug",
+      "config": {
+        "buildOption": {
+          "arkOptions": {
+            "buildProfileFields": {
+              "CLOUD_DEBUG_TEST_LOGIN": true,
+              "CLOUD_DEBUG_USERNAME": "@param:cloudDebugUsername",
+              "CLOUD_DEBUG_PASSWORD": "@param:cloudDebugPassword"
+            }
+          }
+        }
+      }
     }
   ]
 }

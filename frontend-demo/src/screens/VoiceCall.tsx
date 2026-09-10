@@ -184,7 +184,7 @@ export function VoiceCall({
   }, [breathe, connecting, reducedMotion, theme.motion.durations.ambient]);
 
   useEffect(() => {
-    AsyncStorage.getItem("mindoff.voiceReply").then((value) => {
+    AsyncStorage.getItem("morning.voiceReply").then((value) => {
       if (value === "1") setVoiceReply(true);
     });
   }, []);
@@ -192,7 +192,7 @@ export function VoiceCall({
   const toggleVoice = () => {
     setVoiceReply((previous) => {
       const next = !previous;
-      AsyncStorage.setItem("mindoff.voiceReply", next ? "1" : "0").catch(
+      AsyncStorage.setItem("morning.voiceReply", next ? "1" : "0").catch(
         () => {},
       );
       return next;

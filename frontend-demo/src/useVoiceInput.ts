@@ -20,7 +20,7 @@ import {
   isPcmAvailable,
   startPcmCapture,
   stopPcmCapture,
-} from "mindoff-companion";
+} from "morning-companion";
 
 import { sttOnce, wsAuthUrl } from "./api";
 import {

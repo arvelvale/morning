@@ -1,5 +1,5 @@
 /**
- * MindOff 设计基础 —— Quiet Ambient OS × Digital Storybook。
+ * Morning 设计基础 —— Quiet Ambient OS × Digital Storybook。
  *
  * 骨架（Quiet Ambient OS）：环境行、低 chrome（靠纸色分层而非描边）、日夜一体
  * （夜间不是蓝黑，而是同一盏灯调暗后的暖炭色）。灵魂（Digital Storybook）：

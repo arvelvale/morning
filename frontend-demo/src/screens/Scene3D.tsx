@@ -15,17 +15,19 @@
  * `expo prebuild` 并重新构建安装包后才能生效。
  */
 import React, { useEffect, useMemo, useRef } from "react";
-import { View, PanResponder } from "react-native";
-import { Canvas, useFrame } from "@react-three/fiber/native";
+import { Platform, View, PanResponder } from "react-native";
+import { Canvas, useFrame, useThree } from "@react-three/fiber/native";
 import * as THREE from "three";
-import { THEATER_SCENES, assembleScene } from "../theater";
-import type { SceneSpec, TheaterSceneId } from "../theater";
+import { THEATER_SCENES, assembleAnySpec } from "../theater";
+import type { SceneSpec, SemanticSceneSpec, TheaterSceneId } from "../theater";
+import { SceneErrorBoundary, isWebGLAvailable, WebGLUnavailable } from "./webgl-guard";
+import { frameSubjects } from '../theater/generated/vision/framing';
 
 interface Scene3DProps {
   /** theater 预置场景 id（campsite / bedroom / seaside / dining / airport / station）。 */
   sceneId?: TheaterSceneId;
-  /** 生成式场景规格（LLM 产出的 SceneSpec）；提供时优先于 sceneId。 */
-  spec?: SceneSpec;
+  /** 生成式场景规格（绝对坐标版或关系式语义版）；提供时优先于 sceneId。 */
+  spec?: SceneSpec | SemanticSceneSpec;
 }
 
 /** 用户操作累计的视角增量（方位角/极角，弧度）+ 相机半径倍率。ref 直传渲染帧，不触发 re-render。 */
@@ -36,17 +38,19 @@ type Orbit = { az: number; polar: number; scale: number };
 function disposeObject(root: THREE.Object3D) {
   root.traverse((obj) => {
     const withGeo = obj as THREE.Mesh;
+    // 共享材质（vision/materials.ts，userData.__shared）常驻缓存，跳过释放
     if (withGeo.geometry) withGeo.geometry.dispose();
     const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-    if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-    else if (mat) mat.dispose();
+    if (Array.isArray(mat)) mat.forEach((m) => { if (!m.userData.__shared) m.dispose(); });
+    else if (mat && !mat.userData.__shared) mat.dispose();
   });
 }
 
 function TheaterStage({ sceneId, spec, orbit }: { sceneId?: TheaterSceneId; spec?: SceneSpec; orbit: React.MutableRefObject<Orbit> }) {
   // 场景只构建一次（或切换场景时重建），每帧只调 update(t)。spec 优先，兼容预置 id。
+  // assembleAnySpec 自动识别新旧两种 spec 格式（关系式的先解算再拼装）。
   const scene = useMemo(
-    () => (spec ? assembleScene(spec) : THEATER_SCENES[sceneId ?? "dining"]()),
+    () => (spec ? assembleAnySpec(spec) : THEATER_SCENES[sceneId ?? "dining"]()),
     [sceneId, spec]
   );
 
@@ -54,23 +58,48 @@ function TheaterStage({ sceneId, spec, orbit }: { sceneId?: TheaterSceneId; spec
     return () => disposeObject(scene.group);
   }, [scene]);
 
+  // mood sceneSetup：挂/卸场景级雾与曝光偏移（不污染下一个场景）
+  const sceneObj = useThree((s) => s.scene);
+  const gl = useThree((s) => s.gl);
+  const size = useThree((s) => s.size);
+  const renderCamera = useThree((s) => s.camera);
+  const framedCamera = useMemo(() => scene.framing
+    ? frameSubjects(scene.camera, scene.framing, size.width / Math.max(1, size.height), (renderCamera as THREE.PerspectiveCamera).fov ?? 50)
+    : scene.camera, [scene, size.width, size.height, renderCamera]);
+  useEffect(() => { orbit.current = { az: 0, polar: 0, scale: 1 }; }, [scene, orbit]);
+  useEffect(() => {
+    if (!scene.sceneSetup) return;
+    const prevFog = sceneObj.fog;
+    if (scene.sceneSetup.fog) sceneObj.fog = scene.sceneSetup.fog;
+    const prevExposure = gl.toneMappingExposure;
+    if (scene.sceneSetup.exposureBias) {
+      gl.toneMappingExposure = Math.max(0.5, 1.1 + scene.sceneSetup.exposureBias);
+    }
+    return () => {
+      sceneObj.fog = prevFog;
+      gl.toneMappingExposure = prevExposure;
+    };
+  }, [scene, sceneObj, gl]);
+
   // 由场景初始机位（pos 相对 look 中心）推导球坐标基准，用户拖动在其上叠加增量。
   const base = useMemo(() => {
-    const { pos, look } = scene.camera;
+    const { pos, look } = framedCamera;
     const ox = pos[0] - look[0], oy = pos[1] - look[1], oz = pos[2] - look[2];
     const r = Math.hypot(ox, oy, oz) || 1;
     const theta0 = Math.atan2(ox, oz);                          // 初始方位角（绕 Y 轴）
     const phi0 = Math.acos(Math.min(1, Math.max(-1, oy / r)));  // 初始极角（自 +Y 轴俯仰）
     return { r, theta0, phi0, look };
-  }, [scene]);
+  }, [framedCamera]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     scene.update(t);
     const { r, theta0, phi0, look } = base;
-    // 用户拖动增量叠加到初始球坐标；极角夹紧到 [0.15, π-0.15] 避免翻越极点导致画面倒转。
+    // 用户拖动增量叠加到初始球坐标；极角夹紧 [0.15, 1.45] rad——
+    // 上限约 83°，保证视线始终在地平线以上：地面是单面圆盘(utils.createGround)，
+    // 天空球只有 ±120m，钻到水平线下会直接看穿场景出现空洞。
     const theta = theta0 + orbit.current.az;
-    const phi = Math.min(Math.PI - 0.15, Math.max(0.15, phi0 + orbit.current.polar));
+    const phi = Math.min(1.45, Math.max(0.15, phi0 + orbit.current.polar));
     // 半径 = 初始半径 × 用户捏合倍率 + 极缓慢「呼吸」（±0.05），保留活着的镜头感。
     const br = r * orbit.current.scale + Math.sin(t * 0.3) * 0.05;
     const cam = state.camera;
@@ -89,6 +118,9 @@ function TheaterStage({ sceneId, spec, orbit }: { sceneId?: TheaterSceneId; spec
 
 export function Scene3D({ sceneId, spec }: Scene3DProps) {
   const orbit = useRef<Orbit>({ az: 0, polar: 0, scale: 1 });
+  // Web 上先预检 WebGL：拿不到上下文就给说明卡，不让 invariant 抛成白屏
+  const webglOk = useMemo(() => isWebGLAvailable(), []);
+  if (Platform.OS === "web" && !webglOk) return <WebGLUnavailable />;
   // g.dx/g.dy 是自手势起点的累计位移，记录上一帧值以取相对增量，避免每次 move 累加爆冲。
   const last = useRef({ dx: 0, dy: 0 });
   // 双指捏合上一帧的指间距（px），null 表示未在捏合。
@@ -137,21 +169,22 @@ export function Scene3D({ sceneId, spec }: Scene3DProps) {
       style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
       {...responder.panHandlers}
     >
-      <Canvas
-        shadows
-        camera={{ fov: 50, near: 0.1, far: 400 }}
-        style={{ flex: 1 }}
-        onCreated={({ gl }) => {
-          // 对齐 theater/src/main.js 的渲染器配置
-          gl.outputColorSpace = THREE.SRGBColorSpace;
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.1;
-          gl.shadowMap.enabled = true;
-          gl.shadowMap.type = THREE.PCFSoftShadowMap;
-        }}
-      >
-        <TheaterStage sceneId={sceneId} spec={spec} orbit={orbit} />
-      </Canvas>
-    </View>
+      <SceneErrorBoundary>
+        <Canvas
+          shadows
+          camera={{ fov: 50, near: 0.1, far: 400 }}
+          style={{ flex: 1 }}
+          onCreated={({ gl }) => {
+            // 对齐 theater/src/main.js 的渲染器配置
+            gl.outputColorSpace = THREE.SRGBColorSpace;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.1;
+            gl.shadowMap.enabled = true;
+            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          }}
+        >
+          <TheaterStage sceneId={sceneId} spec={spec} orbit={orbit} />
+        </Canvas>
+      </SceneErrorBoundary>    </View>
   );
 }

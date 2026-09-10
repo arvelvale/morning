@@ -28,7 +28,7 @@
 | 能力 | 当前证据 | 结论 |
 |---|---|---|
 | HarmonyOS 工程骨架 | `harmony/build-profile.json5`、`harmony/entry/build-profile.json5` | 已配置 Stage 模型、`entry` HAP、debug/release 构建模式和 API 12 基线 |
-| 应用信息 | `harmony/AppScope/app.json5` | `bundleName=com.mindoff.harmony`，版本为 `0.3.9` |
+| 应用信息 | `harmony/AppScope/app.json5` | `bundleName=com.morning.harmony`，版本为 `0.3.9` |
 | 设备声明 | `harmony/entry/src/main/module.json5` | 声明 phone、tablet、2in1；目前代码只实现手机底栏布局 |
 | 设计基础 | `harmony/entry/src/main/ets/common/Theme.ets` | 已有日夜语义色、字号、间距、圆角、阴影、动效 token |
 | 启动与主题初始化 | `harmony/entry/src/main/ets/entryability/EntryAbility.ets` | 启动时读取系统颜色模式并写入 `AppStorage` |
@@ -330,7 +330,7 @@ HarmonyOS 官方资料表明，`AudioCapturer` 可采集 PCM，语音通信 sour
 - 通知与提醒使用 HarmonyOS 对应能力，遵守安静时段和用户开关。
 - 网络、SSE、WS、音频、ArkWeb 建立脱敏错误码与性能指标。
 - 建立 ArkTS 单元测试、关键接口集成测试和真机回归清单。
-- 建立 debug/release 构建脚本或可复现 DevEco 操作说明。
+- 已建立 default/cloudDebug 产品隔离与可复现 Release 构建脚本；cloudDebug 支持本机凭据注入和自动测试登录。
 - 设计 AppGallery/内测分发版本策略；不复用 Android 的 APK 下载更新逻辑。
 - 完成隐私声明、权限用途说明、删除账户/数据路径和发布前安全审查。
 
@@ -338,7 +338,7 @@ HarmonyOS 官方资料表明，`AudioCapturer` 可采集 PCM，语音通信 sour
 
 - 关键闭环在至少一台 API 12 基线设备和一台主流较新设备通过。
 - release HAP/App 已签名、可安装，版本号和后端兼容范围正确。
-- 无明文 token、私密日志、HTTP 生产请求和遗留测试账号。
+- 正式 default product 无测试登录入口、无测试凭据、无明文 token、私密日志或 HTTP 生产请求；cloudDebug 测试账号只由本机忽略文件注入。
 - 崩溃、网络失败、AI 超时、Web 白屏和音频失败均可定位且有用户可理解的降级。
 
 ## 7. 测试策略

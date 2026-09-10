@@ -1,0 +1,7 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.morning.updater.MorningUpdaterModule"],
+    "packageImportPath": "com.morning.updater"
+  }
+}

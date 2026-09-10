@@ -1,7 +1,7 @@
-# AGENTS.md — 喵灵（仓库/项目代号 MindOff）
+# AGENTS.md — 喵灵（仓库/项目代号 Morning）
 
 思绪托管 + 情感陪伴 App（AdventureX 黑客松项目）。一句话：把明天的事还给明天，
-把没闭环的过去在片场重演里了结。产品文档：`MindOff项目功能文档-精简版.md`。
+把没闭环的过去在片场重演里了结。产品文档：`Morning项目功能文档-精简版.md`。
 
 ## 仓库结构
 
@@ -12,12 +12,16 @@
 | `backend/docs/api-design.md` | REST 接口契约（各节标注 ✅ 已实现 / 未实现） |
 | `.kiro/specs/memory-system/` | 双轴记忆系统 spec（requirements/design/tasks），Phase 0–6 已全部实现 |
 | `theater/` | three.js 重演剧场场景库（六个预置场景），详见 `theater/README.md` |
-| `mindoff-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
+| `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，已部署于 yingjiapp.com，日志见 `docs/progress/2026-09-02.md`） |
+| `morning-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
 | `frontend-demo/` | React Native / Expo 移植版（`npm run web` 浏览器预览 / `npm run android`），详见 `frontend-demo/README.md` |
+| `harmony/` | HarmonyOS NEXT 原生客户端（ArkTS + ArkUI），详见 `harmony/README.md`；计划与里程碑见 `docs/2026-08-27-harmonyos-next-development-plan.md` |
+| `docs/progress/` | 开发日志：每天一个 `YYYY-MM-DD.md`，双层结构（产品语义优先、实现细节其次），规则与索引见 `docs/progress/_开发日志规范.md` |
 | `deploy/` | 后端 Docker 部署（`deploy.py` 一键装 Docker/同步/重建；`docker-compose.yml`） |
 | `references/` | 参考架构文档 |
+| `.codex/skills/harmony-release-build/` | 鸿蒙签名、Hvigor 构建、Release 产物与 AGC 云调试诊断 Skill；处理相关任务时优先使用 |
 
-线上后端：`http://223.109.142.152:8000`（容器 `mindoff-backend`）。前端默认连它，
+线上后端：`http://223.109.142.152:8000`（容器 `morning-backend`）。前端默认连它，
 本地联调在 `frontend-demo/.env` 写 `EXPO_PUBLIC_API_BASE`。
 
 ## 常用命令
@@ -36,21 +40,24 @@ cd theater && npm run build                           # 产出单文件 dist/ind
 
 ## 硬约定（新人必读）
 
-1. **dev 库 `backend/mindoff.db` 由 create_all 建**，不加列；改列手动 ALTER 或删库。
+1. **dev 库 `backend/morning.db` 由 create_all 建**，不加列；改列手动 ALTER 或删库。
    模型/字段变更必须同步写 `backend/alembic/versions/` 迁移（revision id ≤ 32 字符）。
 2. 新模型注册 `backend/app/models/__init__.py`；新 router / service 放进 `routers/` `services/` 对应业务域子包（无合适域再新建），新 router 还需在 `backend/app/main.py` 按域导入并 `include_router`。
 3. 所有业务接口必须 `Depends(get_current_user)` 做用户隔离，URL 不放 userId。
 4. 伦理红线：不诊断、不贴人格标签、不把推测当事实；vulnerable/core 记忆
    默认 local 不外发（走 `app/services/memory/privacy.py` 判定）。
-5. `mindoff.db*`、`.env` 不入库（见 `.gitignore`）。
-6. 生成式 3D（SceneSpec）的零件/人物字段三端同步：`backend/app/services/scene/scene_spec.py`
-   （白名单 + prompt）、`frontend-demo/src/theater/generated/spec.ts`（类型）、
-   `frontend-demo/src/theater/generated/props.ts` 与 `frontend-demo/src/theater/figure/`（实现）。
+5. `morning.db*`、`.env` 不入库（见 `.gitignore`）。
+6. 生成式 3D（SceneSpec）的零件/人物字段同步（改动需跨这些位置）：
+   `backend/app/services/scene/scene_spec.py`（白名单 + 导演 prompt）、
+   `frontend-demo/src/theater/generated/spec.ts`（绝对坐标版类型）、
+   `frontend-demo/src/theater/generated/layout/types.ts`（语义版关系词表）、
+   `frontend-demo/src/theater/generated/props.ts` 与 `frontend-demo/src/theater/figure/`（实现，
+   新增可承载零件记得在 `layout/propMeta.ts` 补座位/承载锚点）。
 
 ## 前端设计与迁移规则
 
 前端视觉重构的唯一规格是
-`docs/superpowers/specs/2026-07-25-mindoff-frontend-visual-redesign.md`。
+`docs/specs/2026-07-25-morning-frontend-visual-redesign.md`。
 修改 `frontend-demo/` 时必须遵守：
 
 1. Web 与移动端同等重要，使用同一套 React Native / Expo 代码响应式适配。
@@ -73,4 +80,10 @@ cd theater && npm run build                           # 产出单文件 dist/ind
 
 ## 远程仓库
 
-`https://github.com/rain1andsnow2a/mindoff`（私有）。任务看板：Linear Dayfire 团队 mindoff 项目。
+`https://github.com/arvelvale/morning`。任务看板：Linear Dayfire 团队 morning 项目。
+
+## 文档维护
+
+文档入口见 [docs/README.md](docs/README.md)。规格正本在 `docs/specs/`，计划在 `docs/plans/`，有实质变化时更新当天 `docs/progress/` 日志；长期约束更新对应正本，日志链接它。
+
+Obsidian `D:/文档存放/wisdom/Aerchen/项目/Morning` 保留产品回顾与审阅笔记。只有产品方向、阶段结论或审阅材料变化时更新相应笔记并链接仓库正本，不要求每次代码修改复制一篇笔记。2026-07-30 的盘点属于历史快照。

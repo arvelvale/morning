@@ -1,16 +1,15 @@
 {
-  "latest": "0.3.9",
+  "latest": "0.3.10",
   "min_supported": "0.1.0",
-  "version_code": 12,
-  "apk_url": "http://223.109.142.152:8000/static/download/mindoff-0.3.9.apk",
+  "version_code": 13,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.10.apk",
   "apk_sha256": "2ff7f0a7ab2f28d40cccd327fc85879df17d27e0358ab5ae8e4e741ab2b833e0",
   "size_bytes": 37934011,
   "size_mb": 36.2,
   "mandatory": false,
   "changelog": [
-    "更新下载改用 Android 系统下载服务：切后台、锁屏后仍可继续下载",
-    "下载完成后通过系统通知提示安装，点击后自动校验安装包与签名",
-    "修复首页米露遮挡最近对话卡片的问题，并替换异常棋盘格眨眼帧",
-    "新增米露与波比的 Q 版透明头像，伙伴切换更直观"
+    "品牌正式更名：MindOff → Morning（喵灵），包名 com.morning.app",
+    "生成式 3D 场景可靠性与人物模型精修",
+    "信箱两层结构与鸿蒙端倾倒/信箱闭环对齐"
   ]
 }

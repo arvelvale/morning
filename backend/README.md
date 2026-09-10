@@ -1,4 +1,4 @@
-# 喵灵（MindOff）后端
+# 喵灵（Morning）后端
 
 FastAPI + SQLAlchemy(SQLite) + LangGraph。分两层：
 
@@ -48,18 +48,18 @@ uv run uvicorn app.main:app --reload   # 默认 http://127.0.0.1:8000
 
 ## 线上部署（Docker）
 
-线上实例：`http://223.109.142.152:8000`（容器 `mindoff-backend`，见 `../deploy/`）。
+线上实例：`http://223.109.142.152:8000`（容器 `morning-backend`，见 `../deploy/`）。
 
 ```bash
 # 仓库根目录，密码只从环境变量读、不入库
-$env:MINDOFF_SSH_PASSWORD='...'
+$env:MORNING_SSH_PASSWORD='...'
 uv run --with paramiko python deploy/deploy.py --step all     # docker→sync→up→status
 uv run --with paramiko python deploy/deploy.py --step sync    # 只同步代码
 uv run --with paramiko python deploy/deploy.py --step up      # 重建容器
 ```
 
-服务器上看日志：`cd /opt/mindoff && docker compose logs -f backend`。
-SQLite 与静态文件在命名卷 `mindoff_mindoff-data` / `mindoff_mindoff-static`，重建容器不丢。
+服务器上看日志：`cd /opt/morning && docker compose logs -f backend`。
+SQLite 与静态文件在命名卷 `morning_morning-data` / `morning_morning-static`，重建容器不丢。
 首次启动由 `docker-entrypoint.sh` 用 `create_all` 落基线并 `alembic stamp head`，
 之后每次启动跑 `alembic upgrade head`。
 
@@ -117,7 +117,7 @@ uv run python scripts/test_signals.py        # 主动触发信号（检测器+�
 uv run python scripts/test_scene_parse.py    # 场景整理/角色整理（走 LLM、不编造、不贴标签）
 ```
 
-> `test_scene_parse.py` 默认打线上（`MINDOFF_API_BASE` 可覆盖成 `http://127.0.0.1:8000`）。
+> `test_scene_parse.py` 默认打线上（`MORNING_API_BASE` 可覆盖成 `http://127.0.0.1:8000`）。
 > `test_signals.py` 含 service 层单测，需 `PYTHONPATH=.`。
 
 service 层测试（免启动服务，需 `PYTHONPATH=.`）：
@@ -135,7 +135,7 @@ uv run python scripts/test_ephemeral_weekly.py # 到期硬删（行+历史）+ �
 ## 开发约定（踩过的坑）
 
 1. **dev 库由 `create_all` 建**：不会给已存在的表加列。改列需手动 ALTER 或删
-   `mindoff.db` 重建；新表无需处理。Alembic 迁移（`alembic/versions/`）是 prod 路径，
+   `morning.db` 重建；新表无需处理。Alembic 迁移（`alembic/versions/`）是 prod 路径，
    模型/字段变更要同步写迁移，revision id ≤ 32 字符。
 2. **新模型要注册** `app/models/__init__.py`；**新 router 要挂载** `app/main.py`。
 3. `--reload` 监视整个目录：写 `scripts/*.py` 会触发重启，先建好文件再测。

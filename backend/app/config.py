@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     caiyun_cache_minutes: int = 30
 
     # 数据库
-    database_url: str = "sqlite:///./mindoff.db"
+    database_url: str = "sqlite:///./morning.db"
 
     # 能力开关（可回滚）
     dreaming_enabled: bool = True

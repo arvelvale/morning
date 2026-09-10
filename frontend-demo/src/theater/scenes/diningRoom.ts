@@ -1,6 +1,6 @@
 /** 家中餐桌：暖光吊灯下，两个人物相对而坐 */
 import * as THREE from "three";
-import { createChair } from "../utils";
+import { createChair } from "../generated/props/furniture/chair";
 import { createFigure } from "../figure";
 import type { TheaterScene } from "../types";
 

@@ -87,13 +87,13 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.mindoff.app'
+    namespace 'com.morning.app'
     defaultConfig {
-        applicationId 'com.mindoff.app'
+        applicationId 'com.morning.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "0.3.9"
+        versionCode 13
+        versionName "0.3.10"
     }
     signingConfigs {
         debug {

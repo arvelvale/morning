@@ -1,13 +1,13 @@
-"""把 MindOff 后端部署到服务器并用 Docker 跑起来。
+"""把 Morning 后端部署到服务器并用 Docker 跑起来。
 
 用法（本地仓库根目录）：
-    set MINDOFF_SSH_PASSWORD=...      # 或 $env:MINDOFF_SSH_PASSWORD=...
+    set MORNING_SSH_PASSWORD=...      # 或 $env:MORNING_SSH_PASSWORD=...
     uv run --with paramiko python deploy/deploy.py [--step all|docker|sync|up|status]
 
 做的事：
 1. docker —— 装 Docker Engine + compose 插件（Ubuntu 22.04，走阿里云 apt 镜像）
 2. backup —— 为当前镜像打回滚 tag，并用 SQLite backup API 生成一致性数据库备份
-3. sync   —— 上传 backend/ 源码 + docker-compose.yml，并生成线上 /opt/mindoff/.env
+3. sync   —— 上传 backend/ 源码 + docker-compose.yml，并生成线上 /opt/morning/.env
 4. up     —— docker compose up -d --build
 5. status —— 打印容器状态 + /health 探测
 
@@ -29,14 +29,14 @@ from pathlib import Path
 
 import paramiko
 
-HOST = os.environ.get("MINDOFF_SSH_HOST", "223.109.142.152")
-PORT = int(os.environ.get("MINDOFF_SSH_PORT", "22"))
-USER = os.environ.get("MINDOFF_SSH_USER", "root")
-PASSWORD = os.environ.get("MINDOFF_SSH_PASSWORD") or ""
+HOST = os.environ.get("MORNING_SSH_HOST", "223.109.142.152")
+PORT = int(os.environ.get("MORNING_SSH_PORT", "22"))
+USER = os.environ.get("MORNING_SSH_USER", "root")
+PASSWORD = os.environ.get("MORNING_SSH_PASSWORD") or ""
 
 REPO = Path(__file__).resolve().parent.parent
 BACKEND = REPO / "backend"
-REMOTE_ROOT = "/opt/mindoff"
+REMOTE_ROOT = "/opt/morning"
 REMOTE_BACKEND = posixpath.join(REMOTE_ROOT, "backend")
 
 # 只同步运行期需要的文件；.venv / db / 日志 / 本地 .env 一律不传
@@ -99,7 +99,7 @@ def log(msg: str) -> None:
 
 def connect() -> paramiko.SSHClient:
     if not PASSWORD:
-        sys.exit("缺少环境变量 MINDOFF_SSH_PASSWORD")
+        sys.exit("缺少环境变量 MORNING_SSH_PASSWORD")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(HOST, port=PORT, username=USER, password=PASSWORD, timeout=25)
@@ -135,26 +135,26 @@ def step_docker(client: paramiko.SSHClient) -> None:
 
 # ─── 步骤 2：发布前回滚点 ───────────────────────────────────────────────────
 def step_backup(client: paramiko.SSHClient) -> None:
-    """备份当前运行镜像和 SQLite；只写入 /opt/mindoff/backups。"""
+    """备份当前运行镜像和 SQLite；只写入 /opt/morning/backups。"""
     log("创建发布前回滚点")
     command = f"""set -eu
 stamp=$(date +%Y%m%d-%H%M%S)
 mkdir -p {REMOTE_ROOT}/backups
-if ! docker inspect mindoff-backend >/dev/null 2>&1; then
+if ! docker inspect morning-backend >/dev/null 2>&1; then
   echo '当前容器不存在，跳过回滚镜像和数据库备份'
   exit 0
 fi
-image=$(docker inspect -f '{{{{.Image}}}}' mindoff-backend)
-tag=mindoff-backend:rollback-$stamp
+image=$(docker inspect -f '{{{{.Image}}}}' morning-backend)
+tag=morning-backend:rollback-$stamp
 docker tag "$image" "$tag"
 echo "rollback_image=$tag"
-if docker exec mindoff-backend test -f /data/mindoff.db; then
-  inside=/data/mindoff-$stamp.db
-  docker exec mindoff-backend python -c "import sqlite3; s=sqlite3.connect('/data/mindoff.db'); d=sqlite3.connect('$inside'); s.backup(d); d.close(); s.close()"
-  docker cp mindoff-backend:$inside {REMOTE_ROOT}/backups/mindoff-$stamp.db >/dev/null
-  docker exec mindoff-backend rm -f "$inside"
-  chmod 600 {REMOTE_ROOT}/backups/mindoff-$stamp.db
-  echo "database_backup={REMOTE_ROOT}/backups/mindoff-$stamp.db"
+if docker exec morning-backend test -f /data/morning.db; then
+  inside=/data/morning-$stamp.db
+  docker exec morning-backend python -c "import sqlite3; s=sqlite3.connect('/data/morning.db'); d=sqlite3.connect('$inside'); s.backup(d); d.close(); s.close()"
+  docker cp morning-backend:$inside {REMOTE_ROOT}/backups/morning-$stamp.db >/dev/null
+  docker exec morning-backend rm -f "$inside"
+  chmod 600 {REMOTE_ROOT}/backups/morning-$stamp.db
+  echo "database_backup={REMOTE_ROOT}/backups/morning-$stamp.db"
 else
   echo '线上数据库不存在，跳过数据库备份'
 fi
@@ -256,8 +256,8 @@ def step_sync(client: paramiko.SSHClient) -> None:
     reused = "复用线上已有" if remote_env.get("JWT_SECRET") else "新生成"
 
     lines = [
-        "# MindOff 线上环境变量（由 deploy/deploy.py 生成，请勿手改后又重跑同步）",
-        "DATABASE_URL=sqlite:////data/mindoff.db",
+        "# Morning 线上环境变量（由 deploy/deploy.py 生成，请勿手改后又重跑同步）",
+        "DATABASE_URL=sqlite:////data/morning.db",
         f"JWT_SECRET={jwt_secret}",
         "CORS_ORIGINS=*",
     ]
@@ -300,14 +300,14 @@ def step_status(client: paramiko.SSHClient) -> None:
 def step_verify(client: paramiko.SSHClient) -> None:
     """发布验收：只输出非敏感状态、迁移版本和公开接口。"""
     log("发布后容器与迁移验收")
-    run(client, "docker inspect -f 'status={{.State.Status}} health={{.State.Health.Status}} started={{.State.StartedAt}} image={{.Image}}' mindoff-backend")
-    run(client, "docker exec mindoff-backend alembic current")
-    run(client, "docker exec mindoff-backend python -c \"import importlib.metadata as m; print('jieba='+m.version('jieba'))\"")
+    run(client, "docker inspect -f 'status={{.State.Status}} health={{.State.Health.Status}} started={{.State.StartedAt}} image={{.Image}}' morning-backend")
+    run(client, "docker exec morning-backend alembic current")
+    run(client, "docker exec morning-backend python -c \"import importlib.metadata as m; print('jieba='+m.version('jieba'))\"")
     log("公开健康与版本接口")
     run(client, "curl -fsS -m 15 http://127.0.0.1:8000/health; echo")
     run(client, "curl -fsS -m 15 http://127.0.0.1:8000/api/v1/app/version; echo")
     log("线上 APK 文件")
-    run(client, "docker exec mindoff-backend ls -ln /app/static/download/mindoff.apk")
+    run(client, "docker exec morning-backend ls -ln /app/static/download/morning.apk")
 
 
 STEPS = {

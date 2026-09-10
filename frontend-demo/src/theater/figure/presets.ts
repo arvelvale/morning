@@ -28,6 +28,7 @@ export type FigurePose =
   | "waving"
   | "lookingBack"
   | "headDown"
+  | "handsFolded"
   | "arguing"
   | "comforting"
   | "hugging"
@@ -52,7 +53,7 @@ export interface TypePreset {
 }
 
 export const TYPE_PRESETS: Record<FigureType, TypePreset> = {
-  child: { scale: 0.6, headScale: 1.28 },
+  child: { scale: 0.68, headScale: 1.3 },     // 学龄前：约七成身高 + 大头，不再"缩水成半人"
   student: { scale: 0.82, headScale: 1.1 },
   adult: { scale: 1, headScale: 1 },
   elderly: { scale: 0.93, headScale: 1.02, hunch: 0.18, hairColor: 0x9a948e },

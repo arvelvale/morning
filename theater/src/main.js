@@ -36,7 +36,7 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.maxDistance = 30;
 controls.minDistance = 1.5;
-controls.maxPolarAngle = Math.PI * 0.52;
+controls.maxPolarAngle = 1.45; // 约83°：保证视线在地平线以上，与 RN 端 Scene3D 钳制口径一致（原 0.52π 会越过水平线露出地底）
 
 // ---------- 场景切换 ----------
 let current = null; // { group, update }

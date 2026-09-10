@@ -10,11 +10,22 @@ export interface TheaterCamera {
   look: [number, number, number];
 }
 
+/** 需要挂到真实 THREE.Scene 的环境项（R3F 里由 Scene3D 负责应用与卸载时还原）。 */
+export interface TheaterSceneSetup {
+  fog?: THREE.Fog | THREE.FogExp2;
+  /** 渲染器曝光偏移（叠加在 ACESFilmic 基线上）。 */
+  exposureBias?: number;
+}
+
 export interface TheaterScene {
   group: THREE.Group;
   /** 每帧驱动场景内动画（火焰/蒸汽/海浪等），t 为秒。 */
   update: (t: number) => void;
   camera: TheaterCamera;
+  /** Runtime-only framing subjects; no change to stored SceneSpec. */
+  framing?: import('./generated/vision/framing').SceneFraming;
+  /** 可选：mood 系统推导出的场景级雾/曝光（预置六场景可不返回，行为不变）。 */
+  sceneSetup?: TheaterSceneSetup;
 }
 
 /** 六个预置场景 id，与 theater/dist 的 URL hash 一致。 */

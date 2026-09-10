@@ -1,10 +1,31 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "release",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "./signing/morning-release.p12",
+          "storePassword": "0000001daad41a470e5d4b0290dfdafe5094cf875e8097591a0565c7989c1a2a2ba9e201984e041b5652c93259",
+          "keyAlias": "morning-release",
+          "keyPassword": "0000001de260d81fcd5e74b8b4545a0e986c987ec447d6597ceebd15123781e165617100bd1726971afd3aebd4",
+          "signAlg": "SHA256withECDSA",
+          "profile": "./signing/morning-release-profile.p7b",
+          "certpath": "./signing/morning-release.cer"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
+        "signingConfig": "release",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "targetSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS"
+      },
+      {
+        "name": "cloudDebug",
+        "signingConfig": "release",
         "compatibleSdkVersion": "5.0.0(12)",
         "targetSdkVersion": "5.0.0(12)",
         "runtimeOS": "HarmonyOS"
@@ -28,6 +49,12 @@
           "name": "default",
           "applyToProducts": [
             "default"
+          ]
+        },
+        {
+          "name": "cloudDebug",
+          "applyToProducts": [
+            "cloudDebug"
           ]
         }
       ]

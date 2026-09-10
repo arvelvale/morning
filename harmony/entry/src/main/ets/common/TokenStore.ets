@@ -5,7 +5,7 @@
  */
 import { asset } from '@kit.AssetStoreKit';
 
-const TOKEN_ALIAS = 'mindoff.session.tokens';
+const TOKEN_ALIAS = 'morning.session.tokens';
 
 function toBytes(value: string): Uint8Array {
   const bytes = new Uint8Array(value.length);
