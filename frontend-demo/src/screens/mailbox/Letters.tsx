@@ -89,7 +89,7 @@ function LetterAttachment({ attachment, saved, onSave }: {
             width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center",
             backgroundColor: "rgba(246,231,168,0.65)", borderWidth: 1, borderColor: "rgba(255,255,255,0.5)",
           }}>
-            <Text style={{ fontSize: 20 }}>🎵</Text>
+            <Music size={20} color="#B98232" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: "500", color: paperColors.ink2 }} numberOfLines={1}>{attachment.title}</Text>

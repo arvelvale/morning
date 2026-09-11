@@ -6,7 +6,7 @@
  * 视觉全部走 design-system token，夜间模式自适应；升起动画 260ms，尊重 reduced motion。
  */
 import React, { useEffect, useRef } from "react";
-import { AccessibilityInfo, Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, Text, View } from "react-native";
 
 import { paperColors, useTheme } from "../design-system";
 import type { ApkUpdateState } from "../apkUpdater";
@@ -91,8 +91,12 @@ export function UpdateSheet({ info, updateState, onUpdate, onLater }: UpdateShee
 
         {/* 标题行：徽标 + 版本 */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing[3], marginBottom: theme.spacing[4] }}>
-          <View style={{ width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.accentSurface }}>
-            <Text style={{ fontSize: 24 }}>✨</Text>
+          <View style={{ width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, overflow: "hidden" }}>
+            <Image
+              accessibilityLabel="喵灵"
+              source={require("../../assets/icon.png")}
+              style={{ width: 34, height: 34 }}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 17, fontWeight: "600", color: theme.colors.textPrimary }}>
@@ -149,7 +153,7 @@ export function UpdateSheet({ info, updateState, onUpdate, onLater }: UpdateShee
             borderRadius: theme.radii.pill,
             paddingVertical: 14,
             alignItems: "center",
-            backgroundColor: theme.colors.accentSurface,
+            backgroundColor: theme.colors.accent,
             transform: [{ scale: pressed ? 0.97 : 1 }],
             opacity: busy ? 0.7 : 1,
           })}

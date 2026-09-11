@@ -4,7 +4,7 @@
  */
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Check, ChevronLeft } from "lucide-react-native";
+import { BellOff, Check, ChevronLeft, HeartHandshake, Lock } from "lucide-react-native";
 
 import {
   Button,
@@ -507,7 +507,7 @@ export function OnboardPet({
                       ? theme.colors.accent
                       : theme.colors.border,
                     backgroundColor: selected
-                      ? theme.colors.accentSurface
+                      ? theme.colors.accent
                       : "transparent",
                   }}
                 >
@@ -525,17 +525,17 @@ export function OnboardPet({
 const permissionItems = [
   {
     description: "它会在合适的时刻主动出现，随时可以关闭",
-    icon: "🧠",
+    icon: HeartHandshake,
     title: "主动陪伴",
   },
   {
     description: "对话内容存在你的设备，可以随时查看和删除",
-    icon: "🔐",
+    icon: Lock,
     title: "记忆授权",
   },
   {
     description: "不依赖通知、连续签到或任何情感绑架",
-    icon: "🔕",
+    icon: BellOff,
     title: "不会打扰你",
   },
 ];
@@ -582,15 +582,17 @@ export function OnboardPermission({
           gap: theme.spacing[3],
         }}
       >
-        {permissionItems.map((item) => (
-          <Card
-            key={item.title}
-            style={{
-              flex: 1,
-              minHeight: isExpanded ? 190 : undefined,
-            }}
-          >
-            <Text style={{ fontSize: 24 }}>{item.icon}</Text>
+        {permissionItems.map((item) => {
+          const ItemIcon = item.icon;
+          return (
+            <Card
+              key={item.title}
+              style={{
+                flex: 1,
+                minHeight: isExpanded ? 190 : undefined,
+              }}
+            >
+              <ItemIcon color={theme.colors.support} size={22} />
             <Text
               style={[
                 theme.typography.textStyles.sectionTitle,
@@ -614,7 +616,8 @@ export function OnboardPermission({
               {item.description}
             </Text>
           </Card>
-        ))}
+          );
+        })}
       </View>
     </OnboardingShell>
   );

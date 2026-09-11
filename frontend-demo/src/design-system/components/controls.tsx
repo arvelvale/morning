@@ -41,8 +41,9 @@ export function Button({
   const backgroundColor = (() => {
     if (inactive) return theme.colors.disabledSurface;
     if (variant === "primary") {
+      // 主按钮必须是实心 accent：半透明 accentSurface + 浅色字会像禁用态。
       if (hovered) return theme.colors.accentHover;
-      return theme.colors.accentSurface;
+      return theme.colors.accent;
     }
     if (variant === "danger") return theme.colors.error;
     if (variant === "secondary") {

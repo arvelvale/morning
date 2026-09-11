@@ -4,6 +4,7 @@
  */
 import React, { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,12 +13,12 @@ import {
   View,
 } from "react-native";
 import {
+  BookOpen,
   Eye,
   EyeOff,
   HeartHandshake,
   Lock,
   ShieldCheck,
-  Sparkles,
   User,
 } from "lucide-react-native";
 
@@ -57,7 +58,7 @@ const authBenefits = [
   },
   {
     description: "重要的念头会被妥善整理和保存。",
-    icon: Sparkles,
+    icon: BookOpen,
     title: "让思绪有地方放",
   },
   {
@@ -127,10 +128,15 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             justifyContent: "center",
             borderWidth: 1,
             borderColor: theme.colors.border,
-            backgroundColor: theme.colors.accentSoft,
+            backgroundColor: theme.colors.surface,
+            overflow: "hidden",
           }}
         >
-          <Sparkles color={theme.colors.accent} size={24} />
+          <Image
+            accessibilityLabel="喵灵"
+            source={require("../../assets/icon.png")}
+            style={{ width: 40, height: 40 }}
+          />
         </View>
         <View>
           <Text
