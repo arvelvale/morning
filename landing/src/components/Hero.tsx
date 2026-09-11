@@ -84,7 +84,7 @@ export default function Hero() {
 
         <div className="hero-stage" ref={stageRef}>
           <div className="miro" ref={miroRef}>
-            <img src="/assets/miro-idle.webp" alt="米露 — 一只安静的白色小猫,额头有月牙印记" />
+            <img src="/assets/miro-idle.webp" alt="米露 — 一只安静的黑色小猫，怀里抱着一颗星星" />
             <img className="blink" src="/assets/miro-blink.webp" alt="" aria-hidden="true" />
             <div className="miro-halo" />
           </div>
