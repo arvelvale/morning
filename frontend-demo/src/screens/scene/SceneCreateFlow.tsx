@@ -1,169 +1,61 @@
 /**
- * 片场创建流程：内置场景轮播卡（ScenePortal）、语音创建入口（CreateSceneEntry）、
+ * 片场创建流程：内置场景阅读卡（ScenePortal）、语音创建入口（CreateSceneEntry）、
  * 口述采集（SceneNarrationCapture）、整理预览（SceneSummaryPreview）、角色设定（CharacterSetupSheet）。
  */
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated, Dimensions, Easing, Pressable, ScrollView, Text, TextInput, View,
+  Pressable, ScrollView, Text, View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Lock, Mic } from "lucide-react-native";
-import { Button, CreamRipple, useReducedMotion, useResponsive, useTheme, paperColors } from "../../design-system";
+import { ArrowRight, Lock, Mic } from "lucide-react-native";
+import { Button, Card, CreamRipple, TextField, TextArea, useResponsive, useTheme } from "../../design-system";
 import { parseSceneNarration, parseSceneRole } from "../../api";
 import type { SceneParseResult } from "../../api";
 import { useVoiceInput } from "../../useVoiceInput";
 import { ActBar, BuiltInScene, CharReady, useSceneSurface } from "./shared";
 
-export const CAROUSEL_CARD_W = 310;
-export const CAROUSEL_GAP = 16;
-export const CAROUSEL_SNAP = CAROUSEL_CARD_W + CAROUSEL_GAP;   // 每次吸附一张的间距
-export const CAROUSEL_SIDE = Math.max(16, (Dimensions.get("window").width - CAROUSEL_CARD_W) / 2); // 两端留白，让首尾卡片也能居中
-
-/** 内置场景轮播卡：跟手连续缩放/淡入，当前卡片放大居中。 */
-export function ScenePortal({ scene, index, scrollX, isActive, onEnter }: {
-  scene: BuiltInScene; index: number; scrollX: Animated.Value; isActive: boolean; onEnter: () => void;
+/** 内置场景：稳定的阅读卡片，不以滚动位置决定能否进入。 */
+export function ScenePortal({ scene, index, onEnter }: {
+  scene: BuiltInScene; index: number; onEnter: () => void;
 }) {
   const theme = useTheme();
-  // 跟手连续缩放/淡入：当前卡片 1.0，相邻卡片缩到 0.9 且变淡，随滑动平滑过渡。
-  const inputRange = [(index - 1) * CAROUSEL_SNAP, index * CAROUSEL_SNAP, (index + 1) * CAROUSEL_SNAP];
-  const scale = scrollX.interpolate({ inputRange, outputRange: [0.9, 1, 0.9], extrapolate: "clamp" });
-  const opacity = scrollX.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: "clamp" });
   return (
-    <Animated.View style={{ transform: [{ scale }], opacity }}>
-    <Pressable onPress={isActive ? onEnter : undefined}
-      style={{
-        width: CAROUSEL_CARD_W, height: 390, borderRadius: 30, overflow: "hidden",
-      }}>
-      <LinearGradient colors={scene.colors} style={{ flex: 1 }}>
-        {/* 环境光斑近似 */}
-        <View style={{
-          position: "absolute", top: 60, left: 40, width: 180, height: 180, borderRadius: 90,
-          backgroundColor: scene.ambientColor,
-        }} />
-        <View style={{
-          position: "absolute", bottom: 60, right: 30, width: 140, height: 140, borderRadius: 70,
-          backgroundColor: scene.ambientColor2,
-        }} />
-        {/* 竖排戏名：水牌右侧，衬线金字（RN 无 writing-mode，逐字换行竖排）。 */}
-        <View style={{ position: "absolute", top: 26, right: 22, alignItems: "center" }} pointerEvents="none">
-          <Text
-            style={{
-              fontFamily: theme.typography.fontFamilies.serif,
-              fontSize: 26,
-              lineHeight: 36,
-              letterSpacing: 4,
-              textAlign: "center",
-              color: "#E9D6A6",
-              textShadowColor: "rgba(20,14,6,0.45)",
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 6,
-            }}
-          >
-            {scene.title.split("").join("\n")}
-          </Text>
-        </View>
-        <View style={{ position: "absolute", top: 20, left: 20 }}>
-          <View style={{
-            paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.14)", borderWidth: 1, borderColor: "rgba(255,255,255,0.22)",
-          }}>
-            <Text style={{ fontSize: 10, fontWeight: "500", color: "rgba(255,255,255,0.72)" }}>排练中</Text>
-          </View>
-        </View>
-        <LinearGradient
-          colors={["transparent", "rgba(30,20,12,0.72)"]}
-          style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 80 }}>
-          <Text style={{ fontSize: 11, marginBottom: 8, color: "rgba(255,255,255,0.55)" }}>
-            {scene.relationships.join(" · ")}
-          </Text>
-          <Text style={{ fontSize: 13, lineHeight: 18, marginBottom: 16, color: "rgba(255,255,255,0.65)" }}>{scene.desc}</Text>
-          {isActive && (
-            <Pressable onPress={onEnter}
-              style={{
-                alignSelf: "flex-start", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999,
-                backgroundColor: "rgba(255,252,245,0.2)", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.32)",
-              }}>
-              <Text style={{ fontSize: 13, fontWeight: "500", color: "rgba(255,255,255,0.92)" }}>进入场景</Text>
-            </Pressable>
-          )}
-        </LinearGradient>
-      </LinearGradient>
-    </Pressable>
-    </Animated.View>
+    <Card onPress={onEnter} style={{ flex: 1, minHeight: 216, padding: theme.spacing[6], borderWidth: 0 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: theme.spacing[6] }}>
+        <Text style={[theme.typography.textStyles.label, { color: theme.colors.textMuted }]}>{String(index + 1).padStart(2, "0")}</Text>
+        <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary, flexShrink: 1, marginLeft: theme.spacing[4], textAlign: "right" }]}>{scene.relationships.join(" · ")}</Text>
+      </View>
+      <Text accessibilityRole="header" style={[theme.typography.textStyles.sectionTitle, { color: theme.colors.textPrimary, fontSize: 23, lineHeight: 32 }]}>{scene.title}</Text>
+      <Text style={[theme.typography.textStyles.body, { marginTop: theme.spacing[2], marginBottom: theme.spacing[6], color: theme.colors.textSecondary }]}>{scene.desc}</Text>
+      <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", gap: theme.spacing[2] }}>
+        <Text style={[theme.typography.textStyles.caption, { color: theme.colors.accent }]}>进入场景</Text>
+        <ArrowRight size={16} color={theme.colors.accent} />
+      </View>
+    </Card>
   );
 }
 
-/** 语音创建入口：第一幕 · 讲述的入口——大标题 + 麦克风光晕 + 或写下来。 */
+/** 语音和文字仍进入同一个采集流程，只收敛入口的视觉层级。 */
 export function CreateSceneEntry({ onStart }: { onStart: () => void }) {
   const { theme, C } = useSceneSurface();
-  const reducedMotion = useReducedMotion();
-  const pulse = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (reducedMotion) return;
-    // 呼吸节奏贴近一次深呼吸（3.6s），比原 1.4s 更安静
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.14, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse, reducedMotion]);
-
+  const { isExpanded } = useResponsive();
   return (
-    <View style={{ marginTop: 32, marginBottom: 16 }}>
-      <View style={{ alignItems: "center", marginBottom: 22 }}>
-        <Text style={{
-          fontSize: 22, fontWeight: "700", lineHeight: 31, textAlign: "center", color: C.text,
-        }}>
-          想重演的，{"\n"}是哪一天？
-        </Text>
-        <Text style={{ fontSize: 13, lineHeight: 21, textAlign: "center", marginTop: 8, color: C.muted }}>
+    <View style={{ gap: theme.spacing[5], paddingVertical: theme.spacing[6], flexDirection: isExpanded ? "row" : "column" }}>
+      <View style={{ flex: 1, gap: theme.spacing[2] }}>
+        <Text style={[theme.typography.textStyles.sectionTitle, { color: C.text }]}>想重演的，是哪一天？</Text>
+        <Text style={[theme.typography.textStyles.body, { color: C.text2, maxWidth: 440 }]}>
           讲给我听，或者慢慢写下来。{"\n"}不用组织好语言，也不用从头讲起。
         </Text>
       </View>
-
-      <View style={{ alignItems: "center", gap: 12 }}>
-        <View style={{ width: 128, height: 128, alignItems: "center", justifyContent: "center" }}>
-          <Animated.View style={{
-            position: "absolute", width: 128, height: 128, borderRadius: 64,
-            backgroundColor: theme.colors.accentSoft, transform: [{ scale: pulse }], opacity: 0.85,
-          }} />
-          <Pressable onPress={onStart}
-            style={({ pressed }) => ({
-              width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center",
-              backgroundColor: theme.colors.accentSurface,
-              borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)",
-              transform: [{ scale: pressed ? 0.94 : 1 }],
-            })}>
-            <Mic size={30} color={theme.colors.textOnAccent} />
-          </Pressable>
+      <View style={{ width: isExpanded ? 320 : "100%", gap: theme.spacing[3] }}>
+        <Button onPress={onStart} fullWidth>点一下，开始讲</Button>
+        <Text style={[theme.typography.textStyles.caption, { color: C.muted }]}>或者写下来</Text>
+        <Card onPress={onStart} style={{ padding: theme.spacing[4], borderRadius: theme.radii.control }}>
+          <Text style={[theme.typography.textStyles.body, { color: C.placeholder }]}>那件事发生在……</Text>
+        </Card>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing[2] }}>
+          <Lock size={12} color={C.muted} />
+          <Text style={[theme.typography.textStyles.label, { color: C.muted, flex: 1 }]}>这里说的话，只留在你和喵灵之间</Text>
         </View>
-        <Pressable onPress={onStart} accessibilityRole="button" accessibilityLabel="开始讲述"
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-          <Text style={{ fontSize: 12.5, color: C.muted }}>点一下，开始讲</Text>
-        </Pressable>
-      </View>
-
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 14 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.divider }} />
-        <Text style={{ fontSize: 11.5, color: C.muted }}>或者写下来</Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.divider }} />
-      </View>
-
-      <Pressable onPress={onStart} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
-        <View style={{
-          padding: 14, minHeight: 74, borderRadius: 20,
-          backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border,
-        }}>
-          <Text style={{ fontSize: 13.5, color: C.placeholder }}>那件事发生在……</Text>
-        </View>
-      </Pressable>
-
-      <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 }}>
-        <Lock size={12} color={C.muted} />
-        <Text style={{ fontSize: 11, color: C.muted }}>这里说的话，只留在你和喵灵之间</Text>
       </View>
     </View>
   );
@@ -174,7 +66,7 @@ export function SceneNarrationCapture({ onBack, onConfirm }: {
   onBack: () => void; onConfirm: (text: string) => void;
 }) {
   const { theme, C } = useSceneSurface();
-  const { isCompact } = useResponsive();
+  const { isExpanded } = useResponsive();
   const [text, setText] = useState("");
   const beforeRecording = useRef("");
   // 真机 PCM 在录音中把累计转写整体替换到描述框；松手后的整段识别再校准最终文本。
@@ -185,20 +77,20 @@ export function SceneNarrationCapture({ onBack, onConfirm }: {
   const placeholder = "我想回到上周和朋友吵架之后。地点在学校门口，她准备打车离开。她平时比较敏感，生气后会假装不在意，但其实很希望我先道歉。我想试着把她叫住。";
   const micHint = voice.transcribing ? "正在转写…" : voice.isRecording ? "松开结束录音" : "按住说话";
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ActBar stage={0} onBack={onBack} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 20,
           // 手机底部导航绝对定位在内容之上；转写文本变长后需要留出完整导航高度，
           // 否则末尾的「讲完了」会被遮住，滚动容器却已经到达底部。
-          paddingBottom: isCompact ? 128 : 24,
+          paddingBottom: isExpanded ? 24 : 128,
           gap: 20,
         }}
       >
         <View style={{ paddingTop: 8 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", lineHeight: 31, color: C.text }}>
+          <Text style={{ fontSize: 24, fontWeight: "500", lineHeight: 34, color: C.text }}>
             想重演的，{"\n"}是哪一天？
           </Text>
           <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 8, color: C.muted }}>
@@ -231,7 +123,7 @@ export function SceneNarrationCapture({ onBack, onConfirm }: {
             </Pressable>
           </View>
           <Text style={{ fontSize: 12, color: C.muted }}>{micHint}</Text>
-          {voice.error ? <Text style={{ fontSize: 12, color: "#C4553A" }}>{voice.error}</Text> : null}
+          {voice.error ? <Text style={{ fontSize: 12, color: theme.colors.error }}>{voice.error}</Text> : null}
         </View>
 
         {/* 我在听：录音时出现，示意不急、慢慢讲 */}
@@ -253,15 +145,10 @@ export function SceneNarrationCapture({ onBack, onConfirm }: {
         ) : null}
 
         {/* 转写 / 手动输入区：语音追加或直接打字 */}
-        <TextInput
+        <TextArea accessibilityLabel="场景讲述"
           value={text} onChangeText={setText}
-          placeholder={placeholder} placeholderTextColor={C.placeholder}
-          multiline
-          style={{
-            minHeight: 200, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20, fontSize: 14, lineHeight: 22,
-            backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border,
-            color: theme.colors.textPrimary, textAlignVertical: "top",
-          }}
+          placeholder={placeholder}
+          style={{ minHeight: 200 }}
         />
         <Button onPress={() => onConfirm(text || placeholder)} fullWidth>讲完了</Button>
       </ScrollView>
@@ -276,6 +163,7 @@ export function SceneSummaryPreview({ narration, onBack, onConfirm }: {
   onConfirm: (parsed: SceneParseResult) => void;
 }) {
   const { theme, C } = useSceneSurface();
+  const { isExpanded } = useResponsive();
   const [parsed, setParsed] = useState<SceneParseResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -294,7 +182,7 @@ export function SceneSummaryPreview({ narration, onBack, onConfirm }: {
 
   if (loading) {
     return (
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <ActBar stage={1} onBack={onBack} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16 }}>
           <CreamRipple active />
@@ -306,7 +194,7 @@ export function SceneSummaryPreview({ narration, onBack, onConfirm }: {
 
   if (error || !parsed) {
     return (
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <ActBar stage={1} onBack={onBack} />
         <View style={{ flex: 1, paddingHorizontal: 20, gap: 16, justifyContent: "center" }}>
           <Text style={{ fontSize: 15, color: C.text, textAlign: "center" }}>{error || "整理失败"}</Text>
@@ -322,11 +210,11 @@ export function SceneSummaryPreview({ narration, onBack, onConfirm }: {
   const items = parsed.items ?? [];
   const hasMissing = (parsed.missing?.length ?? 0) > 0;
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ActBar stage={1} onBack={onBack} />
-      <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 24, gap: 20 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 20, paddingBottom: isExpanded ? 24 : 128, gap: 20 }}>
         <View style={{ paddingTop: 8 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", lineHeight: 31, color: C.text }}>
+          <Text style={{ fontSize: 24, fontWeight: "500", lineHeight: 34, color: C.text }}>
             我把听到的，{"\n"}整理成了这一幕
           </Text>
           <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 8, color: C.muted }}>
@@ -365,7 +253,7 @@ export function SceneSummaryPreview({ narration, onBack, onConfirm }: {
             <Text style={{ fontSize: 13, color: C.muted }}>我再补充几句</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -378,8 +266,8 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
   onBack: () => void;
   onReady: (char: CharReady) => void;
 }) {
-  const { C } = useSceneSurface();
-  const { isCompact } = useResponsive();
+  const { theme, C } = useSceneSurface();
+  const { isExpanded } = useResponsive();
   const [name, setName] = useState(parsed?.people ?? "");
   const [rel, setRel] = useState(parsed?.relation || scene?.relationships[0] || "");
   const [desc, setDesc] = useState("");
@@ -420,29 +308,22 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* 模糊场景背景近似 */}
-      <LinearGradient
-        colors={scene?.colors ?? ["#F2E8D5", "#E8D9C0"]}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.35 }}
-      />
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(255,251,243,0.55)" }} />
-
-      <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <ActBar stage={2} onBack={onBack} />
 
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
-            paddingHorizontal: 20,
+            width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 20,
             // 手机底部导航是绝对定位；为最后一组操作留出可滚动空间，避免按钮被覆盖。
-            paddingBottom: isCompact ? 128 : 24,
+            paddingBottom: isExpanded ? 24 : 128,
             gap: 20,
           }}
         >
           {/* 第三幕 · 定妆 标题 */}
           <View style={{ paddingTop: 8 }}>
-            <Text style={{ fontSize: 22, fontWeight: "700", lineHeight: 31, color: C.text }}>
+            <Text style={{ fontSize: 24, fontWeight: "500", lineHeight: 34, color: C.text }}>
               开演前，{"\n"}给 TA 定妆
             </Text>
             <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 8, color: C.muted }}>
@@ -453,13 +334,9 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
           <View style={{ gap: 14 }}>
             <View>
               <Text style={{ fontSize: 12, marginBottom: 8, paddingHorizontal: 4, color: C.muted }}>称呼 TA 为</Text>
-              <TextInput
+              <TextField accessibilityLabel="称呼 TA 为"
                 value={name} onChangeText={setName}
-                placeholder="比如：妈妈、她、老朋友…" placeholderTextColor={C.placeholder}
-                style={{
-                  paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20, fontSize: 15,
-                  backgroundColor: "rgba(255,252,245,0.72)", borderWidth: 1, borderColor: "rgba(255,255,255,0.5)", color: paperColors.ink,
-                }}
+                placeholder="比如：妈妈、她、老朋友…"
               />
             </View>
 
@@ -467,12 +344,12 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
               <Text style={{ fontSize: 12, marginBottom: 8, paddingHorizontal: 4, color: C.muted }}>我们的关系</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {(scene?.relationships ?? ["朋友", "家人", "恋人", "同事"]).map(r => (
-                  <Pressable key={r} onPress={() => setRel(r)}
+                  <Pressable key={r} accessibilityRole="button" accessibilityState={{ selected: rel === r }} onPress={() => setRel(r)}
                     style={{
-                      paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
-                      backgroundColor: rel === r ? "rgba(246,231,168,0.88)" : "rgba(255,252,245,0.65)",
-                      borderWidth: rel === r ? 1.5 : 1,
-                      borderColor: rel === r ? "rgba(196,149,58,0.45)" : "rgba(255,255,255,0.45)",
+                      paddingHorizontal: 16, paddingVertical: 10, minHeight: 44, borderRadius: theme.radii.control,
+                      backgroundColor: rel === r ? theme.colors.accentSoft : theme.colors.surface,
+                      borderWidth: 1,
+                      borderColor: rel === r ? theme.colors.focus : theme.colors.border,
                     }}>
                     <Text style={{ fontSize: 13, color: C.text }}>{r}</Text>
                   </Pressable>
@@ -482,16 +359,9 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
 
             <View>
               <Text style={{ fontSize: 12, marginBottom: 8, paddingHorizontal: 4, color: C.muted }}>你记忆里的 TA</Text>
-              <TextInput
+              <TextArea accessibilityLabel="你记忆里的 TA"
                 value={desc} onChangeText={setDesc}
                 placeholder={`比如：${name || "她"}平时说话比较直，不太表达关心，但其实很在意我…`}
-                placeholderTextColor={C.placeholder}
-                multiline
-                style={{
-                  minHeight: 100, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20, fontSize: 14, lineHeight: 22,
-                  backgroundColor: "rgba(255,252,245,0.72)", borderWidth: 1, borderColor: "rgba(255,255,255,0.5)",
-                  color: paperColors.ink, textAlignVertical: "top",
-                }}
               />
             </View>
 
@@ -501,26 +371,24 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
                 {ADJUST_CHIPS.map(c => {
                   const on = picked.includes(c);
                   return (
-                    <Pressable key={c} onPress={() => setPicked(prev => on ? prev.filter(x => x !== c) : [...prev, c])}
+                    <Pressable key={c} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setPicked(prev => on ? prev.filter(x => x !== c) : [...prev, c])}
                       style={{
-                        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
-                        backgroundColor: on ? "rgba(246,231,168,0.88)" : "rgba(255,252,245,0.65)",
-                        borderWidth: on ? 1.5 : 1,
-                        borderColor: on ? "rgba(196,149,58,0.45)" : "rgba(255,255,255,0.45)",
+                        paddingHorizontal: 16, paddingVertical: 10, minHeight: 44, borderRadius: theme.radii.control,
+                        backgroundColor: on ? theme.colors.accentSoft : theme.colors.surface,
+                        borderWidth: 1,
+                        borderColor: on ? theme.colors.focus : theme.colors.border,
                       }}>
-                      <Text style={{ fontSize: 13, fontWeight: on ? "600" : "400", color: on ? paperColors.ink : paperColors.sub }}>{c}</Text>
+                      <Text style={{ fontSize: 13, fontWeight: on ? "600" : "400", color: on ? theme.colors.textPrimary : theme.colors.textSecondary }}>{c}</Text>
                     </Pressable>
                   );
                 })}
               </View>
-              <TextInput
+              <View style={{ marginTop: theme.spacing[3] }}>
+              <TextField accessibilityLabel="补充校准"
                 value={adjusted} onChangeText={setAdjusted}
-                placeholder="或者，还有什么想补充的？（可选）" placeholderTextColor={C.placeholder}
-                style={{
-                  marginTop: 8, paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, fontSize: 14,
-                  backgroundColor: "rgba(255,252,245,0.65)", borderWidth: 1, borderColor: "rgba(255,255,255,0.45)", color: paperColors.ink,
-                }}
+                placeholder="或者，还有什么想补充的？（可选）"
               />
+              </View>
             </View>
           </View>
 
@@ -530,14 +398,14 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
               {([["generated_3d", "3D 场景"], ["dynamic_image", "图片场景"]] as const).map(([k, label]) => {
                 const on = renderKind === k;
                 return (
-                  <Pressable key={k} onPress={() => setRenderKind(k)}
+                  <Pressable key={k} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setRenderKind(k)}
                     style={{
-                      flex: 1, paddingVertical: 10, borderRadius: 14, alignItems: "center",
-                      backgroundColor: on ? "rgba(246,231,168,0.88)" : "rgba(255,252,245,0.65)",
-                      borderWidth: on ? 1.5 : 1,
-                      borderColor: on ? "rgba(196,149,58,0.45)" : "rgba(255,255,255,0.45)",
+                      flex: 1, minHeight: 44, paddingVertical: 10, borderRadius: theme.radii.control, alignItems: "center",
+                      backgroundColor: on ? theme.colors.accentSoft : theme.colors.surface,
+                      borderWidth: 1,
+                      borderColor: on ? theme.colors.focus : theme.colors.border,
                     }}>
-                    <Text style={{ fontSize: 13, fontWeight: on ? "600" : "400", color: on ? paperColors.ink : paperColors.sub }}>{label}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: on ? "600" : "400", color: on ? theme.colors.textPrimary : theme.colors.textSecondary }}>{label}</Text>
                   </Pressable>
                 );
               })}

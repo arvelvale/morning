@@ -1,9 +1,9 @@
 /**
- * 片场主屏：内置场景轮播 + 我的场景 + 待确认片段 + 语音创建入口。
+ * 片场主屏：响应式场景列表 + 我的场景 + 待确认片段 + 语音创建入口。
  * 创建流程（口述→整理→角色设定）以子状态在本组件内切换，搭建中/失败用覆盖层呈现。
  */
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { ChevronLeft, Trash2 } from "lucide-react-native";
 import {
   Button, Card, PageContainer, PageHeader, useResponsive,
@@ -20,7 +20,6 @@ import {
 } from "./shared";
 import { BuildFailed, BuildingStage } from "./BuildOverlays";
 import {
-  CAROUSEL_GAP, CAROUSEL_SIDE, CAROUSEL_SNAP,
   CharacterSetupSheet, CreateSceneEntry, SceneNarrationCapture, SceneSummaryPreview, ScenePortal,
 } from "./SceneCreateFlow";
 
@@ -38,8 +37,6 @@ interface Candidate {
 export function SceneScreen({ onPlay }: { onPlay: (sceneId: number, theater?: TheaterSceneId) => void }) {
   const { theme, C } = useSceneSurface();
   const { isExpanded } = useResponsive();
-  const [activeIdx, setActiveIdx] = useState(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
   const [subState, setSubState] = useState<SceneSubState>("browsing");
   const [selectedScene, setSelectedScene] = useState<BuiltInScene | null>(null);
   const [templates, setTemplates] = useState<BuiltInScene[]>(BUILT_IN_SCENES);
@@ -211,7 +208,7 @@ export function SceneScreen({ onPlay }: { onPlay: (sceneId: number, theater?: Th
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
@@ -219,42 +216,17 @@ export function SceneScreen({ onPlay }: { onPlay: (sceneId: number, theater?: Th
       >
       <PageContainer maxWidth={1180}>
       <PageHeader
-        eyebrow="安全演练"
         title="片场"
         description="进入一个场景，试着说出不同的话。这里没有标准答案，也可以随时离开。"
       />
 
-      {/* Carousel */}
-      <View style={{ height: 420 }}>
-        <Animated.ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          snapToInterval={CAROUSEL_SNAP} snapToAlignment="start" decelerationRate="fast" disableIntervalMomentum
-          contentContainerStyle={{ gap: CAROUSEL_GAP, paddingHorizontal: isExpanded ? 0 : CAROUSEL_SIDE, alignItems: "center" }}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            {
-              useNativeDriver: true,
-              listener: (e: any) => {
-                const idx = Math.round(e.nativeEvent.contentOffset.x / CAROUSEL_SNAP);
-                setActiveIdx(Math.max(0, Math.min(idx, templates.length - 1)));
-              },
-            }
-          )}
-          scrollEventThrottle={16}
-        >
-          {templates.map((scene, i) => (
-            <ScenePortal key={scene.id} scene={scene} index={i} scrollX={scrollX} isActive={activeIdx === i}
+      <View style={{ flexDirection: isExpanded ? "row" : "column", flexWrap: "wrap", gap: theme.spacing[4], marginBottom: theme.spacing[4] }}>
+        {templates.map((scene, i) => (
+          <View key={scene.id} style={{ width: isExpanded ? "31%" : "100%", flexGrow: isExpanded ? 1 : 0, minWidth: 0 }}>
+            <ScenePortal scene={scene} index={i}
               onEnter={() => { setSelectedScene(scene); setParsedScene(null); setSubState("setup"); }} />
-          ))}
-        </Animated.ScrollView>
-        <View style={{ position: "absolute", bottom: 12, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
-          {templates.map((_, i) => (
-            <View key={i} style={{
-              width: activeIdx === i ? 16 : 6, height: 6, borderRadius: 3,
-              backgroundColor: activeIdx === i ? theme.colors.accentSurface : theme.colors.border,
-            }} />
-          ))}
-        </View>
+          </View>
+        ))}
       </View>
 
       <View style={{ marginTop: theme.spacing[4] }}>
@@ -265,8 +237,8 @@ export function SceneScreen({ onPlay }: { onPlay: (sceneId: number, theater?: Th
             {myScenes.map(s => (
               <Pressable key={s.id} onPress={() => onPlay(s.id)} onLongPress={() => handleDeleteScene(s)}
                 style={({ pressed }) => [{
-                  padding: theme.spacing[4], borderRadius: theme.radii.card, marginBottom: theme.spacing[2], flexDirection: "row", alignItems: "center",
-                  backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border,
+                  paddingVertical: theme.spacing[4], paddingHorizontal: theme.spacing[2], flexDirection: "row", alignItems: "center",
+                  backgroundColor: pressed ? theme.colors.surfacePressed : "transparent", borderBottomWidth: 1, borderBottomColor: theme.colors.divider,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 }]}>
                 <View style={{ flex: 1 }}>

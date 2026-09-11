@@ -27,10 +27,11 @@ def main() -> None:
         sys.exit("缺少 MORNING_SSH_PASSWORD")
     if not DIST.is_dir():
         sys.exit(f"找不到 dist: {DIST}")
-    apk = DIST / "dl" / "morning-android-0.3.10.apk"
-    if not apk.is_file():
-        sys.exit(f"APK 未进 dist: {apk}")
-    print(f"[local] dist files={sum(1 for _ in DIST.rglob('*') if _.is_file())} apk={apk.stat().st_size}")
+    apks = sorted((DIST / "dl").glob("morning-android-*.apk"))
+    if not apks:
+        sys.exit("dist/dl 下没有 morning-android-*.apk")
+    apk = apks[-1]
+    print(f"[local] dist files={sum(1 for _ in DIST.rglob('*') if _.is_file())} apk={apk.name} {apk.stat().st_size}")
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

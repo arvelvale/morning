@@ -158,7 +158,7 @@ export function PageHeader({
           style={[
             theme.typography.textStyles.pageTitle,
             {
-              fontFamily: theme.typography.fontFamilies.serif,
+              fontFamily: theme.typography.fontFamilies.sans,
               color: theme.colors.textPrimary,
             },
           ]}

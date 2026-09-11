@@ -94,8 +94,8 @@ export function ActBar({ stage, onBack, dark = false, title, allDone = false }: 
 
   return (
     <View style={{ flexShrink: 0 }}>
-      <ActValance dark={dark} />
-      <View style={{ flexDirection: "row", alignItems: "center", paddingTop: theme.spacing[2] }}>
+      {dark ? <ActValance dark /> : null}
+      <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: theme.spacing[4], borderBottomWidth: dark ? 0 : 1, borderBottomColor: theme.colors.divider }}>
         <View style={{ width: 40, paddingLeft: theme.spacing[2] }}>
           {onBack ? (
             <IconButton accessibilityLabel="返回" icon={<ChevronLeft color={theme.colors.textSecondary} size={20} />} onPress={onBack} />
@@ -103,8 +103,8 @@ export function ActBar({ stage, onBack, dark = false, title, allDone = false }: 
         </View>
         <View style={{ flex: 1, alignItems: "center", gap: 7 }}>
           <Text style={{
-            fontSize: 12, fontWeight: "600", letterSpacing: 4, marginLeft: 4,
-            color: gold,
+            fontSize: 13, fontWeight: "500",
+            color: dark ? gold : theme.colors.textSecondary,
           }}>
             {name}
           </Text>

@@ -13,19 +13,13 @@ import {
   View,
 } from "react-native";
 import {
-  BookOpen,
   Eye,
   EyeOff,
-  HeartHandshake,
-  Lock,
-  ShieldCheck,
-  User,
 } from "lucide-react-native";
 
 import { login as apiLogin, register as apiRegister, type Tokens } from "../api";
 import {
   Button,
-  Card,
   IconButton,
   TextField,
   useResponsive,
@@ -53,17 +47,14 @@ type AuthScreenProps = {
 const authBenefits = [
   {
     description: "随时说说话，不催促，也不评判。",
-    icon: HeartHandshake,
     title: "有人安静地听",
   },
   {
     description: "重要的念头会被妥善整理和保存。",
-    icon: BookOpen,
     title: "让思绪有地方放",
   },
   {
     description: "你始终可以查看、调整或删除自己的内容。",
-    icon: ShieldCheck,
     title: "主动权一直在你",
   },
 ];
@@ -111,108 +102,27 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   };
 
   const brand = (
-    <View style={{ maxWidth: 460 }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: theme.spacing[3],
-        }}
-      >
-        <View
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: theme.radii.card,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            backgroundColor: theme.colors.surface,
-            overflow: "hidden",
-          }}
-        >
-          <Image
-            accessibilityLabel="喵灵"
-            source={require("../../assets/icon.png")}
-            style={{ width: 40, height: 40 }}
-          />
-        </View>
-        <View>
-          <Text
-            style={[
-              theme.typography.textStyles.sectionTitle,
-              { color: theme.colors.textPrimary },
-            ]}
-          >
-            喵灵
-          </Text>
-          <Text
-            style={[
-              theme.typography.textStyles.caption,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            陪你把心里的事，轻轻放下
-          </Text>
-        </View>
+    <View style={{ flex: isExpanded ? 1 : undefined, maxWidth: isExpanded ? 420 : 440, width: "100%", alignSelf: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing[3] }}>
+        <Image accessibilityLabel="喵灵" source={require("../../assets/icon.png")}
+          style={{ width: 40, height: 40, borderRadius: theme.radii.control }} />
+        <Text style={[theme.typography.textStyles.sectionTitle, { color: theme.colors.textPrimary }]}>喵灵</Text>
       </View>
-
+      <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing[4] }]}>
+        陪你把心里的事，轻轻放下
+      </Text>
       {isExpanded ? (
-        <View style={{ gap: theme.spacing[5], marginTop: theme.spacing[10] }}>
-          <Text
-            style={[
-              theme.typography.textStyles.display,
-              { color: theme.colors.textPrimary },
-            ]}
-          >
+        <View style={{ marginTop: theme.spacing[12] }}>
+          <Text style={[theme.typography.textStyles.display, { color: theme.colors.textPrimary, lineHeight: 50 }]}>
             给纷乱的思绪，{"\n"}留一块安静的地方
           </Text>
-          <View style={{ gap: theme.spacing[4] }}>
-            {authBenefits.map((benefit) => {
-              const BenefitIcon = benefit.icon;
-              return (
-                <View
-                  key={benefit.title}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "flex-start",
-                    gap: theme.spacing[3],
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: theme.radii.control,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: theme.colors.surface,
-                    }}
-                  >
-                    <BenefitIcon color={theme.colors.support} size={18} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        theme.typography.textStyles.bodyStrong,
-                        { color: theme.colors.textPrimary },
-                      ]}
-                    >
-                      {benefit.title}
-                    </Text>
-                    <Text
-                      style={[
-                        theme.typography.textStyles.caption,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
-                      {benefit.description}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
+          <View style={{ marginTop: theme.spacing[10], gap: theme.spacing[5] }}>
+            {authBenefits.map(benefit => (
+              <View key={benefit.title} style={{ borderLeftWidth: 1, borderLeftColor: theme.colors.divider, paddingLeft: theme.spacing[4] }}>
+                <Text style={[theme.typography.textStyles.bodyStrong, { color: theme.colors.textPrimary }]}>{benefit.title}</Text>
+                <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing[1] }]}>{benefit.description}</Text>
+              </View>
+            ))}
           </View>
         </View>
       ) : null}
@@ -222,7 +132,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
       <ScrollView
         contentContainerStyle={{
@@ -230,29 +140,31 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
           paddingHorizontal: isCompact ? theme.spacing[5] : theme.spacing[8],
           paddingVertical: isCompact ? theme.spacing[6] : theme.spacing[10],
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: isExpanded ? "center" : "flex-start",
         }}
         keyboardShouldPersistTaps="handled"
       >
         <View
           style={{
             width: "100%",
-            maxWidth: 1040,
+            maxWidth: isExpanded ? 1040 : 440,
             flexDirection: isExpanded ? "row" : "column",
             alignItems: isExpanded ? "center" : "stretch",
             justifyContent: "space-between",
-            gap: isExpanded ? theme.spacing[16] : theme.spacing[8],
+            gap: isExpanded ? theme.spacing[16] : theme.spacing[12],
           }}
         >
           {brand}
 
-          <Card
+          <View
             style={{
-              width: isExpanded ? 440 : "100%",
-              maxWidth: 520,
+              width: isExpanded ? 400 : "100%",
+              maxWidth: 440,
               alignSelf: isExpanded ? undefined : "center",
-              padding: isCompact ? theme.spacing[5] : theme.spacing[8],
-              ...theme.shadows.floating,
+              paddingVertical: theme.spacing[6],
+              paddingLeft: isExpanded ? theme.spacing[8] : 0,
+              borderLeftWidth: isExpanded ? 1 : 0,
+              borderLeftColor: theme.colors.divider,
             }}
           >
             <Text
@@ -285,7 +197,6 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 autoCapitalize="none"
                 autoCorrect={false}
                 label="用户名"
-                leading={<User color={theme.colors.textMuted} size={18} />}
                 onChangeText={(value) => {
                   setUsername(value);
                   setHint("");
@@ -301,7 +212,6 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 autoCorrect={false}
                 importantForAutofill="no"
                 label="密码"
-                leading={<Lock color={theme.colors.textMuted} size={18} />}
                 onChangeText={(value) => {
                   setPassword(value);
                   setHint("");
@@ -415,7 +325,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 demo 版只需用户名与密码，无需验证码
               </Text>
             ) : null}
-          </Card>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
