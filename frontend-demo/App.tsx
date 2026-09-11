@@ -530,8 +530,8 @@ export default function App() {
             {screen === "onboard-3" && (
               <OnboardPet onNext={() => go("onboard-4")} onBack={() => go("onboard-2")}
                 pets={presets.length ? presets : [
-                  { id: "miro" as any, name: "米露", emoji: "✨", summary: "情绪碎片收藏家：安静、敏锐、擅长倾听和承接情绪" },
-                  { id: "bobi" as any, name: "波比", emoji: "☀️", summary: "晨光信使：温暖、热烈、有行动力，也尊重边界" },
+                  { id: "miro" as any, presetId: "miro", name: "米露", emoji: "✨", summary: "情绪碎片收藏家：安静、敏锐、擅长倾听和承接情绪" },
+                  { id: "bobi" as any, presetId: "bobi", name: "波比", emoji: "☀️", summary: "晨光信使：温暖、热烈、有行动力，也尊重边界" },
                 ]}
                 selectedId={pendingPetId}
                 onSelect={(id) => setPendingPetId(id)} />

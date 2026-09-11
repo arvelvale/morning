@@ -21,7 +21,8 @@ const PET_ARTWORK: Record<string, PetArtworkAssets> = {
 
 const PET_AVATARS: Record<string, ImageSourcePropType> = {
   miro: require("../../assets/pets/avatars/miro-avatar-v2.png"),
-  bobi: require("../../assets/pets/avatars/bobi-avatar-v1.png"),
+  // 波比 v2：暖橘晨光猫，与喵灵猫形象统一；v1 金毛犬仅作历史备份。
+  bobi: require("../../assets/pets/avatars/bobi-avatar-v2.png"),
 };
 
 export function getPetArtwork(presetId: string | null): PetArtworkAssets | undefined {

@@ -15,6 +15,7 @@ import {
   useResponsive,
   useTheme,
 } from "../design-system";
+import { getPetAvatar } from "../pets/assets";
 
 type OnboardingShellProps = {
   children: React.ReactNode;
@@ -223,7 +224,10 @@ export function OnboardWelcome({
               opacity: 0.7,
             }}
           />
-          <CompanionAvatar emoji="✨" size={isCompact ? 142 : 174} />
+          <CompanionAvatar
+            size={isCompact ? 142 : 174}
+            source={getPetAvatar("miro")}
+          />
         </View>
         <View
           style={{
@@ -361,9 +365,10 @@ export function OnboardHow({ onBack, onNext }: OnboardHowProps) {
 }
 
 type PetOption = {
-  emoji: string;
+  emoji?: string;
   id: number | string;
   name: string;
+  presetId?: string | null;
   summary: string;
 };
 
@@ -446,7 +451,11 @@ export function OnboardPet({
                   gap: theme.spacing[4],
                 }}
               >
-                <CompanionAvatar emoji={pet.emoji} size={62} />
+                <CompanionAvatar
+                  emoji={pet.emoji}
+                  size={62}
+                  source={getPetAvatar(pet.presetId ?? String(pet.id))}
+                />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View
                     style={{

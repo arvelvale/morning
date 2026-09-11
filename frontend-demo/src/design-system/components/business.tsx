@@ -1,17 +1,28 @@
 import React from "react";
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import {
+  Image,
+  type ImageSourcePropType,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from "react-native";
 
 import { useTheme } from "../theme";
 
 type CompanionAvatarProps = {
   emoji?: string;
   size?: number;
+  /** 优先展示真实形象图；无图时回退 emoji。 */
+  source?: ImageSourcePropType;
   style?: StyleProp<ViewStyle>;
 };
 
 export function CompanionAvatar({
   emoji = "🌙",
   size = 40,
+  source,
   style,
 }: CompanionAvatarProps) {
   const theme = useTheme();
@@ -26,11 +37,21 @@ export function CompanionAvatar({
           borderRadius: size / 2,
           backgroundColor: theme.colors.accentSoft,
           borderColor: theme.colors.border,
+          overflow: "hidden",
         },
         style,
       ]}
     >
-      <Text style={{ fontSize: Math.round(size * 0.48) }}>{emoji}</Text>
+      {source ? (
+        <Image
+          accessibilityIgnoresInvertColors
+          resizeMode="contain"
+          source={source}
+          style={{ width: size * 0.9, height: size * 0.9 }}
+        />
+      ) : (
+        <Text style={{ fontSize: Math.round(size * 0.48) }}>{emoji}</Text>
+      )}
     </View>
   );
 }
