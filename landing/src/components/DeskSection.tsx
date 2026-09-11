@@ -28,20 +28,20 @@ export default function DeskSection() {
               <p className="rc-t">米露递来的提醒</p>
               <p className="rc-b">明天 9:00 · 提交实训材料,别忘了呀</p>
             </div>
-            <div className="desk-miro"><img src="/assets/miro-idle.webp" alt="桌宠形态的米露坐在桌面角落" /></div>
+            <div className="desk-miro"><img src="/assets/miro-idle.webp?v=20260911" alt="桌宠形态的米露坐在桌面角落" /></div>
           </div>
         </div>
         <div className="pet-states reveal">
           <div className="pstate">
-            <div className="frame"><img src="/assets/miro-sit.webp" alt="" /></div>
+            <div className="frame"><img src="/assets/miro-sit.webp?v=20260911" alt="" /></div>
             <p>有时安静地坐在角落</p>
           </div>
           <div className="pstate">
-            <div className="frame"><img src="/assets/miro-blink.webp" alt="" /></div>
+            <div className="frame"><img src="/assets/miro-blink.webp?v=20260911" alt="" /></div>
             <p>有时抱着星星打盹</p>
           </div>
           <div className="pstate">
-            <div className="frame"><img src="/assets/miro-wave.webp" alt="" /></div>
+            <div className="frame"><img src="/assets/miro-wave.webp?v=20260911" alt="" /></div>
             <p>有时递出一张提醒卡片</p>
           </div>
         </div>
