@@ -131,19 +131,11 @@ struct AuthPage {
       Column({ space: spacing.s8 }) {
         // ─── 品牌区 ─────────────────────────────────────────────────────
         Row({ space: spacing.s3 }) {
-          Column() {
-            Text('✦')
-              .fontSize(24)
-              .fontColor(this.colors().accent);
-          }
-          .width(52)
-          .height(52)
-          .borderRadius(radii.card)
-          .borderWidth(1)
-          .borderColor(this.colors().border)
-          .backgroundColor(this.colors().accentSoft)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
+          Image($r('app.media.app_icon'))
+            .width(40)
+            .height(40)
+            .borderRadius(radii.control)
+            .objectFit(ImageFit.Cover)
 
           Column({ space: 2 }) {
             Text('喵灵')
@@ -168,7 +160,7 @@ struct AuthPage {
             .fontColor(this.colors().textPrimary)
             .width('100%');
           Text(this.isLogin()
-            ? '它一直在这儿，等你回来说话。'
+            ? '它一直在这儿，等你回来说说话。'
             : '给自己起个名字，我们慢慢认识。')
             .fontSize(fontSizes.body)
             .lineHeight(lineHeights.body)
@@ -263,7 +255,8 @@ struct AuthPage {
             : (this.isLogin() ? '进来坐坐' : '开始吧'))
             .width('100%')
             .height(controlHeights.large)
-            .backgroundColor(this.colors().accentSurface)
+            // 主按钮实心 accent：半透明 accentSurface + 浅色字会像禁用态
+            .backgroundColor(this.colors().accent)
             .fontColor(this.colors().textOnAccent)
             .fontSize(fontSizes.bodyLarge)
             .fontWeight(fontWeights.medium)

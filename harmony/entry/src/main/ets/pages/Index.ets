@@ -171,9 +171,10 @@ struct IndexPage {
   build() {
     if (!this.ready) {
       Column() {
-        Text('✦')
-          .fontSize(32)
-          .fontColor(this.colors().accent);
+        Image($r('app.media.miro_idle_v3'))
+          .width(72)
+          .height(72)
+          .objectFit(ImageFit.Contain);
         Text(this.startupHint.length > 0 ? this.startupHint : '正在唤醒喵灵…')
           .fontSize(fontSizes.caption)
           .fontColor(this.colors().textMuted)
