@@ -5,11 +5,13 @@
  * 选中态遵循视觉规范：半透明奶油鹅黄、暖棕前景、克制柔光。
  */
 import { common } from '@kit.AbilityKit';
-import { currentTokens, getMe, initApi, logout } from '../common/Api';
+import { currentTokens, getActivePet, getMe, initApi, logout } from '../common/Api';
 import { CompanionHome } from '../features/companion/CompanionHome';
 import { CompanionChat } from '../features/companion/CompanionChat';
 import { Dump } from '../features/dump/Dump';
 import { MailboxHome } from '../features/mailbox/MailboxHome';
+import { OnboardPet } from '../features/onboarding/OnboardPet';
+import { ProfilePage } from '../features/profile/Profile';
 import {
   ColorTokens,
   fontSizes,
@@ -29,6 +31,7 @@ struct IndexPage {
   @StorageProp('isNight') isNight: boolean = false;
   @StorageLink('sessionRevision') @Watch('onSessionRevision') sessionRevision: number = 0;
   @State ready: boolean = false;
+  @State needOnboard: boolean = false;
   @State currentTab: number = 0;
   @State startupHint: string = '';
   @State chatOpen: boolean = false;
@@ -69,6 +72,12 @@ struct IndexPage {
     try {
       await getMe();
       this.ready = true;
+      try {
+        await getActivePet();
+        this.needOnboard = false;
+      } catch {
+        this.needOnboard = true;
+      }
     } catch {
       if (!currentTokens()) {
         await this.goToAuth();
@@ -81,6 +90,7 @@ struct IndexPage {
   private onSessionRevision(): void {
     if (!currentTokens()) {
       this.ready = false;
+      this.needOnboard = false;
       void this.goToAuth();
     }
   }
@@ -95,6 +105,7 @@ struct IndexPage {
 
   private async doLogout(): Promise<void> {
     await logout();
+    this.needOnboard = false;
     await this.goToAuth();
   }
 
@@ -196,6 +207,13 @@ struct IndexPage {
       .backgroundColor(this.colors().background)
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
+    } else if (this.needOnboard) {
+      OnboardPet({
+        onDone: (): void => {
+          this.needOnboard = false;
+          this.currentTab = 0;
+        }
+      })
     } else {
       Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
         TabContent() {
@@ -241,24 +259,11 @@ struct IndexPage {
         .tabBar(this.tabBuilder(TAB_TITLES[2], 2))
 
         TabContent() {
-          Column({ space: spacing.s4 }) {
-            this.placeholderCard('我的', '偏好与记忆管理稍后开放。')
-            Button('退出登录')
-              .height(44)
-              .backgroundColor(this.colors().surface)
-              .fontColor(this.colors().error)
-              .fontSize(fontSizes.body)
-              .borderRadius(radii.pill)
-              .borderWidth(1)
-              .borderColor(this.colors().border)
-              .onClick(() => {
-                void this.doLogout();
-              });
-          }
-          .width('100%')
-          .height('100%')
-          .padding(spacing.s5)
-          .backgroundColor(this.colors().background)
+          ProfilePage({
+            onLogout: (): void => {
+              void this.doLogout();
+            }
+          })
         }
         .tabBar(this.tabBuilder(TAB_TITLES[3], 3))
       }

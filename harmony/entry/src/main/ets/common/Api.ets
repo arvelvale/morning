@@ -321,6 +321,8 @@ const post = (p: string, b: Object | null = null, timeoutMs: number = DEFAULT_TI
 // http.RequestMethod 枚举在本 SDK 无 PATCH 成员，底层支持字符串方法名。
 const patch = (p: string, b: Object | null = null): Promise<Object> =>
   request('PATCH' as http.RequestMethod, p, b);
+const put = (p: string, b: Object | null = null): Promise<Object> =>
+  request(http.RequestMethod.PUT, p, b);
 const del = (p: string): Promise<Object> => request(http.RequestMethod.DELETE, p);
 
 // ─── 账号 Auth ───────────────────────────────────────────────────────────
@@ -510,6 +512,50 @@ export const listScenes = (): Promise<Object> => get('/api/v1/scenes');
 // ─── 桌宠 ────────────────────────────────────────────────────────────────
 export const listPets = async (): Promise<PetDetail[]> => await get('/api/v1/pets') as PetDetail[];
 export const getActivePet = async (): Promise<PetDetail> => await get('/api/v1/pets/active') as PetDetail;
+
+/** 服务端内置预设（id 为字符串，如 miro/bobi）。 */
+export interface PetPreset {
+  id: string;
+  name: string;
+  personality: string;
+}
+
+export const listPetPresets = async (): Promise<PetPreset[]> =>
+  await get('/api/v1/pets/presets') as PetPreset[];
+
+export interface ActivatePetResult {
+  pet: PetDetail;
+}
+
+/** petId：已拥有整数 id，或预设字符串 id（会先实例化再激活）。 */
+interface ActivatePetBody {
+  petId: number | string;
+}
+
+export const setActivePet = async (petId: number | string): Promise<ActivatePetResult> => {
+  const body: ActivatePetBody = { petId: petId };
+  return await put('/api/v1/pets/active', body) as ActivatePetResult;
+};
+
+// ─── 偏好设置 ────────────────────────────────────────────────────────────
+export interface Preferences {
+  proactive_enabled: boolean;
+  proactive_frequency: string;
+  sleep_reminder_time: string;
+  keep_raw_dump: boolean;
+  profile_learning_enabled: boolean;
+  ephemeral_ttl_days: number;
+  font_size: string;
+  companion_tone: string;
+  reduce_transparency: boolean;
+}
+
+/** PATCH 增量：接口层接受任意 Object，这里只约定字段名。 */
+export const getPreferences = async (): Promise<Preferences> =>
+  await get('/api/v1/preferences') as Preferences;
+
+export const updatePreferences = async (patchBody: Object): Promise<Preferences> =>
+  await patch('/api/v1/preferences', patchBody) as Preferences;
 
 /** 应用版本发布信息（公开接口，启动检查更新）。 */
 export interface AppVersionInfo {
