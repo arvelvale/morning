@@ -48,6 +48,23 @@ uv run uvicorn app.main:app --reload   # 默认 http://127.0.0.1:8000
 
 ## 线上部署（Docker）
 
+### SMTP 邮箱登录
+
+沿用阿里云邮件推送 SMTP（不是阿里邮箱，也不需要 AccessKey）。配置示例在 `.env.example`：
+
+- `EMAIL_LOGIN_ENABLED=true` 开启；默认 false。关闭只阻止邮箱验证码发送/登录，密码登录及已有 JWT 不受影响。
+- `SMTP_HOST`、`SMTP_PORT`、`SMTP_SECURE`、`SMTP_EMAIL`、`SMTP_PASSWORD`、`SMTP_SENDER_NAME`。465 使用证书验证的 SSL；secure=false 时强制 STARTTLS，禁止明文认证。每次网络操作超时 10 秒。
+- 本地已沿用既有项目发信地址/SMTP 密码，显示名称为喵灵；源项目未改。共享发信地址也共享额度和信誉，正式使用建议在同账号下独立创建喵灵发信地址及密码。
+- 凭证只放后端 `.env`/环境变量，禁止写入前端、Git、日志。部署时安全配置目标服务器，不把示例中的空值覆盖到已有配置。
+- 数据库新增迁移 `019_email_auth`（三个新表，不改旧用户列）。开发启动通过 create_all 建新表；已有生产库先备份，再运行 `alembic upgrade head`。本轮没有对真实数据库执行迁移。
+- 必须先配置客户端到后端的 HTTPS，再面向真实用户启用；SMTP 的 SSL 不能保护 App 到后端的 HTTP 链路。
+- 首次绑定需邮箱验证码和原账号密码，绑定后仍使用同一 user_id。详情见 [API §A.1](docs/api-design.md#a1-smtp-邮箱验证码2026-09-11)。Android/Web 登录页已接入；鸿蒙原生页尚未接入。
+- 回滚优先关闭开关，不删除邮箱绑定表；关闭邮箱登录不影响原密码登录。
+
+隔离验证（不发邮件，不改开发库）：在 backend 下设置 `PYTHONPATH=.`、`PYTHONUTF8=1`，执行 `.venv/Scripts/python.exe scripts/test_email_auth.py`。真实验收需授权测试收件地址，检查实际收件、垃圾箱、重发、绑定后原数据以及限流；SMTP 接受不等于收件箱送达。
+
+### Docker 部署
+
 线上实例：`http://223.109.142.152:8000`（容器 `morning-backend`，见 `../deploy/`）。
 
 ```bash

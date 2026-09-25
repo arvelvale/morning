@@ -1,8 +1,8 @@
 /**
  * 登录与注册。
- * 保留用户名、密码校验和认证 API，仅统一跨端布局与表单状态。
+ * 保留密码登录/注册，增加 SMTP 邮箱验证码登录及原账号首次绑定。
  */
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -17,7 +17,7 @@ import {
   EyeOff,
 } from "lucide-react-native";
 
-import { login as apiLogin, register as apiRegister, type Tokens } from "../api";
+import { login as apiLogin, register as apiRegister, loginWithEmail, sendEmailCode, type Tokens } from "../api";
 import {
   Button,
   IconButton,
@@ -68,9 +68,27 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailMode, setEmailMode] = useState(false);
+  const [binding, setBinding] = useState(false);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [sending, setSending] = useState(false);
+  const [retryAt, setRetryAt] = useState(0);
+  const [remaining, setRemaining] = useState(0);
+  const busy = useRef(false);
+  useEffect(() => {
+    const tick = () => setRemaining(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
+    tick();
+    if (!retryAt) return;
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [retryAt]);
   const isLogin = mode === "login";
 
   const switchMode = () => {
+    if (busy.current) return;
+    setEmailMode(false);
+    setBinding(false);
     setMode(isLogin ? "register" : "login");
     setHint("");
     setPassword("");
@@ -78,7 +96,30 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   };
 
   const submit = async () => {
-    if (loading) return;
+    if (busy.current) return;
+    if (emailMode) {
+      if (!email.trim() || !/^\d{6}$/.test(code)) {
+        setHint("请输入邮箱和 6 位验证码");
+        return;
+      }
+      if (binding && (username.trim().length < 3 || password.length < 6)) {
+        setHint("首次绑定需要填写原账号用户名和密码");
+        return;
+      }
+      busy.current = true;
+      setLoading(true);
+      setHint("");
+      try {
+        const tokens = await loginWithEmail(email.trim(), code, binding ? { username: username.trim(), password } : undefined);
+        onAuthed(tokens, "login");
+      } catch (error: any) {
+        setHint(error?.message || "登录失败，请稍后重试");
+      } finally {
+        busy.current = false;
+        setLoading(false);
+      }
+      return;
+    }
     if (username.trim().length < 3) {
       setHint("用户名至少 3 个字符");
       return;
@@ -89,6 +130,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
     }
 
     setHint("");
+    busy.current = true;
     setLoading(true);
     try {
       const authenticate = isLogin ? apiLogin : apiRegister;
@@ -97,7 +139,32 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
     } catch (error: any) {
       setHint(error?.message || "出了点问题，待会儿再试试");
     } finally {
+      busy.current = false;
       setLoading(false);
+    }
+  };
+
+  const requestCode = async () => {
+    if (busy.current || remaining > 0) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setHint("请输入有效的邮箱地址");
+      return;
+    }
+    busy.current = true;
+    setSending(true);
+    setHint("");
+    setCode("");
+    // 网络超时不等于发送失败；先留出冷却时间，防止误触重复发送。
+    setRetryAt(Date.now() + 60000);
+    try {
+      const result = await sendEmailCode(email.trim(), binding ? "bind" : "login");
+      setRetryAt(Date.now() + result.retry_after * 1000);
+      setHint(result.message);
+    } catch (error: any) {
+      setHint(error?.message || "邮件暂时没能发出，请稍后重试");
+    } finally {
+      busy.current = false;
+      setSending(false);
     }
   };
 
@@ -113,7 +180,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
       </Text>
       {isExpanded ? (
         <View style={{ marginTop: theme.spacing[12] }}>
-          <Text style={[theme.typography.textStyles.display, { color: theme.colors.textPrimary, lineHeight: 50 }]}>
+          <Text style={[theme.typography.textStyles.display, theme.typography.textStyles.emotionalTitle, { color: theme.colors.textPrimary, lineHeight: 50 }]}>
             给纷乱的思绪，{"\n"}留一块安静的地方
           </Text>
           <View style={{ marginTop: theme.spacing[10], gap: theme.spacing[5] }}>
@@ -171,6 +238,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
               accessibilityRole="header"
               style={[
                 theme.typography.textStyles.pageTitle,
+                theme.typography.textStyles.emotionalTitle,
                 { color: theme.colors.textPrimary },
               ]}
             >
@@ -191,9 +259,49 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 : "给自己起个名字，我们慢慢认识。"}
             </Text>
 
+            {isLogin ? (
+              <View style={{ flexDirection: "row", gap: theme.spacing[5], marginBottom: theme.spacing[5] }}>
+                {[false, true].map(useEmail => (
+                  <Pressable key={String(useEmail)} accessibilityRole="button" accessibilityState={{ selected: emailMode === useEmail }}
+                    disabled={loading || sending}
+                    onPress={() => { setEmailMode(useEmail); setBinding(false); setHint(""); setCode(""); setPassword(""); }}
+                    style={{ minHeight: 44, justifyContent: "center", borderBottomWidth: emailMode === useEmail ? 2 : 0, borderBottomColor: theme.colors.accent }}>
+                    <Text style={[theme.typography.textStyles.body, { color: emailMode === useEmail ? theme.colors.textPrimary : theme.colors.textMuted }]}>
+                      {useEmail ? "邮箱验证码" : "密码登录"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+
             <View style={{ gap: theme.spacing[4] }}>
+              {emailMode ? (
+                <>
+                  <TextField label="邮箱" accessibilityLabel="邮箱" keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
+                    editable={!loading && !sending} value={email} placeholder="你的邮箱地址"
+                    onChangeText={value => { setEmail(value); setCode(""); setHint(""); }} />
+                  <TextField label="验证码" accessibilityLabel="邮箱验证码" keyboardType="number-pad" autoComplete="one-time-code"
+                    editable={!loading && !sending} maxLength={6} value={code} placeholder="6 位数字"
+                    onChangeText={value => setCode(value.replace(/\D/g, ""))} onSubmitEditing={submit} />
+                  <Button onPress={requestCode} loading={sending} disabled={loading || sending || remaining > 0}>
+                    {remaining > 0 ? `${remaining} 秒后可重发` : "发送验证码"}
+                  </Button>
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected: binding }} disabled={loading || sending}
+                    onPress={() => { setBinding(!binding); setCode(""); setPassword(""); setHint(""); }}
+                    style={{ minHeight: 44, justifyContent: "center" }}>
+                    <Text style={[theme.typography.textStyles.caption, { color: theme.colors.accent }]}>
+                      {binding ? "已经绑定过？直接用邮箱登录" : "首次使用？绑定已有账号"}
+                    </Text>
+                  </Pressable>
+                  {binding ? <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary }]}>
+                    填写原账号和密码，并重新获取绑定验证码。绑定后仍保留原来的思绪与片场记录；没有账号请先注册。
+                  </Text> : null}
+                </>
+              ) : null}
+              {!emailMode || binding ? <>
               <TextField
                 accessibilityLabel="用户名"
+                editable={!loading && !sending}
                 autoCapitalize="none"
                 autoCorrect={false}
                 label="用户名"
@@ -207,6 +315,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
               />
               <TextField
                 accessibilityLabel="密码"
+                editable={!loading && !sending}
                 autoCapitalize="none"
                 autoComplete="off"
                 autoCorrect={false}
@@ -236,6 +345,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 }
                 value={password}
               />
+              </> : null}
             </View>
 
             <View
@@ -262,10 +372,11 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             <Button
               fullWidth
               loading={loading}
+              disabled={sending}
               onPress={submit}
               size="large"
             >
-              {loading
+              {emailMode ? (loading ? "登录中…" : binding ? "绑定并登录" : "验证码登录") : loading
                 ? isLogin
                   ? "登录中…"
                   : "创建中…"

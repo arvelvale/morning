@@ -4,10 +4,12 @@ Token 采用标准 OAuth2 风格字段（access_token / refresh_token / token_ty
 除 register/login/refresh 外均需 Authorization: Bearer <access_token>。
 """
 from datetime import datetime
+import re
+from typing import Literal
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,7 @@ from app.core.security import (
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.user import User
+from app.services.infra.email_auth import send_code, verify_code
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 
@@ -41,6 +44,28 @@ class LoginIn(BaseModel):
 
 class RefreshIn(BaseModel):
     refresh_token: str
+
+
+class EmailCodeIn(BaseModel):
+    email: str = Field(max_length=254)
+    purpose: Literal["login", "bind"] = "login"
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        local, separator, domain = value.partition("@")
+        if (not separator or len(local) > 64 or local.startswith(".") or local.endswith(".")
+                or ".." in local or not re.fullmatch(r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+", local)
+                or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+", domain)):
+            raise ValueError("请输入有效的邮箱地址")
+        return value
+
+
+class EmailLoginIn(EmailCodeIn):
+    code: str = Field(pattern=r"^[0-9]{6}$")
+    username: str | None = Field(default=None, min_length=3, max_length=50)
+    password: str | None = Field(default=None, min_length=6, max_length=128)
 
 
 class TokenOut(BaseModel):
@@ -73,6 +98,20 @@ def _issue_tokens(user_id: int) -> TokenOut:
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
+
+@router.post("/auth/email/send-code")
+def send_email_code(body: EmailCodeIn, request: Request, db: Session = Depends(get_db)):
+    # 仅使用服务端识别的 client IP，不自行信任任意 X-Forwarded-For。
+    return send_code(db, body.email, body.purpose, request.client.host if request.client else "unknown")
+
+
+@router.post("/auth/email/login", response_model=TokenOut)
+def email_login(body: EmailLoginIn, request: Request, db: Session = Depends(get_db)):
+    if body.purpose == "bind" and (not body.username or not body.password):
+        raise HTTPException(422, "首次绑定需要原账号用户名和密码")
+    user_id = verify_code(db, body.email, body.code, body.purpose,
+        request.client.host if request.client else "unknown", body.username, body.password)
+    return _issue_tokens(user_id)
 
 @router.post("/auth/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterIn, db: Session = Depends(get_db)):

@@ -26,13 +26,29 @@
 |---|---|---|
 | POST | `/auth/register` ★ | 注册 `{ ... }` → 返回 token |
 | POST | `/auth/login` ★ | 登录 → 返回 `{ accessToken, refreshToken? }` |
+| POST | `/auth/email/send-code` | ✅ SMTP 邮箱验证码 `{email, purpose: "login" | "bind"}` |
+| POST | `/auth/email/login` | ✅ 邮箱登录/首次绑定，返回标准 `access_token/refresh_token/token_type` |
 | POST | `/auth/refresh` ○ | 刷新 token |
 | POST | `/auth/logout` ○ | 注销 |
 | GET | `/users/me` ★ | 当前用户信息 |
 | PATCH | `/users/me` ○ | 修改资料 |
 
-> 除 `/auth/register`、`/auth/login` 外，所有接口都要求 `Authorization: Bearer <token>`，
+> 注册、密码登录、邮箱验证码发送/登录、refresh 不要求 access token（refresh 校验 refresh_token）；其余接口要求 `Authorization: Bearer <token>`，
 > 资源按 token 里的用户隔离。桌宠、记忆、信箱等全部 user-scoped。
+
+### A.1 SMTP 邮箱验证码（2026-09-11）
+
+- `POST /auth/email/send-code`：邮箱去首尾空白、转小写；支持常规 ASCII 邮箱。返回 `{message, retry_after:60, expires_in:300}`。不根据是否已绑定返回不同发送结果，避免暴露注册状态。
+- `POST /auth/email/login`：`{email, code, purpose:"login"}`；仅独立 `email_identities` 中的已验证邮箱可登录，历史 `users.email` 是未验证资料，不能用来授权。
+- 首次绑定：同一路径提交 `{email, code, purpose:"bind", username, password}`，验证码必须按 `bind` 用途申请。核对原账号密码后绑定并返回该账号 token；不会创建新用户。一账号一验证邮箱，不在此接口更换/抢占已有绑定。
+- 用户名密码注册仍保留。新用户先注册，已有用户在登录页选择“邮箱验证码 → 首次使用？绑定已有账号”。未新增邮箱自动注册或找回密码。
+- 错误响应沿用现有 FastAPI `{detail: ...}`：输入错误 422，验证码/密码验证失败 400，绑定冲突 409，限流 429（附 Retry-After），开关关闭或发信失败 503。
+- 验证码 6 位、安全随机数、HMAC 摘要落库、5 分钟有效、最多 5 次错误、成功一次性消费；绑定密码错误也消费验证码。用途隔离，重发替换旧验证码。
+- 数据库持久化限额：同邮箱 60 秒 1 次、滚动起算的小时窗口 5 次；同客户端 IP 小时窗口 20 次；全局 24 小时窗口 200 次。校验请求同 IP 小时窗口 60 次。发送失败仍消耗限额。均为初始设计值，不是阿里云套餐配额。
+- 当前 SQLite 用短 `BEGIN IMMEDIATE` 写事务串行化额度和消费，SMTP 网络请求在事务之外。若切换数据库需适配并发锁方案。
+- IP 使用 Request.client，不自行解析请求头；代理部署必须限制受信任转发来源，避免 IP 伪造或所有用户误共用代理 IP。
+- `users.email` 资料编辑不等于更改验证身份；此次未新增个人资料页的验证邮箱管理或解绑入口。
+- 开通、配置、回滚见 [backend README 的 SMTP 邮箱登录章节](../README.md#smtp-邮箱登录)。
 
 ## 1. 陪伴首页 Companion ★
 

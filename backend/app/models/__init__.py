@@ -18,8 +18,10 @@ from app.models.signal import (
 from app.models.treasure import Treasure
 from app.models.trust_state import TrustState
 from app.models.user import User
+from app.models.email_auth import EmailIdentity, EmailChallenge, EmailRate
 
 __all__ = [
+    "EmailIdentity", "EmailChallenge", "EmailRate",
     "MemoryItem", "MemoryHistory", "ContentSignal", "User", "Handoff", "Conversation", "Message",
     "Pet", "Letter", "Treasure", "RoleProfile", "TrustState", "Scene",
     "UserPreference", "ProfileWriteCandidate",

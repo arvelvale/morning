@@ -214,6 +214,17 @@ export async function login(username: string, password: string): Promise<Tokens>
   await saveTokens(t);
   return t;
 }
+export const sendEmailCode = (email: string, purpose: "login" | "bind") =>
+  post<{ message: string; retry_after: number; expires_in: number }>(
+    "/api/v1/auth/email/send-code", { email, purpose }, 60000);
+
+export async function loginWithEmail(email: string, code: string, binding?: { username: string; password: string }): Promise<Tokens> {
+  const t = await post<Tokens>("/api/v1/auth/email/login", {
+    email, code, purpose: binding ? "bind" : "login", ...binding,
+  });
+  await saveTokens(t);
+  return t;
+}
 export async function logout(): Promise<void> {
   try {
     await post("/api/v1/auth/logout");

@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 天（黑客松从宽）
     refresh_token_expire_days: int = 30
 
+    # 邮箱验证码：SMTP 密码仅留服务端；关闭开关不影响密码登录。
+    email_login_enabled: bool = False
+    smtp_host: str = "smtpdm.aliyun.com"
+    smtp_port: int = 465
+    smtp_secure: bool = True  # False 时仍强制 STARTTLS，禁止明文认证
+    smtp_email: str = ""
+    smtp_password: str = ""
+    smtp_sender_name: str = "喵灵"
+
     # 服务
     cors_origins: str = "*"
     # 运行环境：dev / prod。prod 下禁止默认 JWT 密钥启动（main.py 校验）。
