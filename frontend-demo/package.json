@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test:update": "node scripts/test-update-policy.mjs",
     "test:voice": "node scripts/test-voice-guards.mjs",
-    "test:scene": "node scripts/test-scene-review.mjs"
+    "test:scene": "node scripts/test-scene-review.mjs",
+    "rig:build": "node scripts/build-pet-rig.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",
@@ -39,6 +40,7 @@
     "react-native": "0.79.5",
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0",
+    "react-native-webview": "13.13.5",
     "solarlunar": "^3.1.0",
     "three": "^0.185.1"
   },

@@ -15,6 +15,7 @@
 | `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，已部署于 yingjiapp.com，日志见 `docs/progress/2026-09-02.md`） |
 | `morning-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
 | `frontend-demo/` | React Native / Expo 移植版（`npm run web` 浏览器预览 / `npm run android`），详见 `frontend-demo/README.md` |
+| `frontend-demo/src/pets/rig/` | 米露/波比角色运行时 `pet-rig.js`（程序化骨骼动画，App、官网、鸿蒙共用一份源码）；改完在 frontend-demo 下 `npm run rig:build` 同步各处副本，不要手改副本。状态演示见 `design-demos/pet-motion/pet.html` |
 | `harmony/` | HarmonyOS NEXT 原生客户端（ArkTS + ArkUI），详见 `harmony/README.md`；计划与里程碑见 `docs/2026-08-27-harmonyos-next-development-plan.md` |
 | `docs/progress/` | 开发日志：每天一个 `YYYY-MM-DD.md`，双层结构（产品语义优先、实现细节其次），规则与索引见 `docs/progress/_开发日志规范.md` |
 | `deploy/` | 后端 Docker 部署（`deploy.py` 一键装 Docker/同步/重建；`docker-compose.yml`） |

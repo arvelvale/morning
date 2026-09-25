@@ -26,6 +26,7 @@ import {
 } from "../design-system";
 import { createScene } from "../api";
 import { HomePetArtwork } from "../components/HomePetArtwork";
+import type { PetMood } from "../pets/rig/types";
 import { useRealtimeCall, type CallStatus } from "../useRealtimeCall";
 
 /** 字幕流里的一行：role 决定说话人标签，draft 表示还没定稿。 */
@@ -62,6 +63,12 @@ function statusLabel(status: CallStatus, error: string | null): string {
     default:
       return "准备中…";
   }
+}
+
+/** 通话状态 → 桌宠状态。 */
+function callMood(status: CallStatus): PetMood {
+  if (status === "listening" || status === "thinking" || status === "speaking") return status;
+  return "idle";
 }
 
 /** 通话计时：只在接通后走，挂断即停。 */
@@ -345,6 +352,7 @@ export function VoiceCall({
       >
         <HomePetArtwork
           fallbackEmoji={petEmoji}
+          mood="listening"
           presetId={petPresetId}
           size={72}
         />
@@ -367,6 +375,19 @@ export function VoiceCall({
           你可以自然地说，我会在停顿时回应
         </Text>
       </View>
+    </View>
+  );
+
+  /** 通话中：桌宠缩在字幕上方，跟着通话状态倾听 / 思考 / 回应。 */
+  const callPet = (
+    <View style={{ alignItems: "center" }}>
+      <HomePetArtwork
+        fallbackEmoji={petEmoji}
+        level={call.status === "listening" ? call.level : 0}
+        mood={callMood(call.status)}
+        presetId={petPresetId}
+        size={isCompact ? 56 : 68}
+      />
     </View>
   );
 
@@ -576,7 +597,12 @@ export function VoiceCall({
     >
       <View style={{ flex: 1, minHeight: 0 }}>
         {header}
-        {connecting ? connectingStage : subtitles}
+        {connecting ? connectingStage : (
+          <>
+            {callPet}
+            {subtitles}
+          </>
+        )}
         {sceneBanner}
         {controls}
       </View>

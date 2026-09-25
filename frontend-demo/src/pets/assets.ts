@@ -1,34 +1,27 @@
 import type { ImageSourcePropType } from "react-native";
 
-export type PetArtworkAssets = {
-  /** 静态兜底：动图首帧。动图加载失败或系统要求减弱动态时显示。 */
-  idle: ImageSourcePropType;
-  /** 日间动图：醒着抱星星（GIF，Fresco 循环播放）。 */
-  motionDay: ImageSourcePropType;
-  /** 夜间动图：抱着星星打瞌睡。夜间不是换装，是同一只猫困了。 */
-  motionNight: ImageSourcePropType;
-};
-
-// 米露 3.0：黑毛小猫，抱一颗星星。日间醒着，夜里打盹——
-// 与「夜间是同一盏灯调暗」的骨架同构。
-const PET_ARTWORK: Record<string, PetArtworkAssets> = {
+/**
+ * 米露 / 波比的静态图都由骨骼动画渲染导出（design-demos/pet-motion，pet-rig.js 同源），
+ * 与动画第一帧同机位，淡入切换时不会跳。
+ * 旧的 GPT 立绘与 GIF 仍留在 assets/pets 里作历史备份，已不再引用。
+ */
+const PET_STILLS: Record<string, { idle: ImageSourcePropType; sleep: ImageSourcePropType }> = {
   miro: {
-    idle: require("../../assets/pets/miro/animations/miro-star-hug-frame0.png"),
-    motionDay: require("../../assets/pets/miro/animations/miro-star-hug.gif"),
-    motionNight: require("../../assets/pets/miro/animations/miro-dozing.gif"),
+    idle: require("../../assets/pets/rig/miro-idle.png"),
+    sleep: require("../../assets/pets/rig/miro-sleep.png"),
+  },
+  bobi: {
+    idle: require("../../assets/pets/rig/bobi-idle.png"),
+    sleep: require("../../assets/pets/rig/bobi-sleep.png"),
   },
 };
 
-const PET_AVATARS: Record<string, ImageSourcePropType> = {
-  miro: require("../../assets/pets/avatars/miro-avatar-v2.png"),
-  // 波比 v2：暖橘晨光猫，与喵灵猫形象统一；v1 金毛犬仅作历史备份。
-  bobi: require("../../assets/pets/avatars/bobi-avatar-v2.png"),
-};
-
-export function getPetArtwork(presetId: string | null): PetArtworkAssets | undefined {
-  return presetId ? PET_ARTWORK[presetId] : undefined;
+/** 动画加载前 / 加载失败时的静态兜底：醒着或打盹两种姿势。 */
+export function getPetStill(presetId: string, pose: "idle" | "sleep"): ImageSourcePropType | undefined {
+  return PET_STILLS[presetId]?.[pose];
 }
 
+/** 头像：与立绘同一张全身像，各处都按 contain 显示。 */
 export function getPetAvatar(presetId: string | null): ImageSourcePropType | undefined {
-  return presetId ? PET_AVATARS[presetId] : undefined;
+  return presetId ? PET_STILLS[presetId]?.idle : undefined;
 }

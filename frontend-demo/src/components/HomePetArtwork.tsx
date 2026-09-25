@@ -1,76 +1,43 @@
-import { Asset } from "expo-asset";
-import { Image as ExpoImage } from "expo-image";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AccessibilityInfo,
-  Animated,
-  AppState,
-  Easing,
-  Image,
-  Platform,
-  type ImageSourcePropType,
-  View,
-} from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, AppState, Easing, Image, StyleSheet, View } from "react-native";
 
-import { PetPlaceholder, useTheme } from "../design-system";
-import { getPetArtwork } from "../pets/assets";
+import { PetPlaceholder, useReducedMotion, useTheme } from "../design-system";
+import { getPetStill } from "../pets/assets";
+import { PetRigView } from "../pets/rig/PetRigView";
+import { isRigPet, type PetMood } from "../pets/rig/types";
 
-/** 间歇节律：动一会儿 → 静一会儿。静止 = GIF 定格在自己的第一帧。 */
-const MOTION_ACTIVE_MS = 6000;
-const MOTION_REST_MS = 4500;
-const MOTION_FADE_MS = 260;
+const FALLBACK_FADE_MS = 260;
 
 type HomePetArtworkProps = {
   presetId: string | null;
   fallbackEmoji: string;
   size?: number;
+  /** 桌宠状态；默认待机。夜间的待机会自动变成打盹。 */
+  mood?: PetMood;
+  /** 0~1，倾听时传用户音量。 */
+  level?: number;
 };
 
-function moduleIds(sources: (ImageSourcePropType | undefined)[]) {
-  return sources.filter((source): source is number => typeof source === "number");
-}
-
 /**
- * 首页桌宠：GIF 动图间歇播放（expo-image）。
+ * 桌宠立绘：米露 / 波比是程序化骨骼动画（src/pets/rig/pet-rig.js），
+ * 原生端跑在 WebView 里，网页端直接画 canvas。
  *
- * P3 最终版：**单层动图 + autoplay 切换**。
- * - 动段：autoplay=true，GIF 循环播放；
- * - 静段：autoplay=false，GIF 定格在**自身第一帧**——画面与动画完全同一张画，
- *   彻底消灭旧版"垫底 PNG（睁眼版）与 GIF（闭眼版）内容不一致"造成的
- *   动与不动叠加/换画跳变；
- * - 垫底 PNG 降级为加载中/动图不可用（减动态/后台/失败）时的兜底；
- * - 切换用 260ms 交叉淡化，任何瞬间单层可见。
+ * - 同一姿势的静态 PNG 垫在下面：动画第一帧画好后淡出，加载失败则一直显示；
+ * - 夜间的待机 = 同一只猫困了（打盹），不是换装；
+ * - 系统减弱动态 → 定格姿势；App 进后台 → 暂停渲染。
  */
 export function HomePetArtwork({
   presetId,
   fallbackEmoji,
   size = 215,
+  mood = "idle",
+  level = 0,
 }: HomePetArtworkProps) {
   const night = useTheme().isNight;
-  const artwork = useMemo(() => getPetArtwork(presetId), [presetId]);
-  const motion = night ? artwork?.motionNight : artwork?.motionDay;
-  const [assetsReady, setAssetsReady] = useState(false);
-  const [motionFailed, setMotionFailed] = useState(false);
-  const [staticFailed, setStaticFailed] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useReducedMotion();
   const [appActive, setAppActive] = useState(AppState.currentState === "active");
-  const [motionPlaying, setMotionPlaying] = useState(true);
-  const motionOpacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    let alive = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (alive) setReduceMotion(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduceMotion,
-    );
-    return () => {
-      alive = false;
-      subscription.remove();
-    };
-  }, []);
+  const [rigFailed, setRigFailed] = useState(false);
+  const fallbackOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
@@ -80,64 +47,25 @@ export function HomePetArtwork({
   }, []);
 
   useEffect(() => {
-    setAssetsReady(false);
-    setMotionFailed(false);
-    setStaticFailed(false);
-    if (!artwork) return;
+    setRigFailed(false);
+    fallbackOpacity.setValue(1);
+  }, [presetId, fallbackOpacity]);
 
-    let alive = true;
-    Asset.loadAsync(
-      moduleIds([artwork.idle, artwork.motionDay, artwork.motionNight]),
-    )
-      .then(() => {
-        if (alive) setAssetsReady(true);
-      })
-      .catch(() => {
-        if (alive) setMotionFailed(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [artwork]);
-
-  // 间歇节律：动 MOTION_ACTIVE_MS → 静 MOTION_REST_MS → 循环。
-  // 静段 autoplay=false（GIF 定格首帧），动段恢复播放。后台/减弱动态时不轮转。
-  const canPlay = assetsReady && !motionFailed && !reduceMotion && appActive && motion != null;
-  useEffect(() => {
-    if (!canPlay) {
-      setMotionPlaying(true);
-      motionOpacity.setValue(1);
-      return;
-    }
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = (playing: boolean, delay: number) => {
-      timer = setTimeout(() => {
-        if (!alive) return;
-        setMotionPlaying(playing);
-        Animated.timing(motionOpacity, {
-          toValue: playing ? 1 : 0.82,   // 静段不完全消失：定格帧仍可见，只轻微"入睡"
-          duration: MOTION_FADE_MS,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: Platform.OS !== "web",
-        }).start();
-        schedule(!playing, playing ? MOTION_ACTIVE_MS : MOTION_REST_MS);
-      }, delay);
-    };
-    setMotionPlaying(true);
-    schedule(false, MOTION_ACTIVE_MS);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [canPlay, motionOpacity]);
-
-  if (!artwork || staticFailed) {
+  if (!isRigPet(presetId)) {
     return <PetPlaceholder size={size} emoji={fallbackEmoji} />;
   }
 
-  // 减弱动态 / 后台 / 动图损坏 → 只显示静态首帧。
-  const showMotion = canPlay;
+  const effectiveMood: PetMood = night && mood === "idle" ? "sleep" : mood;
+  const still = getPetStill(presetId, effectiveMood === "sleep" ? "sleep" : "idle");
+
+  const onReady = () => {
+    Animated.timing(fallbackOpacity, {
+      toValue: 0,
+      duration: reduceMotion ? 0 : FALLBACK_FADE_MS,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
 
   return (
     <View
@@ -155,47 +83,35 @@ export function HomePetArtwork({
           width: size * 1.34,
           height: size * 1.34,
           borderRadius: size,
-          backgroundColor: night
-            ? "rgba(216,169,78,0.10)"
-            : "rgba(184,134,11,0.09)",
+          backgroundColor: night ? "rgba(216,169,78,0.10)" : "rgba(184,134,11,0.09)",
         }}
       />
       <View style={{ width: size * 1.42, height: size * 1.42 }}>
-        {/* 静态 PNG：仅作 GIF 不可用（加载中/失败/减动态/后台）的兜底 */}
-        {!showMotion ? (
-          <Image
-            source={artwork.idle}
-            resizeMode="contain"
-            fadeDuration={0}
-            onError={() => setStaticFailed(true)}
-            accessibilityIgnoresInvertColors
-            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+        {rigFailed ? null : (
+          <PetRigView
+            level={level}
+            mood={effectiveMood}
+            night={night}
+            onError={() => setRigFailed(true)}
+            onReady={onReady}
+            paused={!appActive}
+            pet={presetId}
+            reduceMotion={reduceMotion}
+            style={StyleSheet.absoluteFill}
           />
-        ) : null}
-        {showMotion ? (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              opacity: motionOpacity,
-            }}
-          >
-            {/* key 含播放状态：autoplay 切换时重挂载，确保从第一帧定格/重播 */}
-            <ExpoImage
-              key={`${night ? "n" : "d"}-${motionPlaying ? "play" : "rest"}`}
-              source={motion}
-              autoplay={motionPlaying}
-              contentFit="contain"
-              transition={0}
-              accessibilityIgnoresInvertColors
-              style={{ width: "100%", height: "100%" }}
-            />
-          </Animated.View>
-        ) : null}
+        )}
+        {/* 外层管位置与淡出，内层普通 Image：react-native-web 上 Animated.Image 会丢掉尺寸样式 */}
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { opacity: rigFailed ? 1 : fallbackOpacity }]}
+        >
+          <Image
+            accessibilityIgnoresInvertColors
+            resizeMode="contain"
+            source={still}
+            style={{ width: "100%", height: "100%" }}
+          />
+        </Animated.View>
       </View>
     </View>
   );

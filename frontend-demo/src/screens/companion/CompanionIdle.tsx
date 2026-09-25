@@ -331,21 +331,7 @@ export function CompanionIdle({
             presetId={petPresetId}
             size={petSize}
           />
-          {/* 地面投影：椭圆光斑随呼吸微缩放（原型 groundp 动效） */}
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              width: petSize * 1.1,
-              height: petSize * 1.1 * 0.16,
-              borderRadius: petSize * 1.1,
-              marginTop: -petSize * 0.08,
-              backgroundColor: night ? "rgba(0,0,0,0.28)" : "rgba(120,95,60,0.18)",
-              opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0.34] }),
-              transform: [{
-                scaleX: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
-              }],
-            }}
-          />
+          {/* 地面投影已并入骨骼动画（接触阴影 + 贴纸投影），这里不再单独画 */}
         </Animated.View>
         <Text
           style={[
