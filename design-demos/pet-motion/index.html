@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>米露与波比</title>
+<!--
+  喵灵 · 米露与波比 —— 40 秒程序化短片（官网首屏同款）。
+  角色与短片都在 pet-rig.js 里（源文件：frontend-demo/src/pets/rig/pet-rig.js，`npm run rig:build` 同步过来）。
+  操作：空格 暂停/继续 · ←/→ 跳 2 秒 · R 从头播放 · ?t=18 从第 18 秒开始 · ?pause 定格
+  桌宠各状态：pet.html
+-->
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/style.css">
+<style>
+  html,body{margin:0;height:100%;background:#1B1714;overflow:hidden}
+  #film{position:fixed;inset:0}
+  #chrome{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:14px;
+    padding:8px 14px;border-radius:999px;background:rgba(27,23,20,.72);color:#EFE6D2;
+    font:13px/1 -apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+    transition:opacity .4s ease;opacity:0;backdrop-filter:blur(8px)}
+  #chrome.show{opacity:1}
+  #chrome button{all:unset;cursor:pointer;display:grid;place-items:center;width:26px;height:26px;border-radius:50%}
+  #chrome button:hover{background:rgba(255,255,255,.1)}
+  #chrome svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #scrub{width:min(46vw,520px);accent-color:#D8A94E}
+  #clock{font-variant-numeric:tabular-nums;min-width:74px;text-align:right;color:#C9BCA4}
+  html.recording #chrome{display:none}
+</style>
+</head>
+<body>
+<div id="film"></div>
+<div id="chrome" class="no-record">
+  <button id="btnPlay" aria-label="暂停"><svg viewBox="0 0 24 24"><path id="icoPlay" d="M8 5v14M16 5v14"/></svg></button>
+  <button id="btnRestart" aria-label="从头播放"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+  <input id="scrub" type="range" min="0" max="40" step="0.01" value="0" aria-label="时间">
+  <span id="clock">0.0 / 40s</span>
+</div>
+<script src="pet-rig.js"></script>
+<script>
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  if (window.__recording) document.documentElement.classList.add('recording');
+  const film = PetRig.mountFilm($('film'), {
+    fit: 'contain', start: parseFloat(Q.get('t')) || 0, autoplay: !Q.has('pause'),
+    loop: !window.__recording, autoPause: false,
+    onTime: t => { $('scrub').value = t.toFixed(2); $('clock').textContent = `${t.toFixed(1)} / 40s`; },
+  });
+  const sync = () => $('icoPlay').setAttribute('d', film.playing ? 'M8 5v14M16 5v14' : 'M7 4l13 8-13 8z');
+  // 录屏脚本的握手：__ready 与 t=0 同帧，__seek 可逐帧导出
+  film.ready.then(() => { window.__ready = true; sync(); });
+  window.__seek = t => film.seek(t);
+  let hideT;
+  const show = () => { $('chrome').classList.add('show'); clearTimeout(hideT); hideT = setTimeout(() => $('chrome').classList.remove('show'), 2200); };
+  addEventListener('mousemove', show);
+  const toggle = () => { film.playing ? film.pause() : film.play(); sync(); };
+  $('btnPlay').onclick = toggle;
+  $('btnRestart').onclick = () => { film.seek(0); film.play(); sync(); };
+  $('scrub').oninput = () => film.seek(parseFloat($('scrub').value));
+  addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); toggle(); show(); }
+    if (e.code === 'ArrowRight') { film.seek(film.time + 2); show(); }
+    if (e.code === 'ArrowLeft') { film.seek(film.time - 2); show(); }
+    if (e.code === 'KeyR') { film.seek(0); film.play(); sync(); }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>桌宠状态台</title>
+<!-- App 里用的单只桌宠：切换状态、昼夜、音量，检查每个动作。?mood=sleep&night=1 可直接定位 -->
+<style>
+  :root{--bg:#F5EFE2;--ink:#3B3428;--muted:#9C907C;--line:#E4D9C3;--accent:#A97E22}
+  html.night{--bg:#262019;--ink:#EFE6D2;--muted:#97896E;--line:#3A3128;--accent:#D8A94E}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+  main{max-width:880px;margin:0 auto;padding:28px 16px 40px}
+  .row{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .pet{width:min(400px,44vw);aspect-ratio:1;position:relative;border-radius:28px;background:color-mix(in srgb,var(--ink) 4%,transparent);cursor:pointer}
+  .pet span{position:absolute;left:16px;top:12px;color:var(--muted);font-size:13px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:22px}
+  button{all:unset;cursor:pointer;padding:7px 14px;border-radius:999px;border:1px solid var(--line);color:var(--ink)}
+  button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+  label{display:flex;align-items:center;gap:8px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <div class="row">
+    <div class="pet" id="miro"><span>米露</span></div>
+    <div class="pet" id="bobi"><span>波比</span></div>
+  </div>
+  <div class="bar" id="moods"></div>
+  <div class="bar">
+    <button id="night" aria-pressed="false">夜间</button>
+    <label>说话音量 <input id="level" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+    <label><input id="auto" type="checkbox" checked> 说话时音量自动起伏</label>
+  </div>
+</main>
+<script src="pet-rig.js"></script>
+<script>
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const NAMES = { idle: '待机', listening: '倾听', thinking: '思考', speaking: '说话', happy: '开心', sleep: '犯困' };
+  let mood = Q.get('mood') || 'idle', night = Q.get('night') === '1';
+  const pets = ['miro', 'bobi'].map(pet => {
+    const c = PetRig.mountPet($(pet), { pet, mood, night });
+    $(pet).onclick = () => c.poke();
+    return c;
+  });
+  const set = p => pets.forEach(c => c.set(p));
+  $('moods').innerHTML = PetRig.moods.map(m => `<button data-m="${m}">${NAMES[m]}</button>`).join('');
+  const sync = () => {
+    document.querySelectorAll('[data-m]').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === mood));
+    $('night').setAttribute('aria-pressed', night);
+    document.documentElement.classList.toggle('night', night);
+  };
+  $('moods').onclick = e => { const m = e.target.dataset.m; if (!m) return; mood = m; set({ mood }); sync(); };
+  $('night').onclick = () => { night = !night; set({ night }); sync(); };
+  $('level').oninput = () => set({ level: +$('level').value });
+  // 模拟说话时的音量包络
+  (function wave(ts) {
+    if ($('auto').checked && mood === 'speaking') {
+      const t = ts / 1000, v = Math.max(0, .5 + .35 * Math.sin(t * 9) * Math.sin(t * 2.3) + .15 * Math.sin(t * 23));
+      set({ level: v }); $('level').value = v;
+    }
+    requestAnimationFrame(wave);
+  })(0);
+  sync();
+  window.__ready = true;
+</script>
+</body>
+</html>
