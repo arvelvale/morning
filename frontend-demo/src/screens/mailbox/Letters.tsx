@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Film, Heart, Music, Play } from "lucide-react-native";
-import { CreamRipple, GrainTexture, paperColors } from "../../design-system";
+import { CreamRipple, GrainTexture, paperColors, useTheme } from "../../design-system";
 import {
   ApiLetter,
   LetterState,
@@ -18,6 +18,7 @@ import {
 function SealedEnvelope({ letter, onOpen, isOpening }: {
   letter: ApiLetter; onOpen: () => void; isOpening: boolean;
 }) {
+  const theme = useTheme();
   const { C } = useMailboxSurface();
   const [showRipple, setShowRipple] = useState(false);
   // 涟漪计时器：存 ref 并在卸载时清理，避免卸载后 setState 警告
@@ -53,7 +54,7 @@ function SealedEnvelope({ letter, onOpen, isOpening }: {
               <Text style={{ fontSize: 10, fontWeight: "500", letterSpacing: 1, color: "#A26458" }}>场景邀请</Text>
             </View>
           )}
-          <Text style={{ fontSize: 16, fontWeight: "500", marginBottom: 6, color: paperColors.ink2 }}>{letter.title}</Text>
+          <Text numberOfLines={2} style={[theme.typography.textStyles.emotionalTitle, { fontSize: 16, lineHeight: 24, marginBottom: 6, color: paperColors.ink2 }]}>{letter.title}</Text>
           <Text style={{ fontSize: 12, marginBottom: 5, color: paperColors.meta2 }}>{_fmtLetterDate(letter.created_at)}</Text>
           <Text style={{ fontSize: 12, color: paperColors.dim }} numberOfLines={1}>{letter.body.slice(0, 24)}…</Text>
         </View>
@@ -176,6 +177,7 @@ function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, on
   onGotoKeepsakes?: () => void;
 }) {
   const [attachSaved, setAttachSaved] = useState(false);
+  const theme = useTheme();
   const sceneInvite = isSceneInvite(letter);
   const paras = letter.body.split("\n").filter(p => p.trim());
   return (
@@ -188,9 +190,9 @@ function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, on
       <View style={{ position: "absolute", left: 44, top: 0, bottom: 0, width: 1, backgroundColor: "rgba(243,216,199,0.3)" }} />
       <View style={{ padding: 24 }}>
         <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
-          <View>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
             <Text style={{ fontSize: 12, marginBottom: 4, color: paperColors.meta2 }}>{_fmtLetterDate(letter.created_at)}</Text>
-            <Text style={{ fontSize: 20, fontWeight: "500", color: paperColors.ink2 }}>{letter.title}</Text>
+            <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 20, lineHeight: 30, color: paperColors.ink2 }]}>{letter.title}</Text>
           </View>
           <View style={{
             width: 38, height: 38, borderRadius: 8, alignItems: "center", justifyContent: "center",

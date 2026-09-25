@@ -98,13 +98,14 @@ export const paperColors = {
 } as const;
 
 /**
- * 叙事衬线：信、台词、扉页等「被阅读的内容」用衬线；
- * Android 走系统 Noto Serif（覆盖中文），iOS 用宋体-简，web 交给 CSS 泛型族。
+ * 系统衬线仅用于情绪性标题，不用于聊天正文或控件。
+ * 不加载外部字体；Android 的中文衬线覆盖取决于厂商字体回退，不能保证与参考图一致。
  */
 export const fontFamilies = {
   serif: Platform.select({
     ios: "Songti SC",
     android: "serif",
+    web: '"Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", serif',
     default: "serif",
   }),
   sans: undefined,
@@ -136,7 +137,7 @@ export const lineHeights = {
   sectionTitle: 26,
   pageTitle: 36,
   display: 46,
-  serifBody: 30,
+  readingBody: 30,
 } as const;
 
 export const letterSpacings = {
@@ -148,6 +149,12 @@ export const letterSpacings = {
 } as const;
 
 export const textStyles = {
+  /** 叠加在标题字号之后：仅登录欢迎语、信件标题、片场引导语使用。 */
+  emotionalTitle: {
+    fontFamily: fontFamilies.serif,
+    fontWeight: fontWeights.regular,
+    letterSpacing: letterSpacings.normal,
+  },
   display: {
     fontSize: fontSizes.display,
     lineHeight: lineHeights.display,
@@ -197,13 +204,13 @@ export const textStyles = {
     fontWeight: fontWeights.regular,
     letterSpacing: letterSpacings.ambient,
   },
-  /** 衬线正文：信与台词等被阅读的内容（17/30，接近书页行距）。 */
-  serifBody: {
+  /** 对话摘要等阅读内容使用系统无衬线，保留舒展的行距。 */
+  readingBody: {
     fontSize: 17,
-    lineHeight: lineHeights.serifBody,
+    lineHeight: lineHeights.readingBody,
     fontWeight: fontWeights.regular,
     letterSpacing: letterSpacings.relaxed,
-    fontFamily: fontFamilies.serif,
+    fontFamily: fontFamilies.sans,
   },
 } as const;
 

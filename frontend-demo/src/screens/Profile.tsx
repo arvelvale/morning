@@ -254,7 +254,7 @@ export function ProfileScreen({
                 style={[
                   theme.typography.textStyles.sectionTitle,
                   {
-                    fontFamily: theme.typography.fontFamilies.serif,
+                    fontFamily: theme.typography.fontFamilies.sans,
                     color: C.text,
                     marginTop: theme.spacing[2],
                   },

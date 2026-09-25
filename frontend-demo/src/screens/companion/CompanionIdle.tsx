@@ -274,7 +274,7 @@ export function CompanionIdle({
               >
                 <Text
                   style={[
-                    theme.typography.textStyles.serifBody,
+                    theme.typography.textStyles.readingBody,
                     { color: theme.colors.textPrimary },
                   ]}
                 >
@@ -302,7 +302,7 @@ export function CompanionIdle({
             ) : (
               <Text
                 style={[
-                  theme.typography.textStyles.serifBody,
+                  theme.typography.textStyles.readingBody,
                   { color: theme.colors.textPrimary },
                 ]}
               >

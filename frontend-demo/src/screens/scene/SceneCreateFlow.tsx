@@ -41,7 +41,7 @@ export function CreateSceneEntry({ onStart }: { onStart: () => void }) {
   return (
     <View style={{ gap: theme.spacing[5], paddingVertical: theme.spacing[6], flexDirection: isExpanded ? "row" : "column" }}>
       <View style={{ flex: 1, gap: theme.spacing[2] }}>
-        <Text style={[theme.typography.textStyles.sectionTitle, { color: C.text }]}>想重演的，是哪一天？</Text>
+        <Text style={[theme.typography.textStyles.sectionTitle, theme.typography.textStyles.emotionalTitle, { color: C.text }]}>想重演的，是哪一天？</Text>
         <Text style={[theme.typography.textStyles.body, { color: C.text2, maxWidth: 440 }]}>
           讲给我听，或者慢慢写下来。{"\n"}不用组织好语言，也不用从头讲起。
         </Text>
@@ -90,7 +90,7 @@ export function SceneNarrationCapture({ onBack, onConfirm }: {
         }}
       >
         <View style={{ paddingTop: 8 }}>
-          <Text style={{ fontSize: 24, fontWeight: "500", lineHeight: 34, color: C.text }}>
+          <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 24, lineHeight: 34, color: C.text }]}>
             想重演的，{"\n"}是哪一天？
           </Text>
           <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 8, color: C.muted }}>
@@ -214,7 +214,7 @@ export function SceneSummaryPreview({ narration, onBack, onConfirm }: {
       <ActBar stage={1} onBack={onBack} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 20, paddingBottom: isExpanded ? 24 : 128, gap: 20 }}>
         <View style={{ paddingTop: 8 }}>
-          <Text style={{ fontSize: 24, fontWeight: "500", lineHeight: 34, color: C.text }}>
+          <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 24, lineHeight: 34, color: C.text }]}>
             我把听到的，{"\n"}整理成了这一幕
           </Text>
           <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 8, color: C.muted }}>
@@ -323,7 +323,7 @@ export function CharacterSetupSheet({ scene, parsed, onBack, onReady }: {
         >
           {/* 第三幕 · 定妆 标题 */}
           <View style={{ paddingTop: 8 }}>
-            <Text style={{ fontSize: 24, fontWeight: "500", lineHeight: 34, color: C.text }}>
+            <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 24, lineHeight: 34, color: C.text }]}>
               开演前，{"\n"}给 TA 定妆
             </Text>
             <Text style={{ fontSize: 13, lineHeight: 21, marginTop: 8, color: C.muted }}>

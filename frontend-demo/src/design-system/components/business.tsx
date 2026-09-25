@@ -127,11 +127,11 @@ export function MessageBubble({
                 ? theme.colors.textMuted
                 : theme.colors.textPrimary,
             },
-            // 它说的话用衬线（像读出来的词），你说的保持无衬线（像写下的字）。
+            // 双方聊天正文均为系统无衬线，衬线仅留给情绪性标题。
             isUser
               ? null
               : {
-                  fontFamily: theme.typography.fontFamilies.serif,
+                  fontFamily: theme.typography.fontFamilies.sans,
                   fontSize: 16,
                   lineHeight: 28,
                 },

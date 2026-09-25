@@ -289,7 +289,7 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
                 opacity: pressed ? 0.7 : 1,
               })}>
               <Text style={[theme.typography.textStyles.caption, { color: C.muted, width: 52 }]}>{shortDate(l.created_at)}</Text>
-              <Text style={[theme.typography.textStyles.body, { color: C.text, flex: 1 }]} numberOfLines={1}>{l.title}</Text>
+              <Text style={[theme.typography.textStyles.body, theme.typography.textStyles.emotionalTitle, { color: C.text, flex: 1 }]} numberOfLines={1}>{l.title}</Text>
               {!l.is_read && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.accent }} />}
             </Pressable>
           ))}

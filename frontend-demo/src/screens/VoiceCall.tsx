@@ -416,14 +416,12 @@ export function VoiceCall({
                   lineHeight: isCurrent
                     ? isUser
                       ? theme.typography.lineHeights.bodyLarge
-                      : theme.typography.lineHeights.serifBody
+                      : theme.typography.lineHeights.readingBody
                     : theme.typography.lineHeights.body,
                   fontWeight: isUser && isCurrent
                     ? theme.typography.fontWeights.medium
                     : theme.typography.fontWeights.regular,
-                  fontFamily: isUser
-                    ? undefined
-                    : theme.typography.fontFamilies.serif,
+                  fontFamily: theme.typography.fontFamilies.sans,
                   fontStyle: line.draft ? "italic" : "normal",
                   color: line.draft
                     ? theme.colors.textSecondary
