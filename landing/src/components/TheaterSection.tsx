@@ -23,7 +23,7 @@ export default function TheaterSection() {
           <div className="vn-lamp" />
           <div className="vn-fig a" />
           <div className="vn-fig b" />
-          <div className="vn-miro"><img src="/assets/miro-sit.webp?v=20260911" alt="米露陪在一旁" /></div>
+          <div className="vn-miro"><img src="/assets/miro-sit.webp?v=20260925" alt="米露陪在一旁" /></div>
           <div className="vn-ground" />
           <div className="vn-line"><b>米露</b>那天没说出口的话,要不要再想一次?这次我陪你。</div>
         </div>

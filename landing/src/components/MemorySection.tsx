@@ -15,7 +15,7 @@ export default function MemorySection() {
         <div className="galaxy reveal">
           <div className="galaxy-core">
             <div className="ring" />
-            <img src="/assets/miro-sit.webp?v=20260911" alt="米露安静地坐着" />
+            <img src="/assets/miro-sit.webp?v=20260925" alt="米露安静地坐着" />
           </div>
           <div className="memo" style={{ left: '6%', top: '8%', '--tx': '30px', '--ty': '26px', '--rot': '-3deg', '--dur': '13s' } as VarStyle}>「最近在做 <em>Humanboard</em>」</div>
           <div className="memo" style={{ right: '5%', top: '14%', '--tx': '-34px', '--ty': '22px', '--rot': '2deg', '--dur': '15s', '--delay': '-4s' } as VarStyle}>「周五有一个<em>重要任务</em>」</div>

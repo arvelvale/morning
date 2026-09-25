@@ -7,7 +7,7 @@ export default function DownloadSection() {
     <section id="download">
       <div className="dl-scene reveal">
         <div className="big-star" />
-        <div className="dl-miro"><img src="/assets/miro-sit.webp?v=20260911" alt="米露坐在一颗发光的星星旁" /></div>
+        <div className="dl-miro"><img src="/assets/miro-sit.webp?v=20260925" alt="米露坐在一颗发光的星星旁" /></div>
         <h2>今晚,要不要把一些事情<br />交给<span className="glow-word">我</span>?</h2>
         <div className="dl-row">
           <a className="dl-btn" href={DOWNLOADS.harmony.url}>

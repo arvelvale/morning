@@ -84,8 +84,8 @@ export default function Hero() {
 
         <div className="hero-stage" ref={stageRef}>
           <div className="miro" ref={miroRef}>
-            <img src="/assets/miro-idle.webp?v=20260911" alt="米露 — 一只安静的黑色小猫，怀里抱着一颗星星" />
-            <img className="blink" src="/assets/miro-blink.webp?v=20260911" alt="" aria-hidden="true" />
+            <img src="/assets/miro-idle.webp?v=20260925" alt="米露 — 一只安静的黑色小猫，怀里抱着一颗星星" />
+            <img className="blink" src="/assets/miro-blink.webp?v=20260925" alt="" aria-hidden="true" />
             <div className="miro-halo" />
           </div>
           <div className="frag" style={{ left: '-4%', top: '12%', '--dur': '8s', '--dx': '10px', '--dy': '-18px', '--rot': '-4deg' } as VarStyle}>明天要交的东西…</div>
