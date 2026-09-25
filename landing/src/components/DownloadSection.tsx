@@ -1,14 +1,14 @@
 import { DOWNLOADS } from '../config';
 import { HarmonyIcon, AndroidIcon } from './DownloadIcons';
+import Pet from './Pet';
 
-/** Download:安静的夜晚,米露坐在发光的星星旁,两个同级大按钮。 */
+/** 下载：夜里的纸面，米露抱着发光的星星等你。 */
 export default function DownloadSection() {
   return (
     <section id="download">
       <div className="dl-scene reveal">
-        <div className="big-star" />
-        <div className="dl-miro"><img src="/assets/miro-sit.webp?v=20260925" alt="米露坐在一颗发光的星星旁" /></div>
-        <h2>今晚,要不要把一些事情<br />交给<span className="glow-word">我</span>?</h2>
+        <Pet className="dl-pet" label="夜里的米露，点一下它" night pet="miro" />
+        <h2>今晚，要不要把一些事情<br />交给<span className="scribble">我</span>？</h2>
         <div className="dl-row">
           <a className="dl-btn" href={DOWNLOADS.harmony.url}>
             <HarmonyIcon />
@@ -26,7 +26,7 @@ export default function DownloadSection() {
           </a>
         </div>
         <p className="version-line">
-          Android <i>{DOWNLOADS.android.version}</i> · HarmonyOS <i>{DOWNLOADS.harmony.version}</i> · 免费下载
+          Android {DOWNLOADS.android.version} · HarmonyOS {DOWNLOADS.harmony.version} · 免费下载
         </p>
       </div>
     </section>

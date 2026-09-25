@@ -1,86 +1,10 @@
-# 官网米露素材 · 生成提示词（可手动生成后替换）
+# 官网米露素材 · 已停用
 
-目标文件（替换 `landing/public/assets/` 下同名文件即可，替换后把 URL 上的 `?v=` 改成新日期）：
+2026-09-25 起，官网与 App 的米露/波比都改为程序化骨骼动画（`frontend-demo/src/pets/rig/pet-rig.js`，
+官网加载同步过来的 `public/pet-rig.js`），不再使用生成图，本文档里的生图提示词不再适用。
 
-| 文件 | 用途 |
-|---|---|
-| `miro-idle.webp` | 首屏 Hero + 桌面大图（待机） |
-| `miro-blink.webp` | 眨眼/打盹帧（闭眼） |
-| `miro-sit.webp` | 静坐、记忆星河、片场、下载区 |
-| `miro-wave.webp` | 挥手/递提醒卡 |
+- 改角色：只改 `frontend-demo/src/pets/rig/pet-rig.js`，然后在 frontend-demo 下 `npm run rig:build`。
+- 静态图（头像、兜底）：`public/assets/pets/{miro,bobi}-{idle,sleep}.png`，由运行时渲染导出，与 App 的 `frontend-demo/assets/pets/rig/` 同源。
+- 状态演示：`design-demos/pet-motion/pet.html`；短片：`design-demos/pet-motion/index.html`。
 
-## 统一角色设定（每条提示词开头都贴上）
-
-```
-角色：喵灵「米露」
-- 物种：小黑猫，短绒毛，圆脸大头身（chibi / Q 版）
-- 眼睛：竖瞳，会发出柔和暖金色光（像两盏小灯），不要写实猫眼
-- 标志物：双手/怀里抱着一颗发光的暖黄色五角星
-- 耳朵内侧：粉色；脚垫粉色
-- 身边可有少量小星星点缀
-- 配色：主体近黑 #1A1410，星星 #FFD98C，耳内/脚垫 #F5B8C4
-- 画风：柔软绘本/毛绒玩具感，厚描边或无描边皆可，干净剪影
-- 背景：透明或纯色（官网夜空底，透明底最佳）
-- 禁止：文字、水印、写实摄影、白色长毛猫、月牙印记、人类
-- 画幅：正方形，角色居中，适合圆形裁切
-```
-
-## 分图提示词
-
-### 1. miro-idle.webp（待机 / 首屏）
-```
-[统一角色设定]
-姿势：正面坐姿，身体微胖圆润，双手抱住发光星星贴在胸前，尾巴从右侧绕到身前。
-表情：安静、略好奇，眼睛睁开发光，嘴角极轻。
-构图：半身到全身，底部略留空，适合网页 hero 右侧舞台。
-```
-
-### 2. miro-blink.webp（闭眼打盹）
-```
-[统一角色设定]
-姿势：与 idle 完全相同的坐姿与构图（必须同机位、同缩放，才能做交叉淡入眨眼）。
-表情：双眼闭合（月牙缝或短弧线），耳朵微垂，像困了。
-星星仍抱在胸前，可稍暗一点点。
-```
-
-### 3. miro-sit.webp（安静坐着 / 星河中心）
-```
-[统一角色设定]
-姿势：端正坐姿，星星轻轻放在腿上或胸口，尾巴围成一圈。
-表情：平和，眼睛发光，看向镜头略偏上。
-构图：全身，比例稳定，可单独抠出放在圆形光环里。
-```
-
-### 4. miro-wave.webp（挥手 / 递提醒）
-```
-[统一角色设定]
-姿势：坐姿，一只前爪抬起作挥手或「递出」动作；旁边可漂浮一张小小的米色提醒卡片（卡片上不要写具体文字，可用抽象线条）。
-表情：眼睛弯一点，像微笑。
-构图：半身，动作清晰。
-```
-
-### 5.（可选）桌宠大图 desk-miro
-```
-[统一角色设定]
-场景感：像坐在深色桌面右下角的桌宠，身体只占画面右侧约 1/3，左侧留空给提醒卡片。
-姿势：坐姿，抬头看左上方的提醒气泡，星星抱在怀里。
-无桌面线稿，透明底即可，由网页 CSS 搭场景。
-```
-
-## 交付与接入
-
-1. 生成后建议裁成正方形、去底（若生成器不支持透明底，可用纯 #0D1026 夜空底近似，或抠图）。
-2. 导出 WebP（或 PNG 再转 WebP），长边约 640–720px 即可。
-3. 覆盖 `landing/public/assets/miro-*.webp`。
-4. 把各 `.tsx` 里 `?v=20260911` 改成新日期（如 `?v=20260912`）。
-5. `cd landing && npm run build`，再跑 `deploy/sync_landing_site.py` 部署。
-
-## 与 App 内资产的关系
-
-App 里现行米露见：
-- `frontend-demo/assets/pets/avatars/miro-avatar-v2.png`
-- `frontend-demo/assets/pets/miro/miro-idle-v3.png`
-- `frontend-demo/assets/pets/miro/miro-blink-closed-v2.png`
-- `frontend-demo/assets/pets/miro/animations/miro-star-hug-frame0.png`
-
-官网目前用的就是这些图的 WebP 压缩版作**占位**。你生成出更贴官网构图的大图后，只需替换 landing 四个文件，不必改 App。
+说明见 `docs/progress/2026-09-25.md`。
