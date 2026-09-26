@@ -1,0 +1,495 @@
+<title>喵灵改版设计稿</title>
+<meta name="description" content="喵灵 App 登录页、新手引导、首页动效与标题字体的可交互设计稿">
+<style>
+/* __FONTFACES__ */
+:root{
+  /* 取自 frontend-demo/src/design-system/tokens.ts（日间） */
+  --paper:#F5EFE2; --paper-2:#EFE7D5; --card:#FCF8EE; --card-hi:#FFFEF8; --edge:#FFFBF2;
+  --ink:#3B3428; --ink-2:#6E6350; --muted:#9C907C; --line:#E4D8C1;
+  --accent:#A97E22; --accent-hi:#B98F33; --accent-lo:#8F6A1B; --accent-soft:#F3E7C8;
+  --gold:#FFD467; --blush:#E98595; --sage:#718879; --night:#2A2540;
+  --shadow:91,70,51;
+  --hand:'LXGW WenKai Screen','KaiTi','STKaiti',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{background:#E9E0CE}
+body{margin:0;color:var(--ink);font:15px/1.7 var(--sans);-webkit-font-smoothing:antialiased;padding-inline:16px;padding-block:28px 56px}
+.hand{font-family:var(--hand);font-weight:400}
+button{font:inherit;color:inherit}
+.page{max-width:1240px;margin:0 auto}
+.page-head{max-width:720px;margin:0 auto 28px;text-align:center}
+.page-head h1{font-family:var(--hand);font-weight:400;font-size:clamp(30px,4vw,40px);margin:0;letter-spacing:.02em;text-wrap:balance}
+.page-head p{margin:10px auto 0;color:var(--ink-2);max-width:36em;text-wrap:pretty}
+
+/* ── 三台手机 ── */
+.phones{display:flex;flex-wrap:wrap;justify-content:center;gap:36px 28px}
+.device{display:flex;flex-direction:column;align-items:center;gap:12px}
+.device-label{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2)}
+.device-label b{font-family:var(--hand);font-weight:400;font-size:18px;color:var(--ink)}
+.replay{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--ink-2);background:var(--card)}
+.replay:hover{border-color:var(--accent);color:var(--accent)}
+.replay:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.replay svg{width:13px;height:13px}
+.phone{position:relative;width:360px;height:760px;border-radius:44px;padding:10px;background:#1F1A17;box-shadow:0 30px 60px -28px rgba(40,28,16,.55),0 2px 0 rgba(255,255,255,.06) inset}
+.screen{position:relative;height:100%;border-radius:35px;overflow:hidden;background:var(--paper);isolation:isolate}
+/* 纸纹：两层静态噪点，平铺不参与混合 */
+.screen::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.9;
+  background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='1' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .18 0 0 0 -2.4 1.25'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.2'/%3E%3C/svg%3E"),
+    radial-gradient(120% 70% at 50% 0%,rgba(255,244,214,.9),rgba(255,244,214,0) 60%)}
+.status{position:absolute;inset:0 0 auto;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--ink);z-index:5;font-variant-numeric:tabular-nums}
+.status i{display:inline-block;width:18px;height:9px;border-radius:2px;border:1.5px solid var(--ink);position:relative}
+.status i::after{content:'';position:absolute;left:1.5px;top:1.5px;bottom:1.5px;width:60%;background:var(--ink);border-radius:1px}
+
+/* 活的桌宠：canvas 由 pet-rig 挂进来 */
+.pet{position:relative;display:block;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pet:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:20px}
+
+/* ── 通用进场：从可见的静止态开始，重播时才重新走一遍 ── */
+.rise{animation:rise .52s var(--ease) both;animation-delay:calc(var(--i,0) * 70ms)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.pop{animation:pop .6s var(--spring) both;animation-delay:calc(var(--i,0) * 70ms)}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
+
+/* ── 按钮与输入 ── */
+.btn{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:18px;
+  background:var(--accent);color:#FFFDF4;font-weight:600;font-size:16px;letter-spacing:.04em;
+  box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 8px 18px -10px rgba(143,106,27,.9);transition:transform .16s var(--ease),background .2s}
+.btn:hover{background:var(--accent-hi)}
+.btn:active{transform:scale(.97);background:var(--accent-lo)}
+.btn:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.btn.ghost{background:transparent;color:var(--ink-2);box-shadow:none;height:40px;font-weight:500}
+.btn.ghost:active{background:var(--paper-2)}
+.field{position:relative;display:flex;align-items:center;height:54px;border-radius:18px;background:var(--card-hi);
+  border:1.5px solid var(--line);padding:0 16px;transition:border-color .2s,box-shadow .2s}
+.field:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(169,126,34,.12)}
+.field label{position:absolute;left:17px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none;transition:all .2s var(--ease)}
+.field input{all:unset;flex:1;font-size:16px;padding-top:14px;color:var(--ink);min-width:0}
+.field input:focus+label,.field input:not(:placeholder-shown)+label{top:14px;font-size:11.5px;color:var(--accent)}
+.field .eye{all:unset;cursor:pointer;width:32px;height:32px;display:grid;place-items:center;border-radius:10px;color:var(--muted)}
+.field .eye:focus-visible{outline:2px solid var(--accent)}
+.field .eye svg{width:20px;height:20px}
+svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 登录 ── */
+.login{display:flex;flex-direction:column;padding:48px 24px 22px}
+.login .brand{display:flex;align-items:center;gap:8px;font-family:var(--hand);font-size:19px;color:var(--ink)}
+.login .brand .dot{width:26px;height:26px;border-radius:8px;background:#1F1A17;display:grid;place-items:center}
+.login .brand .dot i{width:4px;height:7px;border-radius:3px;background:#FFF3D6;margin:0 1.5px}
+.login .pet-wrap{position:relative;height:218px;margin:6px auto 0;width:220px}
+.login .pet-wrap .halo{position:absolute;left:50%;top:56%;width:190px;height:190px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(255,212,103,.30),rgba(255,212,103,0))}
+.login .pet{width:220px;height:218px}
+.login .bubble{position:absolute;right:-6px;top:6px;padding:6px 11px;border-radius:14px 14px 14px 4px;background:var(--card-hi);font-size:12.5px;color:var(--ink-2);
+  box-shadow:0 6px 14px -8px rgba(var(--shadow),.5);transform-origin:0 100%;transition:opacity .25s,transform .3s var(--spring)}
+.login .bubble.hide{opacity:0;transform:scale(.8)}
+.login h2{font-family:var(--hand);font-weight:400;font-size:34px;line-height:1.25;margin:6px 0 0;letter-spacing:.02em}
+.login .sub{margin:6px 0 20px;color:var(--ink-2);font-size:14.5px}
+.login form{display:flex;flex-direction:column;gap:12px}
+.login .btn{margin-top:8px}
+.login .alt{margin-top:14px;text-align:center;font-size:14px;color:var(--ink-2)}
+.login .alt a{color:var(--accent);font-weight:600;text-decoration:none;margin-left:6px}
+
+/* ── 新手引导 ── */
+.guide{display:flex;flex-direction:column;padding:44px 22px 22px}
+.guide-top{display:flex;align-items:center;justify-content:space-between;height:32px}
+.dots{display:flex;gap:6px}
+.dots i{width:7px;height:7px;border-radius:4px;background:var(--line);transition:width .3s var(--ease),background .3s}
+.dots i.on{width:22px;background:var(--accent)}
+.skip{all:unset;cursor:pointer;font-size:14px;color:var(--muted);padding:4px 8px;border-radius:8px}
+.skip:focus-visible{outline:2px solid var(--accent)}
+.visual{position:relative;margin-top:14px;height:318px;border-radius:24px;border:6px solid var(--edge);background:var(--paper-2);overflow:hidden;
+  box-shadow:5px 9px 0 rgba(var(--shadow),.10),0 16px 34px -18px rgba(var(--shadow),.35);transform:rotate(-.6deg)}
+.visual > *{position:absolute;inset:0;transition:opacity .35s var(--ease)}
+.visual .off{opacity:0;pointer-events:none}
+.tape{position:absolute;width:74px;height:22px;background:rgba(242,184,75,.45);border-radius:3px;z-index:3;
+  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 6px,transparent 6px 12px)}
+.visual-wrap{position:relative}
+.visual-wrap .tape{left:-12px;top:6px;transform:rotate(-34deg)}
+.guide-copy{margin-top:22px;min-height:132px}
+.guide-copy .step{font-size:12.5px;color:var(--accent);letter-spacing:.12em}
+.guide-copy h3{font-family:var(--hand);font-weight:400;font-size:27px;line-height:1.3;margin:4px 0 8px;text-wrap:balance}
+.guide-copy p{margin:0;color:var(--ink-2);font-size:14.5px;text-wrap:pretty}
+.guide-copy.swap{animation:rise .42s var(--ease) both}
+.guide .btn{margin-top:auto}
+/* 剧场小台 */
+.stage{background:linear-gradient(180deg,#2A2540 0%,#46385A 60%,#6A5070 100%)}
+.stage .moon{position:absolute;right:18%;top:12%;width:34px;height:34px;border-radius:50%;box-shadow:inset -8px 4px 0 0 #FFF0C6;transform:rotate(-20deg)}
+.stage .star{position:absolute;width:3px;height:3px;border-radius:50%;background:#FFF3D6;animation:tw 3.4s ease-in-out infinite}
+@keyframes tw{50%{opacity:.25}}
+.stage .city{position:absolute;left:0;right:0;bottom:24%;height:26%;fill:#241F36}
+.stage .floor{position:absolute;left:0;right:0;bottom:0;height:24%;background:#3A2F48}
+.stage .curtain{position:absolute;top:0;bottom:0;width:13%;background:repeating-linear-gradient(90deg,#B85E5E 0 8px,#A24F52 8px 16px);z-index:2}
+.stage .curtain.l{left:0;border-bottom-right-radius:60% 30%}.stage .curtain.r{right:0;border-bottom-left-radius:60% 30%}
+.stage .fig{position:absolute;bottom:22%;width:26px;height:64px;background:#1A1628;border-radius:14px 14px 5px 5px}
+.stage .fig::before{content:'';position:absolute;left:50%;top:-22px;width:22px;height:22px;border-radius:50%;background:#1A1628;transform:translateX(-50%)}
+.stage .fig.a{left:30%}.stage .fig.b{left:46%;height:58px}
+.stage .pet{position:absolute;right:14%;bottom:27%;width:110px;height:108px}
+.stage .line{position:absolute;left:15%;right:15%;bottom:6%;z-index:3;padding:7px 10px;font-size:11.5px;line-height:1.5;background:#FFF8EA;border-radius:10px;color:var(--ink)}
+.stage .line b{font-family:var(--hand);font-weight:400;color:var(--accent);margin-right:5px}
+/* 选伙伴 */
+.pick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px;background:var(--paper)}
+.pick button{all:unset;cursor:pointer;position:relative;border-radius:18px;background:var(--card-hi);border:2px solid transparent;display:flex;flex-direction:column;align-items:center;padding:6px 4px 10px;transition:border-color .2s,transform .2s var(--ease)}
+.pick button:active{transform:scale(.97)}
+.pick button[aria-pressed="true"]{border-color:var(--accent);background:#FFF9EA}
+.pick button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pick .pet{width:100%;max-width:130px;height:150px;pointer-events:none}
+.pick b{font-family:var(--hand);font-weight:400;font-size:19px}
+.pick small{font-size:11.5px;color:var(--muted)}
+
+/* ── 首页 ── */
+.home{display:flex;flex-direction:column;padding:44px 20px 0}
+.home .meta{font-size:12px;color:var(--muted)}
+.home .name{display:flex;align-items:center;justify-content:space-between}
+.home .name h2{font-family:var(--hand);font-weight:400;font-size:28px;margin:2px 0 0}
+.icon-btn{all:unset;cursor:pointer;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--ink-2)}
+.icon-btn:active{transform:scale(.94)}
+.icon-btn:focus-visible{outline:2px solid var(--accent)}
+.icon-btn svg{width:22px;height:22px}
+.past{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:13.5px;color:var(--ink-2);padding-left:10px;border-left:2px solid var(--accent)}
+.past svg{width:15px;height:15px}
+.resume{position:relative;margin:16px 6px 0 0;padding:12px 16px;border-radius:18px 18px 18px 6px;background:var(--card-hi);
+  box-shadow:0 10px 22px -16px rgba(var(--shadow),.6);align-self:flex-start;max-width:86%}
+.resume p{margin:0;font-family:var(--hand);font-size:18px}
+.resume a{display:inline-flex;align-items:center;gap:2px;margin-top:2px;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none}
+.home .pet-wrap{position:relative;height:250px;margin-top:4px}
+.home .pet-wrap .halo{position:absolute;left:50%;top:55%;width:230px;height:230px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(255,212,103,.26),rgba(255,212,103,0))}
+.home .pet{position:absolute;left:50%;top:0;width:250px;height:250px;transform:translateX(-50%)}
+.home .hint{text-align:center;font-size:12.5px;color:var(--muted);margin-top:-2px}
+.try{all:unset;cursor:pointer;align-self:center;margin-top:10px;padding:6px 14px;border-radius:999px;font-size:13px;color:var(--accent);background:var(--accent-soft);transition:transform .16s var(--ease)}
+.try:active{transform:scale(.96)}
+.try:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.try[disabled]{opacity:.5;cursor:default}
+.composer{display:flex;gap:10px;margin-top:auto;padding:12px 0}
+.composer .input{flex:1;display:flex;align-items:center;justify-content:space-between;height:48px;border-radius:24px;padding:0 16px;background:var(--card-hi);border:1.5px solid var(--line);color:var(--muted);font-size:15px}
+.composer .input svg{width:20px;height:20px;color:var(--accent)}
+.composer .plus{width:48px;height:48px;border-radius:16px;background:var(--accent-soft);color:var(--accent)}
+.tabs{position:relative;display:grid;grid-template-columns:repeat(4,1fr);margin:0 -20px;padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line)}
+.tabs .ind{position:absolute;top:8px;bottom:10px;left:10px;width:calc((100% - 20px) / 4);border-radius:16px;background:var(--accent-soft);transition:transform .32s var(--spring)}
+.tabs button{all:unset;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:12px;color:var(--muted)}
+.tabs button svg{width:22px;height:22px}
+.tabs button[aria-selected="true"]{color:var(--accent)}
+.tabs button:focus-visible{outline:2px solid var(--accent);border-radius:12px}
+/* 倒出来 → 飞进星星 */
+.flyer{position:absolute;left:0;top:0;z-index:6;padding:5px 10px;border-radius:9px;background:#FFF8EA;font-size:12.5px;white-space:nowrap;box-shadow:2px 4px 0 rgba(var(--shadow),.12);pointer-events:none}
+.receipt{position:absolute;left:16px;right:16px;top:44px;z-index:7;padding:12px 14px;border-radius:18px;background:var(--card-hi);box-shadow:0 16px 30px -18px rgba(var(--shadow),.7);
+  transform:translateY(-130%);transition:transform .45s var(--spring)}
+.receipt.show{transform:none}
+.receipt b{font-family:var(--hand);font-weight:400;font-size:17px}
+.receipt .chips{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.receipt .chips span{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--paper-2);color:var(--ink-2)}
+
+/* ── 字体对比 ── */
+.type{max-width:1000px;margin:44px auto 0}
+.type h2{font-family:var(--hand);font-weight:400;font-size:26px;text-align:center;margin:0 0 6px}
+.type > p{text-align:center;color:var(--ink-2);margin:0 auto 20px;max-width:36em}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.col{border-radius:22px;padding:22px;background:var(--card);border:1px solid var(--line)}
+.col .tag{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.col .t1{font-size:32px;margin:0 0 4px}
+.col .t2{font-size:14.5px;color:var(--ink-2);margin:0 0 16px}
+.col .t3{font-size:24px;margin:0 0 4px}
+.col .t4{font-size:13px;color:var(--muted);margin:0}
+.col.old .t1,.col.old .t3{font-family:var(--sans);font-weight:800}
+.col.old .t4{letter-spacing:.42em}
+.col.new .t1,.col.new .t3{font-family:var(--hand);font-weight:400;letter-spacing:.02em}
+.col .note{margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);font-size:13px;color:var(--ink-2)}
+
+@media (max-width:760px){
+  body{padding-block:18px 40px}
+  .phones{gap:28px}
+  .phone{width:100%;max-width:380px;height:760px;padding:0;background:none;box-shadow:none;border-radius:32px}
+  .screen{border-radius:32px;box-shadow:0 20px 40px -26px rgba(40,28,16,.5)}
+  .compare{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  .rise,.pop,.guide-copy.swap{animation:none}
+  .stage .star{animation:none}
+  .receipt,.tabs .ind,.btn,.field label{transition:none}
+}
+</style>
+
+<div class="page">
+  <header class="page-head">
+    <h1>喵灵改版设计稿</h1>
+    <p>三台手机都能操作：登录页点进输入框，看米露的反应；引导页一步步点下去；首页戳一戳米露，或者点「试试：一股脑倒出来」。</p>
+  </header>
+
+  <div class="phones">
+    <!-- ① 登录 -->
+    <section class="device" aria-label="登录页">
+      <div class="device-label"><b>登录</b>输入密码时它会捂住眼睛
+        <button class="replay" data-replay="login" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>重播</button></div>
+      <div class="phone"><div class="screen login" id="login">
+        <div class="status"><span>16:28</span><i></i></div>
+        <div class="brand rise" style="--i:0"><span class="dot"><i></i><i></i></span>喵灵</div>
+        <div class="pet-wrap pop" style="--i:1">
+          <div class="halo"></div>
+          <div class="pet" id="loginPet" role="img" aria-label="米露"></div>
+          <div class="bubble" id="loginBubble">我在听～</div>
+        </div>
+        <h2 class="rise" style="--i:2">欢迎回来</h2>
+        <p class="sub rise" style="--i:3">它一直在这儿，等你回来说说话。</p>
+        <form id="loginForm" class="rise" style="--i:4" novalidate>
+          <div class="field"><input id="uname" placeholder=" " autocomplete="off"><label for="uname">用户名</label></div>
+          <div class="field"><input id="pwd" type="password" placeholder=" " autocomplete="off"><label for="pwd">密码</label>
+            <button class="eye" id="eye" type="button" aria-label="显示密码"><svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+          <button class="btn" id="loginBtn" type="submit">进来坐坐</button>
+        </form>
+        <p class="alt rise" style="--i:5">还没有账号？<a href="#" onclick="return false">创建一个</a></p>
+      </div></div>
+    </section>
+
+    <!-- ② 新手引导 -->
+    <section class="device" aria-label="新手引导">
+      <div class="device-label"><b>新手引导</b>用短片的片段演给用户看
+        <button class="replay" data-replay="guide" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>从头看</button></div>
+      <div class="phone"><div class="screen guide" id="guide">
+        <div class="status"><span>16:28</span><i></i></div>
+        <div class="guide-top"><div class="dots" id="dots"></div><button class="skip" id="skip" type="button">跳过</button></div>
+        <div class="visual-wrap">
+          <i class="tape"></i>
+          <div class="visual">
+            <div id="film"></div>
+            <div class="stage off" id="stage">
+              <i class="moon"></i>
+              <i class="star" style="left:24%;top:12%"></i><i class="star" style="left:44%;top:8%;animation-delay:-1s"></i>
+              <i class="star" style="left:62%;top:18%;animation-delay:-2s"></i><i class="star" style="left:36%;top:24%;animation-delay:-.6s"></i>
+              <svg class="city" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M0 200V120h40V90h36v30h30V70h44v50h26V100h40v20h34V60h50v60h30V96h44v24h36V80h40v40h40V104h50v96z"/></svg>
+              <i class="fig a"></i><i class="fig b"></i>
+              <div class="pet" id="stagePet" role="img" aria-label="在一旁陪着的米露"></div>
+              <i class="floor"></i>
+              <p class="line"><b>米露</b>那天没说出口的话，要不要再说一次？</p>
+              <i class="curtain l"></i><i class="curtain r"></i>
+            </div>
+            <div class="pick off" id="pick">
+              <button type="button" data-pet="miro" aria-pressed="true"><div class="pet" id="pickMiro"></div><b>米露</b><small>安静 · 擅长倾听</small></button>
+              <button type="button" data-pet="bobi" aria-pressed="false"><div class="pet" id="pickBobi"></div><b>波比</b><small>热烈 · 陪你行动</small></button>
+            </div>
+          </div>
+        </div>
+        <div class="guide-copy" id="guideCopy"></div>
+        <button class="btn" id="next" type="button">下一步</button>
+      </div></div>
+    </section>
+
+    <!-- ③ 首页 -->
+    <section class="device" aria-label="首页">
+      <div class="device-label"><b>首页</b>戳一戳，或者试试倒出来
+        <button class="replay" data-replay="home" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>重播</button></div>
+      <div class="phone"><div class="screen home" id="home">
+        <div class="status"><span>16:28</span><i></i></div>
+        <div class="receipt" id="receipt" role="status" aria-live="polite"><b>接住了 3 件事</b>
+          <div class="chips"><span>待办 1</span><span>灵感 1</span><span>心情 1</span></div></div>
+        <div class="meta rise" style="--i:0">八月十六 · 立冬 · 午后</div>
+        <div class="name rise" style="--i:1"><h2>米露</h2>
+          <button class="icon-btn" type="button" aria-label="切换夜间"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg></button></div>
+        <span class="past rise" style="--i:2"><svg class="i" viewBox="0 0 24 24"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"/><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"/></svg>往日 · 1 段对话</span>
+        <div class="resume pop" style="--i:3"><p>上次你说「喂，哈喽哈喽」</p><a href="#" onclick="return false">接着聊<svg class="i" viewBox="0 0 24 24" width="14" height="14"><path d="M9 6l6 6-6 6"/></svg></a></div>
+        <div class="pet-wrap pop" style="--i:4"><div class="halo"></div><div class="pet" id="homePet" role="img" aria-label="米露，轻触和它说话" tabindex="0"></div></div>
+        <div class="hint rise" style="--i:5">轻触和它说话</div>
+        <button class="try rise" style="--i:6" id="try" type="button">试试：一股脑倒出来</button>
+        <div class="composer rise" style="--i:7">
+          <div class="input" id="composer">和米露说说…<svg class="i" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></div>
+          <button class="icon-btn plus" type="button" aria-label="更多"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        </div>
+        <nav class="tabs" role="tablist" aria-label="底部导航">
+          <i class="ind" id="tabInd"></i>
+          <button role="tab" aria-selected="true" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M20.2 4.8a5.5 5.5 0 0 0-7.8 0L5 12.2V19h6.8l7.4-7.4a5.5 5.5 0 0 0 1-6.8z"/><path d="M16 8L2 22M17.5 15H9"/></svg>今日</button>
+          <button role="tab" aria-selected="false" type="button"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7.5l8 5.5 8-5.5"/></svg>信箱</button>
+          <button role="tab" aria-selected="false" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M4 11h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 11l-.6-3.4a2 2 0 0 1 1.6-2.3l12-2.1a2 2 0 0 1 2.3 1.6L20 8"/><path d="M8.5 4.5l2 5M13.5 3.6l2 5"/></svg>片场</button>
+          <button role="tab" aria-selected="false" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>我的</button>
+        </nav>
+      </div></div>
+    </section>
+  </div>
+
+  <section class="type" aria-label="字体前后对比">
+    <h2>标题换成霞鹜文楷</h2>
+    <p>和官网、短片是同一种字。只用在标题和情绪文案上，按钮、输入框和正文仍用系统字体，保证小字清楚。</p>
+    <div class="compare">
+      <div class="col old">
+        <div class="tag">现在：系统粗黑体，整句加宽字距</div>
+        <p class="t1">欢迎回来</p>
+        <p class="t2">它一直在这儿，等你回来说说话。</p>
+        <p class="t3">米露</p>
+        <p class="t4">情绪碎片收藏家：安静、敏锐、擅长倾听</p>
+        <div class="note">粗黑体和贴纸风的米露气质不搭；整句加宽字距让长句显得松散，只适合两三个字的小标签。</div>
+      </div>
+      <div class="col new">
+        <div class="tag">改版：霞鹜文楷标题，正常字距</div>
+        <p class="t1">欢迎回来</p>
+        <p class="t2">它一直在这儿，等你回来说说话。</p>
+        <p class="t3">米露</p>
+        <p class="t4">情绪碎片收藏家：安静、敏锐、擅长倾听</p>
+        <div class="note">安装包约增大 3–5MB（常用字子集）。加宽字距只留给「个人空间」这类短标签。</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* __RIG__ */
+</script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const rig = window.PetRig;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pets = {};
+  function pet(id, opts) {
+    const el = $(id);
+    if (!rig || !el) return null;
+    const c = rig.mountPet(el, Object.assign({ reduceMotion: reduced }, opts));
+    // 滚出视口就暂停，省电
+    new IntersectionObserver(([e]) => (e.isIntersecting ? c.resume() : c.pause())).observe(el);
+    pets[id] = c;
+    return c;
+  }
+  function replay(root) {
+    root.querySelectorAll('.rise,.pop').forEach(el => { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; });
+  }
+
+  /* ① 登录：听你输入、捂眼、登录成功开心一下 */
+  const loginPet = pet('loginPet', { pet: 'miro' });
+  const bubble = $('loginBubble');
+  let levelTimer = 0, idleTimer = 0;
+  const say = text => { bubble.textContent = text; bubble.classList.toggle('hide', !text); };
+  say('');
+  const pwd = $('pwd'), uname = $('uname');
+  const mood = m => loginPet && loginPet.set({ mood: m });
+  uname.addEventListener('focus', () => { mood('listening'); say('我在听～'); });
+  uname.addEventListener('input', () => {
+    // 每敲一个字，耳朵跟着动一下
+    loginPet && loginPet.set({ level: .8 });
+    clearTimeout(levelTimer); levelTimer = setTimeout(() => loginPet && loginPet.set({ level: 0 }), 160);
+  });
+  pwd.addEventListener('focus', () => { if (pwd.type === 'password') { mood('shy'); say('我不看！'); } });
+  $('eye').addEventListener('click', () => {
+    const show = pwd.type === 'password';
+    pwd.type = show ? 'text' : 'password';
+    $('eye').setAttribute('aria-label', show ? '隐藏密码' : '显示密码');
+    if (show) { mood('listening'); say('那我可以看了？'); } else { mood('shy'); say('我不看！'); }
+    pwd.focus();
+  });
+  [uname, pwd].forEach(el => el.addEventListener('blur', () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { if (!$('login').contains(document.activeElement) || document.activeElement === $('loginBtn')) { mood('idle'); say(''); } }, 80);
+  }));
+  $('loginForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const btn = $('loginBtn');
+    mood('happy'); loginPet && loginPet.poke(); say('欢迎回来！');
+    btn.textContent = '进来啦';
+    setTimeout(() => { btn.textContent = '进来坐坐'; mood('idle'); say(''); }, 2200);
+  });
+  $('loginPet').addEventListener('click', () => loginPet && loginPet.poke());
+
+  /* ② 新手引导：短片片段 + 剧场小台 + 选伙伴 */
+  const STEPS = [
+    { tag: '1 / 5 · 说出来', title: '脑子乱的时候，说给米露听', body: '不用想清楚再开口。打字、说话都行，一股脑倒出来。', film: [9.6, 15.4] },
+    { tag: '2 / 5 · 被接住', title: '它帮你接住，收进星星里', body: '待办、灵感、心情，它都替你分好放好。看一眼回执，就可以安心去睡。', film: [15.6, 20.2] },
+    { tag: '3 / 5 · 明天还在', title: '第二天，它还记得', body: '早上带着提醒来找你，晚上写一封短短的信。昨天说过的事，不用再从头讲。', film: [2.8, 8.8] },
+    { tag: '4 / 5 · 放不下的事', title: '真正在意的，陪你再走一遍', body: '放不下的那件事，它会连夜搭一个小剧场。想去就去，不想去也没关系。', view: 'stage' },
+    { tag: '5 / 5 · 选一位伙伴', title: '选一位陪你的伙伴', body: '之后也能换。新伙伴只会知道粗粒度的近况，不会复述细节。', view: 'pick' },
+  ];
+  let step = 0, film = null, seg = null;
+  const dots = $('dots');
+  dots.innerHTML = STEPS.map(() => '<i></i>').join('');
+  if (rig) {
+    film = rig.mountFilm($('film'), {
+      fit: 'cover', autoplay: false, loop: true, autoPause: true, reduceMotion: reduced, posterTime: 18.9,
+      onTime: t => { if (seg && t >= seg[1]) film.seek(seg[0]); },
+    });
+  }
+  pet('stagePet', { pet: 'miro', mood: 'listening', night: true });
+  pet('pickMiro', { pet: 'miro', mood: 'happy' });
+  pet('pickBobi', { pet: 'bobi' });
+  function show(i, animate = true) {
+    step = i;
+    const s = STEPS[i];
+    [...dots.children].forEach((d, k) => d.classList.toggle('on', k === i));
+    const copy = $('guideCopy');
+    copy.innerHTML = `<div class="step">${s.tag}</div><h3>${s.title}</h3><p>${s.body}</p>`;
+    if (animate) { copy.classList.remove('swap'); void copy.offsetWidth; copy.classList.add('swap'); }
+    $('film').classList.toggle('off', !!s.view);
+    $('stage').classList.toggle('off', s.view !== 'stage');
+    $('pick').classList.toggle('off', s.view !== 'pick');
+    if (film) {
+      if (s.film) { seg = s.film; film.seek(s.film[0]); if (!reduced) film.play(); }
+      else { seg = null; film.pause(); }
+    }
+    $('next').textContent = i === STEPS.length - 1 ? '就它了' : '下一步';
+    $('skip').hidden = i === STEPS.length - 1;
+  }
+  $('next').addEventListener('click', () => show(step === STEPS.length - 1 ? 0 : step + 1));
+  $('skip').addEventListener('click', () => show(STEPS.length - 1));
+  $('pick').addEventListener('click', e => {
+    const b = e.target.closest('button[data-pet]');
+    if (!b) return;
+    $('pick').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    const c = pets[b.dataset.pet === 'miro' ? 'pickMiro' : 'pickBobi'];
+    c && c.poke();
+  });
+  show(0, false);
+
+  /* ③ 首页：戳一戳；倒出来 → 纸条飞进星星 → 回执 */
+  const homePet = pet('homePet', { pet: 'miro' });
+  $('homePet').addEventListener('click', () => homePet && homePet.poke());
+  $('homePet').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); homePet && homePet.poke(); } });
+  const home = $('home');
+  $('try').addEventListener('click', () => {
+    const btn = $('try');
+    btn.disabled = true;
+    const hb = home.getBoundingClientRect(), cb = $('composer').getBoundingClientRect(), pb = $('homePet').getBoundingClientRect();
+    const scale = hb.width / home.offsetWidth || 1;
+    const start = { x: (cb.left - hb.left) / scale + 30, y: (cb.top - hb.top) / scale };
+    // 星星大约在立绘下方三分之一处
+    const star = { x: (pb.left - hb.left + pb.width / 2) / scale, y: (pb.top - hb.top + pb.height * .74) / scale };
+    homePet && homePet.set({ mood: 'listening' });
+    const notes = ['明天要交实训材料', '想做个小游戏', '有点累'];
+    notes.forEach((text, k) => {
+      const el = document.createElement('div');
+      el.className = 'flyer'; el.textContent = text;
+      home.appendChild(el);
+      const w = el.offsetWidth, h = el.offsetHeight;
+      const sx = start.x + k * 50, sy = start.y - 6;
+      const cx = sx + (k - 1) * 50, cy = sy - 190;
+      const frames = [];
+      for (let q = 0; q <= 12; q++) {
+        const t = q / 12, u = 1 - t;
+        // 二次贝塞尔：输入框 → 上方弧线 → 米露的星星；按纸条中心定位
+        const x = u * u * sx + 2 * u * t * cx + t * t * star.x - w / 2;
+        const y = u * u * sy + 2 * u * t * cy + t * t * star.y - h / 2;
+        frames.push({ transform: `translate(${x}px,${y}px) rotate(${(k - 1) * 8 * u}deg) scale(${1 - .75 * t * t})`, opacity: t > .92 ? 0 : 1 });
+      }
+      const anim = el.animate(frames, { duration: reduced ? 1 : 900, delay: reduced ? 0 : 260 + k * 220, easing: 'cubic-bezier(.45,0,.25,1)', fill: 'both' });
+      anim.onfinish = () => {
+        el.remove();
+        homePet && homePet.poke();
+        if (k === notes.length - 1) {
+          homePet && homePet.set({ mood: 'happy' });
+          $('receipt').classList.add('show');
+          setTimeout(() => { $('receipt').classList.remove('show'); homePet && homePet.set({ mood: 'idle' }); btn.disabled = false; }, 2600);
+        }
+      };
+    });
+  });
+  const tabs = [...home.querySelectorAll('.tabs button')];
+  tabs.forEach((t, k) => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', x === t));
+    $('tabInd').style.transform = `translateX(${k * 100}%)`;
+  }));
+
+  document.querySelectorAll('[data-replay]').forEach(b => b.addEventListener('click', () => {
+    const which = b.dataset.replay;
+    if (which === 'guide') { show(0); return; }
+    replay($(which));
+    const p = pets[which === 'login' ? 'loginPet' : 'homePet'];
+    p && p.poke();
+  }));
+})();
+</script>
