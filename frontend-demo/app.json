@@ -2,7 +2,7 @@
   "expo": {
     "name": "喵灵",
     "slug": "morning",
-    "version": "0.3.11",
+    "version": "0.3.12",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",

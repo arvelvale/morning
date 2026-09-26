@@ -18,6 +18,12 @@ import {
 } from "lucide-react-native";
 
 import { login as apiLogin, register as apiRegister, loginWithEmail, sendEmailCode, type Tokens } from "../api";
+
+/**
+ * 邮箱验证码登录入口开关：后端接口（/api/v1/auth/email/*，迁移 019）上线前保持关闭，
+ * 否则用户会点进一个必然失败的入口。后端部署后构建时注入 EXPO_PUBLIC_EMAIL_LOGIN=1 打开。
+ */
+const EMAIL_LOGIN = process.env.EXPO_PUBLIC_EMAIL_LOGIN === "1";
 import {
   Button,
   IconButton,
@@ -259,7 +265,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 : "给自己起个名字，我们慢慢认识。"}
             </Text>
 
-            {isLogin ? (
+            {isLogin && EMAIL_LOGIN ? (
               <View style={{ flexDirection: "row", gap: theme.spacing[5], marginBottom: theme.spacing[5] }}>
                 {[false, true].map(useEmail => (
                   <Pressable key={String(useEmail)} accessibilityRole="button" accessibilityState={{ selected: emailMode === useEmail }}

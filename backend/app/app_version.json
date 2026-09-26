@@ -1,15 +1,15 @@
 {
-  "latest": "0.3.11",
+  "latest": "0.3.12",
   "min_supported": "0.1.0",
-  "version_code": 14,
-  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.11.apk",
+  "version_code": 15,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.12.apk",
   "apk_sha256": "placeholder-will-be-replaced-by-publish-script",
   "size_bytes": 0,
   "size_mb": 0,
   "mandatory": false,
   "changelog": [
-    "主按钮改为实心暖金，不再像禁用态",
-    "登录页与更新提示去掉 AI 味图标，改用应用形象",
-    "引导选伙伴展示真实立绘；波比换成晨光猫形象"
+    "米露和波比换成新形象：手绘贴纸风，会动、会眨眼",
+    "首页白天陪你，夜里抱着星星打盹",
+    "语音通话时，它会跟着你倾听、思考、回应"
   ]
 }
