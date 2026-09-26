@@ -144,6 +144,13 @@ export default function App() {
   const [tokens, setTokens] = useState<Tokens | null>(DEV_BYPASS ? DEV_TOKENS : null);
   const [tab, setTab] = useState<AppTab>(INITIAL_TAB);
   const [night, setNight] = useState(false);
+  // 刚演完一幕回到首页：桌宠开心几秒
+  const [petCelebrating, setPetCelebrating] = useState(false);
+  useEffect(() => {
+    if (!petCelebrating) return;
+    const timer = setTimeout(() => setPetCelebrating(false), 4500);
+    return () => clearTimeout(timer);
+  }, [petCelebrating]);
   const [pet, setPet] = useState<PetInfo>(DEFAULT_PET);
   const [presets, setPresets] = useState<PetInfo[]>([]);
   const [ownedPets, setOwnedPets] = useState<PetInfo[]>([]);
@@ -544,6 +551,7 @@ export default function App() {
 
             {screen === "companion" && (
               <CompanionIdle petName={pet.name} petEmoji={pet.emoji} petPresetId={pet.presetId}
+                petMood={petCelebrating ? "happy" : undefined}
                 night={night} onNightToggle={() => setNight(n => !n)}
                 onChat={() => { setSeedConvId(null); setLetterReplyBody(""); go("chat"); }}
                 onVoiceChat={(text) => { setSeedConvId(null); setLetterReplyBody(""); setChatSeedText(text); go("chat"); }}
@@ -613,7 +621,14 @@ export default function App() {
             {screen === "scene" && <SceneScreen onPlay={(id, theater) => { setSceneId(id); if (theater) setSceneTheater(theater); go("scene-play"); }} />}
             {screen === "scene-play" && <ScenePlay sceneId={sceneId} theater={sceneTheater} onEnd={() => go("scene-end")} />}
             {screen === "scene-end" && (
-              <SceneEnd sceneId={sceneId} onBack={() => { go("scene"); setTab("scene"); }}
+              <SceneEnd sceneId={sceneId} onBack={(kept) => {
+                  // 演完回到米露身边（核心闭环的出口），而不是回片场列表
+                  go("companion"); setTab("companion");
+                  if (kept) {
+                    showToast(`${pet.name}把这一幕收好了`);
+                    setPetCelebrating(true);
+                  }
+                }}
                 onReplay={() => go("scene-play")} />
             )}
 

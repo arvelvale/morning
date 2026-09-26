@@ -213,9 +213,11 @@ class PlayOut(BaseModel):
 
 @router.get("", response_model=list[SceneOut])
 def list_scenes(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """当前用户的全部场景，按 id 倒序（最新在前）。"""
+    """当前用户的全部场景，按 id 倒序（最新在前）。夜里预搭、尚未被接受的邀请场景不展示。"""
+    from app.services.scene.invite_stage import INVITED
+
     return list(db.scalars(
-        select(Scene).where(Scene.user_id == user.id).order_by(Scene.id.desc())
+        select(Scene).where(Scene.user_id == user.id, Scene.status != INVITED).order_by(Scene.id.desc())
     ).all())
 
 

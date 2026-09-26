@@ -15,6 +15,7 @@ import {
 } from "../../design-system";
 import { getCompanionHome, listConversations } from "../../api";
 import { HomePetArtwork } from "../../components/HomePetArtwork";
+import type { PetMood } from "../../pets/rig/types";
 import { useVoiceInput } from "../../useVoiceInput";
 import { ambientCalendar } from "../../utils/lunar";
 import { ConversationSummary, shortTitle } from "./shared";
@@ -31,6 +32,8 @@ type CompanionIdleProps = {
   petEmoji: string;
   petName: string;
   petPresetId: string | null;
+  /** 临时状态（例如刚演完一幕回来时开心一下）；缺省为待机。 */
+  petMood?: PetMood;
 };
 
 /** 陪伴首页（桌宠主屏）。 */
@@ -46,6 +49,7 @@ export function CompanionIdle({
   petEmoji,
   petName,
   petPresetId,
+  petMood,
 }: CompanionIdleProps) {
   const theme = useTheme();
   const { isCompact, isExpanded } = useResponsive();
@@ -328,6 +332,7 @@ export function CompanionIdle({
         >
           <HomePetArtwork
             fallbackEmoji={petEmoji}
+            mood={petMood}
             presetId={petPresetId}
             size={petSize}
           />

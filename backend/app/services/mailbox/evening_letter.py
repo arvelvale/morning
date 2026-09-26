@@ -36,6 +36,9 @@ CST = timezone(timedelta(hours=8))
 # 送进 prompt 的表层记忆上限（控制 token）
 MAX_MATERIAL = 20
 
+# 片场余温的回看窗口：傍晚前演完的当晚提，深夜演完的第二晚提
+AFTERGLOW_WINDOW = timedelta(hours=36)
+
 EVENING_SYSTEM_PROMPT = """\
 你是喵灵的桌宠，正在夜里给主人写一封短短的晚间来信。
 性格：温柔、不催促、不评判、不说教。像一个记得你今天点滴的老朋友。
@@ -45,6 +48,8 @@ EVENING_SYSTEM_PROMPT = """\
 - 如果没有碎片（第一次见面或今天没记什么），就写一封轻轻的问候，欢迎主人、说说夜晚，不要提"没有记录"这类话。
 - 语气口语、简短，全文 40–80 字，最多一个 emoji。
 - 绝不催促主人做事、不评价对错、不给建议清单。
+- 如果有「刚在片场演完的一幕」，那是主人放不下的一件事，刚刚在片场里走了一遍：
+  这封信就围绕它，用一两句轻轻问问主人演完之后心里怎么样；不追问细节、不评价、不总结道理。
 
 只输出 JSON，不要额外解释：
 {"title": "不超过10字的信题", "body": "信的正文"}
@@ -87,7 +92,41 @@ def _gather_material(db: Session, user_id: int) -> list[str]:
         all_stmt = base.order_by(MemoryItem.created_at.desc()).limit(MAX_MATERIAL)
         items = list(db.scalars(all_stmt).all())
 
-    return [m.content for m in items[:MAX_MATERIAL] if m.content]
+    # 片场余温单独处理（见 _pending_afterglow），不混进普通碎片
+    return [m.content for m in items[:MAX_MATERIAL] if m.content and not _is_afterglow(m)]
+
+
+def _is_afterglow(m: MemoryItem) -> bool:
+    from app.services.scene.scene_service import AFTERGLOW_TAG
+    return isinstance(m.entities, list) and AFTERGLOW_TAG in m.entities
+
+
+def _pending_afterglow(db: Session, user_id: int) -> list[MemoryItem]:
+    """最近演完、还没在晚间来信里提过的片场余温（表层记忆）。"""
+    since = datetime.now(timezone.utc) - AFTERGLOW_WINDOW
+    items = [
+        m for m in db.scalars(
+            select(MemoryItem).where(
+                MemoryItem.user_id == user_id,
+                MemoryItem.depth == "surface",
+                MemoryItem.kind == "小结",
+                MemoryItem.is_latest == True,  # noqa: E712
+                MemoryItem.is_forgotten == False,  # noqa: E712
+                MemoryItem.created_at >= since,
+            ).order_by(MemoryItem.created_at.desc())
+        ).all()
+        if _is_afterglow(m)
+    ]
+    if not items:
+        return []
+    mentioned: set[int] = set()
+    for letter in db.scalars(
+        select(Letter).where(Letter.user_id == user_id, Letter.created_at >= since - AFTERGLOW_WINDOW)
+    ).all():
+        ids = (letter.attachment or {}).get("afterglow_ids")
+        if isinstance(ids, list):
+            mentioned.update(i for i in ids if isinstance(i, int))
+    return [m for m in items if m.id not in mentioned]
 
 
 def generate_evening_letter(db: Session, user_id: int) -> Letter | None:
@@ -112,6 +151,12 @@ def generate_evening_letter(db: Session, user_id: int) -> Letter | None:
         material_text = "\n".join(f"- {m}" for m in material)
     else:
         material_text = "（今天没有碎片）"
+    afterglow = _pending_afterglow(db, user_id)
+    if afterglow:
+        material_text = (
+            "刚在片场演完的一幕：\n" + "\n".join(f"- {m.content}" for m in afterglow[:2])
+            + "\n\n" + material_text
+        )
 
     try:
         llm = get_chat_model()
@@ -135,6 +180,8 @@ def generate_evening_letter(db: Session, user_id: int) -> Letter | None:
         title=title,
         body=body,
         pet_id=pet.id if pet is not None else None,
+        # 记下这封信提过哪几条余温，之后不再重复提
+        attachment={"afterglow_ids": [m.id for m in afterglow[:2]]} if afterglow else None,
     )
     if letter is None:
         logger.info("[evening] user %d lost daily-slot race, skip", user_id)

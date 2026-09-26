@@ -264,7 +264,8 @@ function PerspectiveCard({ card, companionComment, petName }: {
 /** 场景结算屏。 */
 export function SceneEnd({ sceneId, onBack, onReplay }: {
   sceneId?: number | null;
-  onBack: () => void;
+  /** kept：用户这次留下了结算卡（回到首页时米露会开心一下）。 */
+  onBack: (kept?: boolean) => void;
   onReplay: () => void;
 }) {
   const theme = useTheme();
@@ -399,7 +400,7 @@ export function SceneEnd({ sceneId, onBack, onReplay }: {
     setError("");
     try {
       await settleScene(sceneId, buildSettlementPayload(card, bringChoice, actionHint));
-      onBack();
+      onBack(true);
     } catch (err) {
       setError((err as any)?.message ?? "视角卡还没有留下，请再试一次");
       setSettling(false);
@@ -429,7 +430,7 @@ export function SceneEnd({ sceneId, onBack, onReplay }: {
         <PageContainer maxWidth={680} style={{ flex: 1, justifyContent: "center", gap: theme.spacing[4] }}>
           <Text style={[theme.typography.textStyles.pageTitle, { textAlign: "center", color: theme.colors.textPrimary }]}>这一幕没有找到</Text>
           <Text style={[theme.typography.textStyles.body, { textAlign: "center", color: theme.colors.textSecondary }]}>{error}</Text>
-          <Button fullWidth onPress={onBack}>返回片场</Button>
+          <Button fullWidth onPress={() => onBack()}>回到首页</Button>
         </PageContainer>
       </ScrollView>
     );

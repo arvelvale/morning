@@ -1,13 +1,15 @@
-"""夜间场景推荐引擎（DAY-205）。
+"""夜间场景推荐引擎（DAY-205；2026-09-26 接入核心闭环）。
 
-产品口径：
-- 分析源：当天（东八区）的实时语音通话转写（Conversation mode=voice_call）。
-- LLM 一次性产出结构化推荐 JSON：是否值得推荐、场景种子（人物/地点/剧情/意图）、
-  与 6 个预置 three.js 场景的语义匹配结果。
+产品口径（倒出来 → 被接住 → 明天还在，剧场是「放不下的那件事」的深水区）：
+- 分析源：过去 24 小时的睡前倾倒「片段」（优先，用户亲口说的放不下的事）+ 语音通话转写。
+  夜间任务在北京时间早上 8 点前后跑，只看「今天 0 点后」会漏掉前一晚的内容，所以用滚动 24 小时。
+- 隐私：vulnerable/core 片段不自动拿去搭剧场（filter_for_cloud_prompt），用户仍可在草稿箱手动确认；
+  已被邀请过的片段不再重复邀请。
+- LLM 一次性产出结构化推荐 JSON：是否值得、来源片段 id、场景种子（人物/地点/剧情/意图）、
+  与 6 个预置 three.js 场景的语义匹配。
 - confidence >= 0.6 且 theater_id 合法 → render_kind=preset_3d；否则 generated_3d（生成式 3D）。
-- 无通话 / LLM 判定不值得 / LLM 调用失败 → 不推荐（返回 None）。
-
-信件落库与 accept 接口在 DAY-206 实现；本模块只负责「分析 + 出推荐」。
+- 无素材 / LLM 判定不值得 / LLM 调用失败 → 不推荐（返回 None）。
+- 邀请信写好后立刻预搭剧场（invite_stage），用户第二天接受时直接进场。
 """
 from __future__ import annotations
 
@@ -16,12 +18,14 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.llm import get_chat_model
 from app.models.conversation import Conversation, Message
 from app.models.letter import Letter
+from app.models.memory import MemoryItem
+from app.services.memory.privacy import filter_for_cloud_prompt
 from app.services.mailbox.letter_store import (
     LetterStore,
     daily_generation_key,
@@ -50,10 +54,18 @@ CONFIDENCE_THRESHOLD = 0.6
 # 送进 prompt 的转写字数上限（控制 token）
 MAX_TRANSCRIPT_CHARS = 4000
 
+# 送进 prompt 的倾倒片段条数上限
+MAX_FRAGMENTS = 8
+
+# 素材回看窗口（滚动 24 小时，见模块说明）
+LOOKBACK = timedelta(hours=24)
+
 RECOMMEND_SYSTEM_PROMPT = """\
-你是喵灵的场景导演。下面是用户今天与桌宠的语音通话转写。
-你的任务：判断其中是否藏着一个值得「演出来」的生活场景（一段有人物、有地点、
+你是喵灵的场景导演。下面是用户最近一天留下的素材：睡前倾倒里整理出的「片段」
+（每条带编号），以及与桌宠的语音通话转写（可能没有）。
+你的任务：判断其中是否藏着一件用户放不下、值得「演出来」的事（一段有人物、有地点、
 有情绪张力或温情的小事），如果有，把它提炼成一个可演出的场景种子。
+片段是用户亲口说出、整理后仍放不下的事，优先从片段里选；选中片段时填它的编号。
 
 同时给出与预置舞台的匹配：预置舞台列表（id: 描述）：
 {theaters}
@@ -61,6 +73,7 @@ RECOMMEND_SYSTEM_PROMPT = """\
 只输出 JSON，不要额外解释：
 {{
   "worth": true/false,            // 是否值得推荐一个场景
+  "fragment_id": 片段编号或 null,  // 选中的是哪条片段；来自通话则填 null
   "title": "场景标题（10字内）",
   "people": ["涉及人物"],
   "place": "发生地点",
@@ -71,26 +84,60 @@ RECOMMEND_SYSTEM_PROMPT = """\
 }}
 
 判定标准：
-- 通话里只有闲聊寒暄、任务指令、无具体人事物 → worth=false。
+- 只有闲聊寒暄、任务指令、无具体人事物 → worth=false。
 - 有具体的人、事、情绪（遗憾/期待/思念/紧张）→ worth=true。
 - theater_id 必须严格从预置列表 id 中选，语义不贴合就填 null 且 confidence 给低分。
-- 既有长期理解只可帮助消歧，不可替通话补写人物、事件或意图；冲突时以今天的通话为准。
+- 既有长期理解只可帮助消歧，不可替素材补写人物、事件或意图；冲突时以素材为准。
+- fragment_id 只能填素材里出现过的编号，不要编造。
 """
 
 
-def _start_of_today_cst() -> datetime:
-    """东八区今天 00:00，转 UTC 后返回（created_at 以 UTC 存，SQLite 字典序比较不认偏移量）。"""
-    now_cst = datetime.now(CST)
-    start_cst = now_cst.replace(hour=0, minute=0, second=0, microsecond=0)
-    return start_cst.astimezone(timezone.utc)
+def _since_lookback() -> datetime:
+    """滚动回看窗口起点（UTC，理由见模块说明）。"""
+    return datetime.now(timezone.utc) - LOOKBACK
+
+
+def _invited_fragment_ids(db: Session, user_id: int) -> set[int]:
+    """已经发过邀请的片段：同一件事不反复邀请。"""
+    letters = db.scalars(
+        select(Letter).where(Letter.user_id == user_id, Letter.type == "scene_invite")
+    ).all()
+    ids: set[int] = set()
+    for letter in letters:
+        fid = (letter.attachment or {}).get("fragment_id")
+        if isinstance(fid, int):
+            ids.add(fid)
+    return ids
+
+
+def _gather_dump_fragments(db: Session, user_id: int) -> list[MemoryItem]:
+    """回看窗口内、仍在草稿箱（待确认）的倾倒片段；隐私闸外的与已邀请过的剔除。
+
+    口径与 candidates 路由一致：kind=片段、非原始倾倒 root（raw_ref 为空）、未确认。
+    """
+    items = list(db.scalars(
+        select(MemoryItem).where(
+            MemoryItem.user_id == user_id,
+            MemoryItem.kind == "片段",
+            MemoryItem.raw_ref.is_(None),
+            MemoryItem.is_latest == True,  # noqa: E712
+            MemoryItem.is_forgotten == False,  # noqa: E712
+            or_(MemoryItem.status.is_(None), MemoryItem.status.in_(("pending", "candidate"))),
+            MemoryItem.created_at >= _since_lookback(),
+        ).order_by(MemoryItem.created_at.desc()).limit(MAX_FRAGMENTS * 2)
+    ).all())
+    invited = _invited_fragment_ids(db, user_id)
+    items = [m for m in items if m.id not in invited]
+    # 伦理红线：vulnerable/core 与即焚记忆不进外部 LLM，也就不会被自动搭成剧场
+    return filter_for_cloud_prompt(items)[:MAX_FRAGMENTS]
 
 
 def _gather_voice_transcript(db: Session, user_id: int) -> str:
-    """收集当天（东八区）voice_call 会话的全部消息，拼成对话文本。
+    """收集回看窗口内 voice_call 会话的全部消息，拼成对话文本。
 
-    没有任何当天语音通话 → 返回空串。
+    没有任何语音通话 → 返回空串。
     """
-    start = _start_of_today_cst()
+    start = _since_lookback()
     convs = list(
         db.scalars(
             select(Conversation)
@@ -122,8 +169,11 @@ def _gather_voice_transcript(db: Session, user_id: int) -> str:
     return text[:MAX_TRANSCRIPT_CHARS]
 
 
-def _parse_recommend(raw: str) -> dict[str, Any] | None:
-    """解析 LLM 输出为推荐 dict；解析失败或 worth=false 返回 None。"""
+def _parse_recommend(raw: str, fragment_ids: set[int] | None = None) -> dict[str, Any] | None:
+    """解析 LLM 输出为推荐 dict；解析失败或 worth=false 返回 None。
+
+    fragment_ids：本次送进 prompt 的片段编号；LLM 填的编号不在其中时视为未选片段。
+    """
     text = (raw or "").strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
@@ -155,10 +205,19 @@ def _parse_recommend(raw: str) -> dict[str, Any] | None:
     if not isinstance(people, list):
         people = [str(people)] if people else []
 
+    fragment_id = parsed.get("fragment_id")
+    try:
+        fragment_id = int(fragment_id) if fragment_id is not None else None
+    except (TypeError, ValueError):
+        fragment_id = None
+    if fragment_id is not None and fragment_id not in (fragment_ids or set()):
+        fragment_id = None
+
     return {
         "render_kind": render_kind,
         "theater_id": theater_id,
         "confidence": confidence,
+        "fragment_id": fragment_id,
         "seed": {
             "title": str(parsed.get("title") or "").strip()[:20] or "一个小场景",
             "people": [str(p).strip() for p in people if str(p).strip()],
@@ -170,15 +229,20 @@ def _parse_recommend(raw: str) -> dict[str, Any] | None:
 
 
 def analyze_for_user(db: Session, user_id: int) -> dict[str, Any] | None:
-    """分析单个用户当天的语音通话，产出场景推荐。
+    """分析单个用户最近一天的倾倒片段与语音通话，产出场景推荐。
 
-    返回 {render_kind, theater_id, confidence, seed{title,people,place,plot,intent}}；
-    无通话 / 不值得 / LLM 失败 → None。
+    返回 {render_kind, theater_id, confidence, fragment_id, seed{title,people,place,plot,intent}}；
+    无素材 / 不值得 / LLM 失败 → None。
     """
+    fragments = _gather_dump_fragments(db, user_id)
     transcript = _gather_voice_transcript(db, user_id)
-    if not transcript:
-        logger.info("[scene-recommend] user %d no voice_call today, skip", user_id)
+    if not fragments and not transcript:
+        logger.info("[scene-recommend] user %d no fragments or voice_call in lookback, skip", user_id)
         return None
+
+    fragment_text = "\n".join(
+        f"[片段#{m.id}] {(m.surface_text or m.content).strip()}" for m in fragments
+    ) or "（没有）"
 
     theaters_text = "\n".join(f"- {tid}: {desc}" for tid, desc in PRESET_THEATERS.items())
     profile_context = build_memory_context(db, user_id, mode="profile")
@@ -187,7 +251,8 @@ def analyze_for_user(db: Session, user_id: int) -> dict[str, Any] | None:
         resp = llm.invoke([
             {"role": "system", "content": RECOMMEND_SYSTEM_PROMPT.format(theaters=theaters_text)},
             {"role": "user", "content": (
-                f"今天的通话转写：\n{transcript}\n\n"
+                f"睡前倾倒里的片段：\n{fragment_text}\n\n"
+                f"语音通话转写：\n{transcript or '（没有）'}\n\n"
                 f"可纠正的长期理解（仅供消歧）：\n{profile_context}"
             )},
         ])
@@ -195,7 +260,7 @@ def analyze_for_user(db: Session, user_id: int) -> dict[str, Any] | None:
         logger.error("[scene-recommend] LLM call failed for user %d: %s", user_id, e)
         return None
 
-    rec = _parse_recommend(resp.content)
+    rec = _parse_recommend(resp.content, {m.id for m in fragments})
     if rec is None:
         logger.info("[scene-recommend] user %d nothing worth recommending", user_id)
     return rec
@@ -288,7 +353,8 @@ def run_scene_recommend_all(db: Session) -> list[dict[str, Any]]:
 
 INVITE_SYSTEM_PROMPT = """\
 你是喵灵的桌宠，正在给主人写一封「场景邀请信」。
-你在主人今天的通话里听到了一件值得重新走进去的事，想邀请主人到片场里演一演。
+你从主人最近说起的事里，发现了一件主人放不下、值得重新走进去的事，
+已经连夜把它搭成了一个小剧场，想邀请主人来演一演。
 
 写信要求：
 - 温柔、不催促、不评判；像老朋友轻轻递来一张戏票。
@@ -306,7 +372,7 @@ def _fallback_invite(seed: dict[str, Any]) -> tuple[str, str]:
     title = (seed.get("title") or "一张戏票").strip()[:10] or "一张戏票"
     people = "、".join(seed.get("people") or [])
     place = (seed.get("place") or "").strip()
-    pieces = ["今天听你说起"]
+    pieces = ["听你说起"]
     if people:
         pieces.append(f"和{people}的事")
     if place:
@@ -360,7 +426,7 @@ def generate_scene_invite(
         llm = get_chat_model()
         resp = llm.invoke([
             {"role": "system", "content": INVITE_SYSTEM_PROMPT},
-            {"role": "user", "content": f"今天听到的场景种子：\n{seed_text}"},
+            {"role": "user", "content": f"场景种子：\n{seed_text}"},
         ])
         title, body = _parse_invite(resp.content, seed)
     except Exception as e:  # noqa: BLE001
@@ -376,10 +442,12 @@ def generate_scene_invite(
         title=title,
         body=body,
         pet_id=pet.id if pet is not None else None,
+        ref_memory_id=rec.get("fragment_id"),
         attachment={
             "kind": "scene_invite",
             "render_kind": rec.get("render_kind"),
             "theater_id": rec.get("theater_id"),
+            "fragment_id": rec.get("fragment_id"),
             "seed": seed,
             "confidence": rec.get("confidence"),
         },
@@ -388,4 +456,8 @@ def generate_scene_invite(
         logger.info("[scene-recommend] user %d lost daily-slot race, skip", user_id)
         return None
     logger.info("[scene-recommend] invite letter id=%d created for user %d", letter.id, user_id)
+
+    # 连夜搭台：用户第二天接受时直接进场；失败不影响信件，接受时会按需现搭
+    from app.services.scene.invite_stage import prestage_invite_scene
+    prestage_invite_scene(db, user_id, letter)
     return letter

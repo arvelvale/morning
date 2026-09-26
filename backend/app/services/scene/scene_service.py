@@ -10,7 +10,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.graphs import theater
+from app.models.memory import MemoryItem
 from app.models.scene import Scene
+from app.services.memory.memory_store import MemoryStore
 from app.services.scene import stage
 from app.services.scene.scene_turn_images import schedule_bg_regen
 
@@ -67,4 +69,34 @@ def settle(
     scene.status = "settled"
     scene.choices = []
     db.commit()
+
+    # 用户明确选择什么都不留时，不留余温（尊重退出权）
+    if keep or card_text or insight_text or action_text:
+        result["afterglow_memory_id"] = leave_afterglow(db, scene, user_id)
     return result
+
+
+# 「片场余温」标记：晚间来信据此认出「主人刚在片场演完一幕」
+AFTERGLOW_TAG = "片场余温"
+
+
+def leave_afterglow(db: Session, scene: Scene, user_id: int) -> int:
+    """演完之后回到米露身边：留一条表层记忆，让第二天的问候能轻轻提起。
+
+    晚间来信只读 depth=surface 的记忆（隐私底座），领悟与结算卡是 personal 深度、进不去，
+    所以单独留这一条。只有来源片段本身是表层时才带剧场标题；否则只说「一件放不下的事」，
+    不把深层片段的内容降级外发。
+    """
+    frag = db.get(MemoryItem, scene.source_fragment_id) if scene.source_fragment_id else None
+    if frag is not None and frag.user_id == user_id and frag.depth == "surface" and scene.title:
+        content = f"在片场里走完了「{scene.title}」这一幕"
+    else:
+        content = "在片场里把一件放不下的事演完了"
+    item = MemoryStore(db).create(
+        user_id=user_id, layer="episodic", kind="小结", depth="surface",
+        content=content, surface_text=content, confidence=1.0,
+        entities=[AFTERGLOW_TAG],
+        provenance=[frag.id] if frag is not None and frag.user_id == user_id else None,
+        actor="scene_afterglow",
+    )
+    return item.id

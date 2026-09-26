@@ -49,10 +49,6 @@ def _require_letter(db: Session, user: User, letter_id: int):
     return letter
 
 
-# 动态 galgame 配图生成已抽离到公共服务，letters/scenes 共用（DAY-215）。
-from app.services.scene.scene_images import gen_scene_images as _gen_scene_images
-
-
 @router.get("", response_model=list[LetterOut])
 def list_letters(
     type: str | None = Query(None, description="music|movie|book|greeting|relationship|scene_invite|weekly|reminder"),
@@ -186,90 +182,38 @@ def accept_scene_invite(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """接受场景邀请信：按信中场景种子生成 Scene，返回进场信息。
+    """接受场景邀请信：进入夜里预搭好的场景（没有预搭则按需现搭），返回进场信息。
 
     - 仅 type=scene_invite 可接受；
-    - 幂等：已接受过（attachment 里有 scene_id）直接返回同一场景；
-    - 生成成功后把 scene_id 回写进 attachment，并标记已读。
+    - 幂等：已接受过直接返回同一场景；
+    - 预搭场景（status=invited）接受时翻成 active，才进入片场列表；
+    - 邀请来自倾倒片段时，接受 = 用户确认重演该片段，片段离开草稿箱。
     """
-    from app.graphs import theater
     from app.models.scene import Scene
+    from app.services.scene.invite_stage import INVITED, stage_invite_scene
 
     letter = _require_letter(db, user, letter_id)
     if letter.type != "scene_invite":
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "这封信不是场景邀请")
 
     att = dict(letter.attachment or {})
-    seed = dict(att.get("seed") or {})
-    render_kind = att.get("render_kind") or "dynamic_image"
-    theater_id = att.get("theater_id")
-
-    # 幂等：已接受过 → 返回已有场景
+    scene = None
+    already_accepted = False
     existing_id = att.get("scene_id")
     if existing_id is not None:
         existing = db.get(Scene, existing_id)
         if existing is not None and existing.user_id == user.id:
-            return {
-                "scene_id": existing.id,
-                "render_kind": existing.render_kind or render_kind,
-                "theater_id": existing.theater_id or theater_id,
-                "bg_image": existing.bg_image,
-                "characters": existing.characters,
-                "already_accepted": True,
-            }
+            scene = existing
+            already_accepted = existing.status != INVITED
+    if scene is None:
+        scene = stage_invite_scene(db, user.id, letter)
+    if scene.status == INVITED:
+        scene.status = "active"
 
-    people = seed.get("people")
-    people_text = "、".join(people) if isinstance(people, list) else (people or None)
-    opening = theater.generate_manual(
-        title=seed.get("title") or letter.title,
-        people=people_text,
-        place=seed.get("place") or None,
-        plot=seed.get("plot") or None,
-        intent=seed.get("intent") or None,
-    )
+    fragment_id = att.get("fragment_id")
+    if fragment_id is not None and not already_accepted:
+        _confirm_fragment(db, user.id, fragment_id)
 
-    # 渲染分流：generated_3d 产 SceneSpec（失败降级 galgame）；dynamic_image 生成背景+立绘
-    bg_image: str | None = None
-    characters: list | None = None
-    scene_spec: dict | None = None
-    if render_kind == "generated_3d":
-        from app.services.scene.scene_spec import generate_scene_spec
-        scene_spec = generate_scene_spec(seed)
-        if scene_spec is None:
-            render_kind = "dynamic_image"  # 降级：spec 生成失败
-    if render_kind == "dynamic_image":
-        bg_image, characters = _gen_scene_images(
-            title=seed.get("title") or letter.title,
-            people=people_text,
-            place=seed.get("place") or None,
-            plot=seed.get("plot") or None,
-            intent=seed.get("intent") or None,
-            setting=opening.get("setting"),
-        )
-
-    scene = Scene(
-        user_id=user.id,
-        title=opening["title"],
-        status="active",
-        source_fragment_id=None,
-        setting=opening["setting"],
-        beats=opening["beats"],
-        choices=opening["choices"],
-        history=[],
-        turn=0,
-        render_kind=render_kind if render_kind in ("preset_3d", "dynamic_image", "generated_3d") else "dynamic_image",
-        theater_id=theater_id,
-        bg_image=bg_image,
-        characters=characters,
-        scene_spec=scene_spec,
-    )
-    db.add(scene)
-    db.commit()
-    db.refresh(scene)
-
-    # 回写 scene_id（JSON 列需整体重新赋值才会脏检查）+ 标记已读
-    att["scene_id"] = scene.id
-    letter.attachment = att
     letter.is_read = True
     db.commit()
 
@@ -279,5 +223,17 @@ def accept_scene_invite(
         "theater_id": scene.theater_id,
         "bg_image": scene.bg_image,
         "characters": scene.characters,
-        "already_accepted": False,
+        "already_accepted": already_accepted,
     }
+
+
+def _confirm_fragment(db: Session, user_id: int, fragment_id: int) -> None:
+    """把来源片段标记为已确认（与草稿箱「确认」同口径）；片段已处理或不属于本人时忽略。"""
+    from app.models.memory import MemoryItem
+    from app.services.memory.memory_store import MemoryStore
+
+    frag = db.get(MemoryItem, fragment_id)
+    if frag is None or frag.user_id != user_id or frag.kind != "片段":
+        return
+    if frag.status in (None, "pending", "candidate"):
+        MemoryStore(db).set_status(fragment_id, "confirmed", actor="user")
