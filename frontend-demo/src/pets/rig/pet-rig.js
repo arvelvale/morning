@@ -149,6 +149,7 @@
         <g id="m-star">${star}</g>
         <path id="m-armL" fill="none" stroke="${C.fur}" stroke-width="30" stroke-linecap="round"/>
         <path id="m-armR" fill="none" stroke="${C.fur}" stroke-width="30" stroke-linecap="round"/>
+        ${['L', 'R'].map(s => `<g id="m-hand${s}" opacity="0"><ellipse rx="17" ry="15" fill="${C.fur}"/><ellipse cy="4" rx="7" ry="5.5" fill="${C.pad}"/>${[-7, 0, 7].map((x, i) => `<circle cx="${x}" cy="${i === 1 ? -7 : -5}" r="3" fill="${C.pad}"/>`).join('')}</g>`).join('')}
       </g>
     </g>`;
   }
@@ -402,8 +403,18 @@
     sc.setA('m-tail', 'd', smooth(chain([84, -34], -.12, [30, 30, 28, 26, 22, 18], [-.05, -.35, -.45, -.45, -.5, -.62], P.tail, P.tailAmp)));
     const sx = P.star[0] - P.x, sy = P.star[1] - P.y;
     sc.setT('m-star', T(sx, sy, P.starRot, 1 + P.starPop));
-    sc.setA('m-armL', 'd', quad([-70, -124], [sx - 31, sy + 10], 14));
-    sc.setA('m-armR', 'd', quad([70, -124], [sx + 31, sy + 10], -14));
+    // 害羞捂眼：手臂终点从抱星的位置移到眼睛上（眼睛在头部坐标里，换算回身体坐标）
+    const shy = P.shy || 0;
+    const eyeY = neckY + P.drop - 96 + P.ly * 6;
+    const handL = [lerp(sx - 31, -46 + P.lx * 10, shy), lerp(sy + 10, eyeY + 4, shy)];
+    const handR = [lerp(sx + 31, 46 + P.lx * 10, shy), lerp(sy + 10, eyeY + 4, shy)];
+    sc.setA('m-armL', 'd', quad([-70, -124], handL, lerp(14, 26, shy)));
+    sc.setA('m-armR', 'd', quad([70, -124], handR, lerp(-14, -26, shy)));
+    // 捂眼的爪子：粉色肉垫朝外，黑爪子盖在黑脸上也认得出来
+    sc.setT('m-handL', T(handL[0], handL[1], -12, 1.3));
+    sc.setT('m-handR', T(handR[0], handR[1], 12, 1.3));
+    sc.setA('m-handL', 'opacity', f(clamp((shy - .35) / .5)));
+    sc.setA('m-handR', 'opacity', f(clamp((shy - .35) / .5)));
     // 发光
     sc.setT('gm-root', T(P.x, P.y));
     const eyeGlow = P.eyeOpen * (.28 + .72 * night);
@@ -478,7 +489,7 @@
   }
 
   /* ═══════════════════════════ 单只桌宠 ═══════════════════════════ */
-  const MOODS = ['idle', 'listening', 'thinking', 'speaking', 'happy', 'sleep'];
+  const MOODS = ['idle', 'listening', 'thinking', 'speaking', 'happy', 'sleep', 'shy'];
   // 取景框（角色局部坐标）：左右留出尾巴和胡须，上方留出蹦跳的余量
   const FRAME = { miro: [-185, -425, 385, 450], bobi: [-175, -445, 365, 470] };
 
@@ -495,7 +506,7 @@
     // 每只桌宠各自的随机节律：同一页面上多只时，眨眼与转头不会同步得像机器人
     const rand = rng((opts.seed | 0) || ((Math.random() * 2147483647) | 0));
     // 平滑量：当前值 → 目标值，指数逼近（与帧率无关）
-    const cur = { sleep: st.mood === 'sleep' ? 1 : 0, happy: 0, perk: 0, think: 0, talk: 0, hear: 0, lx: 0, ly: 0, glow: .62 };
+    const cur = { sleep: st.mood === 'sleep' ? 1 : 0, happy: 0, perk: 0, think: 0, talk: 0, hear: 0, shy: 0, lx: 0, ly: 0, glow: .62 };
     const ev = { blink: -9, nextBlink: 1.2, twitch: -9, twitchSide: 1, nextTwitch: 5, glanceUntil: 0, glance: [0, 0], nextGlance: 3.5,
       poke: -9, hop: -9, hopH: 0, nextHop: 7, yawn: -9, sleepSince: -9, talkPhase: 0 };
     if (st.mood === 'sleep') ev.sleepSince = -99;
@@ -532,6 +543,7 @@
       approach('happy', (m === 'happy' || poked) ? 1 : 0, 7, dt);
       approach('perk', m === 'listening' ? 1 : 0, 6, dt);
       approach('think', m === 'thinking' ? 1 : 0, 4, dt);
+      approach('shy', m === 'shy' ? 1 : 0, 9, dt);
       // 说话：拿不到 TTS 音量时自己合成一条说话包络；倾听：跟着用户的音量
       const syn = clamp(.45 + .35 * Math.sin(now * 9) * Math.sin(now * 2.3) + .15 * Math.sin(now * 23));
       approach('talk', m === 'speaking' ? clamp(Math.max(st.level * 1.4, animate ? syn : .5)) : 0, 14, dt);
@@ -553,15 +565,16 @@
         const breath = Math.sin(TAU * now / (3.4 + cur.sleep * .9));
         const P = {
           x: 0, y: 0, breath, sleep: cur.sleep, happy: cur.happy,
-          eyeOpen: clamp((1 - cur.sleep) * (1 - blink) * (1 - cur.happy)),
-          lx: cur.lx, ly: cur.ly,
-          tilt: cur.sleep * 7 + cur.lx * .5 + cur.think * 6 - cur.happy * 4 + pokeW * 5,
-          drop: cur.sleep * 9 - cur.happy * 4 - cur.perk * 5,
+          eyeOpen: clamp((1 - cur.sleep) * (1 - blink) * (1 - cur.happy) * (1 - cur.shy)),
+          lx: cur.lx, ly: cur.ly, shy: cur.shy,
+          tilt: cur.sleep * 7 + cur.lx * .5 + cur.think * 6 - cur.happy * 4 + pokeW * 5 + cur.shy * 4,
+          drop: cur.sleep * 9 - cur.happy * 4 - cur.perk * 5 + cur.shy * 6,
           earL: -18 - cur.sleep * 14 - cur.happy * 6 + cur.perk * 9 + cur.hear * 5 + (ev.twitchSide < 0 ? twist : 0),
           earR: 18 + cur.sleep * 14 + cur.happy * 6 - cur.perk * 9 - cur.hear * 5 + (ev.twitchSide > 0 ? twist : 0),
           tuft: 7 * Math.sin(now * 1.7) + pokeW * 24,
           tail: now * (1.1 - cur.sleep * .5 - cur.think * .3), tailAmp: .1 - cur.sleep * .05 + cur.perk * .03,
-          star: [0, -92 + 1.2 * Math.sin(TAU * now / 3.4) - talk * 5 - cur.happy * 4],
+          // 捂眼时星星被松开，悬在胸前轻轻浮动
+          star: [0, -92 + 1.2 * Math.sin(TAU * now / 3.4) - talk * 5 - cur.happy * 4 - cur.shy * (10 + 4 * Math.sin(now * 2.2))],
           starGlow: cur.glow, starPop: talk * .1 + Math.max(0, pokeW) * .25,
           starRot: 4 * Math.sin(now * .8) + (now - ev.poke < 2 ? 72 * Ease.expoOut(clamp((now - ev.poke) / .9)) : 0),
         };
@@ -577,17 +590,17 @@
           x: 0, y: h.y, ground: 0, sy: h.sy * (1 - cur.sleep * .07) * (1 + yawn * .05), vy: h.vy,
           lean: cur.sleep * -1.5 + cur.perk * 1.5,
           sleep: cur.sleep, yawn, happy: cur.happy, amaze: cur.perk * .45, talk,
-          eyeOpen: clamp((1 - blink) * (1 - cur.happy) * (1 - cur.sleep) * (1 - clamp(yawn))),
+          eyeOpen: clamp((1 - blink) * (1 - cur.happy) * (1 - cur.sleep) * (1 - clamp(yawn)) * (1 - cur.shy)),
           lx: cur.lx, ly: cur.ly,
           tilt: cur.lx * 6 - cur.sleep * 8 + cur.happy * 4 + cur.think * 8 + pokeW * 6,
-          drop: cur.sleep * 12 - yawn * 6 - cur.perk * 4 + cur.hear * 3 * Math.sin(now * 5),
+          drop: cur.sleep * 12 - yawn * 6 - cur.perk * 4 + cur.hear * 3 * Math.sin(now * 5) + cur.shy * 8,
           earL: -14 - h.vy * .012 - cur.sleep * 16 + cur.perk * 8 + (ev.twitchSide < 0 ? twist : 0),
           earR: 14 + h.vy * .012 + cur.sleep * 16 - cur.perk * 8 - (ev.twitchSide > 0 ? twist : 0),
           flap: 10 * Math.sin(now * 2.1) - h.vy * .03,
           tailPhase: now * (1.8 - cur.sleep * 1.3), tailAmp: .16 - cur.sleep * .1 + cur.happy * .06,
-          // 思考时右爪托下巴
-          pawR: [lerp(-26, -30, cur.think), lerp(-10, -104, cur.think)],
-          pawL: [26, -10],
+          // 思考时右爪托下巴；害羞时两只前爪捂住眼睛
+          pawR: [lerp(lerp(-26, -30, cur.think), -38 + cur.lx * 10, cur.shy), lerp(lerp(-10, -104, cur.think), -122 + cur.shy * 8 - 84, cur.shy)],
+          pawL: [lerp(26, 38 + cur.lx * 10, cur.shy), lerp(-10, -122 + cur.shy * 8 - 84, cur.shy)],
         };
         applyBobi(sc, P, now);
       }
@@ -745,7 +758,10 @@
       const dir = p => { const dx = p[0] - head[0], dy = p[1] - head[1], L = Math.hypot(dx, dy) || 1; return [dx / L * Math.min(1, L / 140), dy / L * Math.min(1, L / 140)]; };
       if (t < 5.4) return [-1, .1];
       if (t < 9.6) return [-1, .35];
-      if (t < 12.5) return dir(noteState(NOTES[3], t).pos);
+      // 纸条被抓住（t1=12.47）之后它的位置由波比的爪子决定，不能再反过来问纸条在哪，
+      // 否则 bobiPose → bobiGaze → noteState → bobiPose 在同一时刻无限递归
+      if (t < NOTES[3].t1) return dir(noteState(NOTES[3], t).pos);
+      if (t < 12.5) return [.6, -.5];
       if (t < 14.2) return [.5, .8];
       if (t < 18.4) return dir(t < 16.9 ? noteState(NOTES[0], t).pos : starWorld(t));
       if (t < 20.4) return [-.7, .1];

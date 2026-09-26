@@ -36,7 +36,7 @@
 <script>
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
-  const NAMES = { idle: '待机', listening: '倾听', thinking: '思考', speaking: '说话', happy: '开心', sleep: '犯困' };
+  const NAMES = { idle: '待机', listening: '倾听', thinking: '思考', speaking: '说话', happy: '开心', sleep: '犯困', shy: '害羞' };
   let mood = Q.get('mood') || 'idle', night = Q.get('night') === '1';
   const pets = ['miro', 'bobi'].map(pet => {
     const c = PetRig.mountPet($(pet), { pet, mood, night });
