@@ -501,6 +501,8 @@
     const st = {
       mood: MOODS.includes(opts.mood) ? opts.mood : 'idle',
       night: !!opts.night, level: 0, reduce: !!opts.reduceMotion, paused: false,
+      // 外部指定的视线 [x,y]（-1..1，x 向右、y 向下为正），null 表示自己看
+      look: null,
     };
     let W = 0, H = 0, raf = 0, t0 = 0, lastNow = 0, T0 = 0;
     // 每只桌宠各自的随机节律：同一页面上多只时，眨眼与转头不会同步得像机器人
@@ -550,7 +552,8 @@
       approach('hear', m === 'listening' ? clamp(st.level * 1.6) : 0, 10, dt);
       // 视线
       let gx = 0, gy = 0;
-      if (m === 'thinking') { gx = .55; gy = -.7; }
+      if (st.look && m !== 'shy') { gx = st.look[0]; gy = st.look[1]; }
+      else if (m === 'thinking') { gx = .55; gy = -.7; }
       else if (m === 'listening') { gx = 0; gy = .08; }
       else if (m === 'speaking') { gx = .12 * Math.sin(now * .7); gy = .05; }
       else if (now < ev.glanceUntil) { gx = ev.glance[0]; gy = ev.glance[1]; }
@@ -648,6 +651,8 @@
         if (p.mood && MOODS.includes(p.mood)) st.mood = p.mood;
         if (typeof p.night === 'boolean') st.night = p.night;
         if (typeof p.level === 'number') st.level = clamp(p.level);
+        if (p.look === null) st.look = null;
+        else if (Array.isArray(p.look)) st.look = [clamp(p.look[0], -1, 1), clamp(p.look[1], -1, 1)];
         if (typeof p.reduceMotion === 'boolean' && p.reduceMotion !== st.reduce) { st.reduce = p.reduceMotion; if (!st.reduce) kick(); }
         if (st.reduce) { for (let i = 0; i < 30; i++) frame(lastNow + i * .05, .05); }
         else kick();
