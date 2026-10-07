@@ -223,7 +223,8 @@ function Field({
               color: theme.colors.textPrimary,
               textAlignVertical: multiline ? "top" : "center",
               outlineWidth: 0,
-            } as TextStyle,
+              outlineStyle: "none",
+            } as unknown as TextStyle,
             style,
           ]}
         />

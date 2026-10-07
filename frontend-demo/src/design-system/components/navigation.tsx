@@ -1,13 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   Text,
   View,
+  type LayoutChangeEvent,
   type ViewStyle,
 } from "react-native";
-import { Bookmark, Clapperboard, Feather, Mail } from "lucide-react-native";
+import { Clapperboard, Mail, Star, UserRound } from "lucide-react-native";
 
+import { useTarget } from "../../guide/targets";
+import { useReducedMotion } from "../accessibility";
 import { useTheme } from "../theme";
 import { iconSizes, spacing, touchTarget, zIndices } from "../tokens";
 
@@ -19,67 +23,78 @@ type NavigationProps = {
 };
 
 const items = [
-  { id: "companion", label: "今日", icon: Feather },
+  { id: "companion", label: "今日", icon: Star },
   { id: "mailbox", label: "信箱", icon: Mail },
   { id: "scene", label: "片场", icon: Clapperboard },
-  { id: "profile", label: "我的", icon: Bookmark },
+  { id: "profile", label: "我的", icon: UserRound },
 ] as const;
+
+/** 选中态：深靛实心胶囊垫在图标下，切换时弹性滑过去（改版第二稿）。 */
+const PILL_W = 54;
+const PILL_H = 30;
 
 function NavigationItem({
   active,
   compact,
   icon: Icon,
+  id,
   label,
+  onLayout,
   onPress,
 }: {
   active: boolean;
   compact: boolean;
-  icon: typeof Feather;
+  icon: typeof Star;
+  id: AppTab;
   label: string;
+  onLayout?: (e: LayoutChangeEvent) => void;
   onPress: () => void;
 }) {
   const theme = useTheme();
   const [hovered, setHovered] = useState(false);
+  // 引导第五步要亮「信箱」
+  const mailboxRef = useTarget("tab-mailbox");
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
+      collapsable={false}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
+      onLayout={onLayout}
       onPress={onPress}
+      ref={id === "mailbox" ? mailboxRef : undefined}
       style={({ pressed }) => ({
         minWidth: touchTarget.minimum,
-        minHeight: compact ? 52 : 60,
+        minHeight: compact ? 54 : 64,
         flex: compact ? 1 : undefined,
         width: compact ? undefined : 72,
-        paddingHorizontal: spacing[2],
-        paddingVertical: spacing[2],
+        paddingVertical: spacing[1],
         borderRadius: theme.radii.control,
         alignItems: "center",
         justifyContent: "center",
-        gap: spacing[1],
-        borderWidth: 1,
-        borderColor: active ? theme.colors.border : "transparent",
-        backgroundColor: active
-          ? theme.colors.accentSurface
-          : hovered
-            ? theme.colors.surfaceHover
-            : "transparent",
-        opacity: pressed ? 0.82 : 1,
-        transform: [{ scale: pressed ? 0.97 : 1 }],
+        gap: 3,
+        backgroundColor: !compact && hovered && !active ? theme.colors.surfaceHover : "transparent",
+        transform: [{ scale: pressed ? 0.95 : 1 }],
       })}
     >
-      <Icon
-        size={iconSizes.default}
-        color={active ? theme.colors.accent : theme.colors.textMuted}
-        strokeWidth={active ? 2.2 : 1.8}
-      />
+      <View style={{ width: PILL_W, height: PILL_H, alignItems: "center", justifyContent: "center",
+        borderRadius: PILL_H / 2, backgroundColor: !compact && active ? theme.colors.accent : "transparent" }}>
+        <Icon
+          size={iconSizes.default}
+          color={active ? theme.colors.textOnAccent : theme.colors.textMuted}
+          strokeWidth={active ? 2.2 : 1.8}
+        />
+      </View>
       <Text
         style={[
           theme.typography.textStyles.label,
-          { color: active ? theme.colors.accent : theme.colors.textMuted },
+          {
+            color: active ? theme.colors.textPrimary : theme.colors.textMuted,
+            fontWeight: active ? "600" : "400",
+          },
         ]}
       >
         {label}
@@ -90,18 +105,36 @@ function NavigationItem({
 
 export function BottomNavigation({ active, onChange }: NavigationProps) {
   const theme = useTheme();
-  // 实心奶油舱：全宽贴底、完全不透明的 surface 面 + 顶部发丝线 + 上抛柔影。
-  // 不再用半透明 GlassSurface：Android 无 backdrop-blur，列表文字会直接穿透底栏。
+  const reduced = useReducedMotion();
+  // 每个格子的中心 x，用来把胶囊滑到选中项下面
+  const [centers, setCenters] = useState<Partial<Record<AppTab, number>>>({});
+  const pillX = useRef(new Animated.Value(-999)).current;
+  const placed = useRef(false);
+
+  useEffect(() => {
+    const cx = centers[active];
+    if (cx == null) return;
+    const to = cx - PILL_W / 2;
+    if (!placed.current || reduced) {
+      pillX.setValue(to);
+      placed.current = true;
+      return;
+    }
+    Animated.spring(pillX, { toValue: to, friction: 7, tension: 120, useNativeDriver: true }).start();
+  }, [active, centers, pillX, reduced]);
+
+  // 实心底栏：全宽贴底、完全不透明的 surface 面 + 顶部发丝线 + 上抛柔影。
+  // 不用半透明 GlassSurface：Android 无 backdrop-blur，列表文字会直接穿透底栏。
   const liftShadow: ViewStyle = Platform.select({
     web: {
       boxShadow: theme.isNight
-        ? "0 -8px 24px rgba(0,0,0,0.28)"
-        : "0 -8px 24px rgba(64,58,53,0.07)",
+        ? "0 -8px 24px rgba(0,0,0,0.32)"
+        : "0 -8px 24px rgba(33,29,50,0.07)",
     },
     default: {
-      shadowColor: theme.isNight ? "#000000" : "#3B3428",
+      shadowColor: "#000000",
       shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: theme.isNight ? 0.24 : 0.08,
+      shadowOpacity: theme.isNight ? 0.3 : 0.06,
       shadowRadius: 12,
       elevation: 10,
     },
@@ -119,21 +152,39 @@ export function BottomNavigation({ active, onChange }: NavigationProps) {
         flexDirection: "row",
         alignItems: "center",
         paddingTop: spacing[2],
-        paddingHorizontal: spacing[3],
+        paddingHorizontal: spacing[2],
         paddingBottom: spacing[3],
         backgroundColor: theme.colors.surface,
         borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
+        borderTopColor: theme.colors.divider,
         ...liftShadow,
       }}
     >
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: spacing[2] + spacing[1],
+          width: PILL_W,
+          height: PILL_H,
+          borderRadius: PILL_H / 2,
+          backgroundColor: theme.colors.accent,
+          transform: [{ translateX: pillX }],
+        }}
+      />
       {items.map(({ id, icon, label }) => (
         <NavigationItem
           key={id}
           active={active === id}
           compact
           icon={icon}
+          id={id}
           label={label}
+          onLayout={(e) => {
+            const { x, width } = e.nativeEvent.layout;
+            setCenters((c) => (c[id] === x + width / 2 ? c : { ...c, [id]: x + width / 2 }));
+          }}
           onPress={() => onChange(id)}
         />
       ))}
@@ -168,10 +219,10 @@ export function SideNavigation({ active, onChange }: NavigationProps) {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 14,
-          backgroundColor: theme.colors.accentSurface,
+          backgroundColor: theme.colors.sky,
         }}
       >
-        <Feather size={20} color={theme.colors.accent} strokeWidth={1.8} />
+        <Star size={20} color={theme.colors.star} fill={theme.colors.star} strokeWidth={1.8} />
       </View>
 
       <View style={{ gap: spacing[2] }}>
@@ -181,6 +232,7 @@ export function SideNavigation({ active, onChange }: NavigationProps) {
             active={active === id}
             compact={false}
             icon={icon}
+            id={id}
             label={label}
             onPress={() => onChange(id)}
           />

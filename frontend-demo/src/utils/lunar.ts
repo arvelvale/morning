@@ -19,7 +19,8 @@ const TERMS: [string, number][] = [
 
 function termDate(year: number, idx: number): Date {
   const [, c] = TERMS[idx];
-  const month = idx < 12 ? idx + 1 : idx - 11;
+  // 每月两个节气：index 0、1 在一月，2、3 在二月……（旧写法 idx+1 把节气排到了错的月份）
+  const month = Math.floor(idx / 2) + 1;
   const y100 = year % 100;
   const day = Math.floor(y100 * 0.2422 + c) - Math.floor((y100 - 1) / 4);
   return new Date(year, month - 1, day);

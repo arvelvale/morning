@@ -1,79 +1,110 @@
 /**
- * Morning 设计基础 —— Quiet Ambient OS × Digital Storybook。
+ * Morning 设计基础 —— 米露的夜空 × 贴纸绘本（2026-10 改版第二稿）。
  *
- * 骨架（Quiet Ambient OS）：环境行、低 chrome（靠纸色分层而非描边）、日夜一体
- * （夜间不是蓝黑，而是同一盏灯调暗后的暖炭色）。灵魂（Digital Storybook）：
- * 叙事内容（信、台词、批注）用衬线，操作界面用无衬线。
- *
- * 色板全部取自米露原画：奶油毛色→纸底，瞳金→accent，尾杏→陶土，暖炭→夜底。
+ * 层级靠明度拉开，而不是一片米白：
+ * - 纸色只做底；最重的一块是「米露的夜空」深靛（sky），首页主卡、登录天空用它；
+ * - 金色（star）只给星星，也就是被接住的东西；
+ * - 四类碎片各一色：待办 番茄 / 灵感 柠檬 / 情绪 薰衣草 / 片段 薄荷（todo/idea/mood/frag，各带一个浅底 *Soft）；
+ * - 主操作与选中态用深靛实心（accent），夜间反转成浅薰衣草。
  * Token 使用语义命名；素材色、图片蒙层和特殊场景色不放在这里。
  */
 import { Platform } from "react-native";
 
 export const lightColors = {
-  background: "#F5EFE2",
-  backgroundSubtle: "#EFE7D5",
-  surface: "#FCF8EE",
-  surfaceElevated: "#FFFEF8",
-  surfaceHover: "#F3ECDC",
-  surfacePressed: "#ECE3CF",
-  textPrimary: "#3B3428",
-  textSecondary: "#6E6350",
-  textMuted: "#9C907C",
-  textOnAccent: "#FFFDF4",
+  background: "#F3EFE9",
+  backgroundSubtle: "#E9E3DA",
+  surface: "#FFFFFF",
+  surfaceElevated: "#FFFFFF",
+  surfaceHover: "#F6F3EE",
+  surfacePressed: "#EEE9E1",
+  textPrimary: "#211D32",
+  textSecondary: "#5C566C",
+  textMuted: "#8F889C",
+  textOnAccent: "#FFFFFF",
   textOnDanger: "#FFF9F5",
-  placeholder: "#9C907C",
-  border: "rgba(90,76,55,0.18)",
-  divider: "rgba(90,76,55,0.10)",
-  accent: "#A97E22",
-  accentSurface: "rgba(184,134,11,0.12)",
-  accentSoft: "rgba(184,134,11,0.08)",
-  accentHover: "#B98F33",
-  accentPressed: "#8F6A1B",
-  support: "#718879",
-  focus: "#C4953A",
-  disabledSurface: "#EFE9DA",
-  disabledText: "#B8AD99",
-  success: "#5E7D68",
-  warning: "#A66A32",
-  error: "#A8483D",
-  overlay: "rgba(59,52,40,0.38)",
-  scrim: "rgba(59,52,40,0.16)",
+  placeholder: "#9A93A6",
+  border: "rgba(33,29,50,0.12)",
+  divider: "rgba(33,29,50,0.07)",
+  accent: "#2D2754",
+  accentSurface: "rgba(45,39,84,0.09)",
+  accentSoft: "rgba(45,39,84,0.05)",
+  accentHover: "#3A3270",
+  accentPressed: "#1F1A40",
+  support: "#23917A",
+  focus: "#7563DE",
+  disabledSurface: "#ECE7E0",
+  disabledText: "#B3ADBD",
+  success: "#23917A",
+  warning: "#C98E00",
+  error: "#D0533A",
+  overlay: "rgba(14,11,28,0.55)",
+  scrim: "rgba(14,11,28,0.22)",
+  /** 米露的夜空：主卡与登录天空的渐变两端 + 右下角的紫色辉光。日夜都是深色。 */
+  sky: "#2D2754",
+  skyDeep: "#1C1833",
+  skyGlow: "#7660D6",
+  /** 星星：只用于「被接住的东西」（计数、星光、高亮圈）。 */
+  star: "#FFD467",
+  starDeep: "#F2A93B",
+  /** 四类碎片的语义色。 */
+  todo: "#E5603F",
+  todoSoft: "#FCE4DC",
+  idea: "#C98E00",
+  ideaSoft: "#FBEFC8",
+  mood: "#7563DE",
+  moodSoft: "#ECE8FD",
+  frag: "#23917A",
+  fragSoft: "#D8F0E7",
+  /** 信封纸面与封舌。 */
+  envelope: "#FFF6E4",
+  envelopeFlap: "#F4E3C3",
 } as const;
 
-/**
- * 夜间 = 同一盏灯调暗：暖炭纸底，墨色换成暖米，金换成烛光金。
- * 刻意不用蓝黑——夜里依然是那间书房，只是灯拧小了。
- */
+/** 夜间：深靛纸底，主操作反转为浅薰衣草；四类色提亮以保证在深底上可读。 */
 export const darkColors: ColorTokens = {
-  background: "#262019",
-  backgroundSubtle: "#2C251D",
-  surface: "#332B22",
-  surfaceElevated: "#3A3128",
-  surfaceHover: "#3A3128",
-  surfacePressed: "#42382C",
-  textPrimary: "#EFE6D2",
-  textSecondary: "#C9BCA4",
-  textMuted: "#97896E",
-  textOnAccent: "#2A2114",
+  background: "#141127",
+  backgroundSubtle: "#0F0D20",
+  surface: "#1F1B39",
+  surfaceElevated: "#27224A",
+  surfaceHover: "#2A2550",
+  surfacePressed: "#312B5A",
+  textPrimary: "#F1EDF8",
+  textSecondary: "#BEB6D2",
+  textMuted: "#8C84A6",
+  textOnAccent: "#17142C",
   textOnDanger: "#FFF9F5",
-  placeholder: "#97896E",
-  border: "rgba(238,227,206,0.14)",
-  divider: "rgba(238,227,206,0.09)",
-  accent: "#D8A94E",
-  accentSurface: "rgba(216,169,78,0.14)",
-  accentSoft: "rgba(216,169,78,0.09)",
-  accentHover: "#E4BC6B",
-  accentPressed: "#C2933C",
-  support: "#8FA98F",
-  focus: "#D8A94E",
-  disabledSurface: "#332C22",
-  disabledText: "#6E6350",
-  success: "#8FA98F",
-  warning: "#D5A16B",
-  error: "#C96A55",
-  overlay: "rgba(12,9,5,0.55)",
-  scrim: "rgba(12,9,5,0.30)",
+  placeholder: "#7D7598",
+  border: "rgba(241,237,248,0.12)",
+  divider: "rgba(241,237,248,0.07)",
+  accent: "#BBAFFF",
+  accentSurface: "rgba(187,175,255,0.14)",
+  accentSoft: "rgba(187,175,255,0.08)",
+  accentHover: "#CBC2FF",
+  accentPressed: "#A497F0",
+  support: "#4CC9A6",
+  focus: "#BBAFFF",
+  disabledSurface: "#221E3E",
+  disabledText: "#5E577A",
+  success: "#4CC9A6",
+  warning: "#F2C14E",
+  error: "#FF8A6B",
+  overlay: "rgba(5,4,12,0.62)",
+  scrim: "rgba(5,4,12,0.32)",
+  sky: "#231C4F",
+  skyDeep: "#0D0B1C",
+  skyGlow: "#5B47C4",
+  star: "#FFD467",
+  starDeep: "#F2A93B",
+  todo: "#FF8A6B",
+  todoSoft: "#3B2236",
+  idea: "#F2C14E",
+  ideaSoft: "#382F2A",
+  mood: "#A595FF",
+  moodSoft: "#2B2652",
+  frag: "#4CC9A6",
+  fragSoft: "#16343A",
+  envelope: "#2A2549",
+  envelopeFlap: "#352E5E",
 };
 
 export type ColorTokens = {
@@ -98,15 +129,20 @@ export const paperColors = {
 } as const;
 
 /**
- * 系统衬线仅用于情绪性标题，不用于聊天正文或控件。
- * 不加载外部字体；Android 的中文衬线覆盖取决于厂商字体回退，不能保证与参考图一致。
+ * 标题与米露说的话用「Miaoling Kai」（霞鹜文楷 Screen 常用字子集，见 scripts/build-font-subset.py），
+ * 在 App.tsx 用 expo-font 加载；正文、按钮、输入框仍用系统无衬线，保证小字清楚。
+ * 自定义字体只有一个字重，用到 hand 的样式一律 fontWeight 400，避免安卓找不到粗体回退成系统字。
  */
+export const HAND_FONT = "MiaolingKai";
 export const fontFamilies = {
+  hand: Platform.select({
+    web: `"${HAND_FONT}", "KaiTi", "STKaiti", serif`,
+    default: HAND_FONT,
+  }),
+  /** 兼容旧引用：情绪性标题原先用系统衬线，现统一换成 hand。 */
   serif: Platform.select({
-    ios: "Songti SC",
-    android: "serif",
-    web: '"Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", serif',
-    default: "serif",
+    web: `"${HAND_FONT}", "KaiTi", "STKaiti", serif`,
+    default: HAND_FONT,
   }),
   sans: undefined,
 } as const;
@@ -145,33 +181,45 @@ export const letterSpacings = {
   normal: 0,
   relaxed: 0.2,
   label: 0.4,
-  ambient: 3.3,
+  /** 环境行常是整句（日期 · 节气 · 状态），宽字距会把句子拆散，只留一点呼吸。 */
+  ambient: 0.6,
 } as const;
 
 export const textStyles = {
   /** 叠加在标题字号之后：仅登录欢迎语、信件标题、片场引导语使用。 */
   emotionalTitle: {
-    fontFamily: fontFamilies.serif,
+    fontFamily: fontFamilies.hand,
     fontWeight: fontWeights.regular,
     letterSpacing: letterSpacings.normal,
   },
   display: {
     fontSize: fontSizes.display,
     lineHeight: lineHeights.display,
-    fontWeight: fontWeights.medium,
-    letterSpacing: letterSpacings.tight,
+    fontWeight: fontWeights.regular,
+    letterSpacing: letterSpacings.normal,
+    fontFamily: fontFamilies.hand,
   },
   pageTitle: {
     fontSize: fontSizes.pageTitle,
     lineHeight: lineHeights.pageTitle,
-    fontWeight: fontWeights.medium,
-    letterSpacing: letterSpacings.tight,
+    fontWeight: fontWeights.regular,
+    letterSpacing: letterSpacings.normal,
+    fontFamily: fontFamilies.hand,
   },
   sectionTitle: {
     fontSize: fontSizes.sectionTitle,
     lineHeight: lineHeights.sectionTitle,
-    fontWeight: fontWeights.medium,
+    fontWeight: fontWeights.regular,
     letterSpacing: letterSpacings.normal,
+    fontFamily: fontFamilies.hand,
+  },
+  /** 米露说的话（气泡、引导提示）：手写体，稍大一号。 */
+  petVoice: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: fontWeights.regular,
+    letterSpacing: letterSpacings.normal,
+    fontFamily: fontFamilies.hand,
   },
   body: {
     fontSize: fontSizes.body,
@@ -254,8 +302,8 @@ export const touchTarget = {
 } as const;
 
 export const radii = {
-  control: 12,
-  card: 18,
+  control: 14,
+  card: 20,
   dialog: 20,
   pill: 999,
 } as const;
@@ -269,14 +317,14 @@ const nativeShadows = {
     elevation: 0,
   },
   soft: {
-    shadowColor: "#3B3428",
+    shadowColor: "#211D32",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 2,
   },
   floating: {
-    shadowColor: "#3B3428",
+    shadowColor: "#211D32",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.14,
     shadowRadius: 28,
@@ -289,10 +337,10 @@ const webShadows = {
     boxShadow: "none",
   },
   soft: {
-    boxShadow: "0 4px 12px rgba(59,52,40,0.08)",
+    boxShadow: "0 4px 12px rgba(33,29,50,0.08)",
   },
   floating: {
-    boxShadow: "0 12px 28px rgba(59,52,40,0.14)",
+    boxShadow: "0 12px 28px rgba(33,29,50,0.14)",
   },
 } as const;
 
