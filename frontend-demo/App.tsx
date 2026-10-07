@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, AppState, Linking, StatusBar } from "react-native";
+import { useFonts } from "expo-font";
 import {
   AppShell,
   DesignSystemPreview,
@@ -12,12 +13,13 @@ import {
   ToastSurface,
   type AppTab,
 } from "./src/design-system";
-import {
-  OnboardHow, OnboardPermission, OnboardPet, OnboardWelcome,
-} from "./src/screens/Onboarding";
-import { CompanionChat, CompanionIdle, CompanionJournal, ModeSheet } from "./src/screens/Companion";
+import { HAND_FONT } from "./src/design-system/tokens";
+import { GuideProvider, guideSeen, useGuide } from "./src/guide/Guide";
+import { TodayProvider, useToday } from "./src/screens/today/TodayContext";
+import { TodayOverlays } from "./src/screens/today/TodayOverlays";
+import { TodayScreen } from "./src/screens/today/TodayScreen";
+import { CompanionChat, CompanionJournal, ModeSheet } from "./src/screens/Companion";
 import { VoiceCall } from "./src/screens/VoiceCall";
-import { ProcessingScreen, ReceiptScreen, SleepDump } from "./src/screens/Dump";
 import {
   MailboxScreen,
 } from "./src/screens/Mailbox";
@@ -51,8 +53,7 @@ import { THEATER_SCENE_IDS } from "./src/theater";
 
 const SCREEN_IDS = [
   "auth",
-  "onboard-1", "onboard-2", "onboard-3", "onboard-4",
-  "companion", "chat", "journal", "voice-call", "sleep-dump", "processing", "receipt",
+  "companion", "chat", "journal", "voice-call",
   "mailbox",
   "scene", "scene-play", "scene-end",
   "profile", "pet-change", "pet-handoff",
@@ -105,7 +106,10 @@ const DEV_SCREEN: Screen | null = (() => {
   return isScreen(value) ? value : null;
 })();
 
-const INITIAL_SCREEN: Screen = DEV_SCREEN ?? "onboard-1";
+const INITIAL_SCREEN: Screen = DEV_SCREEN ?? "companion";
+// 预览钩子：?guide=1 进首页后直接开始新手引导
+const DEV_GUIDE = typeof window !== "undefined" && !!window.location?.search
+  && new URLSearchParams(window.location.search).get("guide") === "1";
 const INITIAL_TAB: AppTab =
   DEV_SCREEN === "mailbox"
     ? "mailbox"
@@ -122,7 +126,7 @@ const DEV_BYPASS = DEV_SCREEN !== null && !DEV_AUTH;
 const DEV_TOKENS: Tokens = { access_token: "dev", refresh_token: "dev", token_type: "bearer" };
 
 const FULL_SCREENS: Screen[] = [
-  "chat", "journal", "voice-call", "sleep-dump", "processing", "receipt",
+  "chat", "journal", "voice-call",
   "scene-play", "scene-end",
   "pet-change", "pet-handoff", "memory-list", "memory-review", "user-profile", "design-system", "scene3d-preview",
 ];
@@ -139,7 +143,24 @@ const PREFERENCE_DEFAULTS: Preferences = {
   profile_learning_enabled: true,
 };
 
+/** 标题字体（Miaoling Kai）加载完再渲染，避免标题先闪一下系统字。加载失败就用系统字继续。 */
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({ [HAND_FONT]: require("./assets/fonts/MiaolingKai.ttf") });
+  if (!fontsLoaded && !fontError) return null;
+  return <MorningApp />;
+}
+
+/** 在 Provider 里面拿到引导 / 今日的接口，交给外层的 App 状态机用。 */
+function Bridge({ guideRef, todayRef }: {
+  guideRef: React.MutableRefObject<ReturnType<typeof useGuide> | null>;
+  todayRef: React.MutableRefObject<ReturnType<typeof useToday> | null>;
+}) {
+  guideRef.current = useGuide();
+  todayRef.current = useToday();
+  return null;
+}
+
+function MorningApp() {
   const [screen, setScreen] = useState<Screen>(INITIAL_SCREEN);
   const [tokens, setTokens] = useState<Tokens | null>(DEV_BYPASS ? DEV_TOKENS : null);
   const [tab, setTab] = useState<AppTab>(INITIAL_TAB);
@@ -169,13 +190,13 @@ export default function App() {
   // 版本更新提示：每次启动或从后台回到前台，只要仍是旧版就弹底部抽屉。
   const [updateInfo, setUpdateInfo] = useState<AvailableUpdateInfo | null>(null);
   const [apkUpdateState, setApkUpdateState] = useState<ApkUpdateState>(INITIAL_APK_UPDATE_STATE);
-  const [dumpText, setDumpText] = useState("");
-  const [dumpReceipt, setDumpReceipt] = useState<any>(null);
   const [chatSeedText, setChatSeedText] = useState("");
   const [letterReplyBody, setLetterReplyBody] = useState("");  // 「回它一句」带上的来信正文，供宠物基于信回复
-  const [dumpSeedText, setDumpSeedText] = useState("");
   const [seedConvId, setSeedConvId] = useState<number | null>(null);  // 往日会话：进入聊天页时加载该会话历史并续聊
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guideRef = useRef<ReturnType<typeof useGuide> | null>(null);
+  const todayRef = useRef<ReturnType<typeof useToday> | null>(null);
+  const guideAutoStarted = useRef(false);
   const fade = useRef(new Animated.Value(1)).current;
 
   // 启动时从存储恢复登录态（token 持久化，重启免重登）。
@@ -405,17 +426,6 @@ export default function App() {
     });
   }, [screen, tokens]);
 
-  // 进入选宠引导时，拉取后端预设。
-  useEffect(() => {
-    if (screen !== "onboard-3" || !tokens || DEV_BYPASS) return;
-    listPetPresets()
-      .then((data) => setPresets((data as any[]).map(petFromPreset)))
-      .catch(() => setPresets([
-        { id: "miro" as any, presetId: "miro", name: "米露", emoji: "✨", summary: "情绪碎片收藏家：安静、敏锐、擅长倾听和承接情绪" },
-        { id: "bobi" as any, presetId: "bobi", name: "波比", emoji: "☀️", summary: "晨光信使：温暖、热烈、有行动力，也尊重边界" },
-      ]));
-  }, [screen, tokens]);
-
   const handleSetPreference = async (patch: Partial<Preferences>) => {
     const next = { ...preferences, ...patch };
     setPreferences(next);
@@ -425,33 +435,6 @@ export default function App() {
       setPreferences({ ...PREFERENCE_DEFAULTS, ...saved });
     } catch (e: any) {
       showToast(e?.message || "保存失败");
-    }
-  };
-
-  const handleOnboardPetDone = async (selectedId: number | string | null) => {
-    if (!selectedId || changingPet) return;
-    if (!tokens || DEV_BYPASS) {
-      const fallback = presets.find((p) => p.id === selectedId) || DEFAULT_PET;
-      setPet(fallback);
-      go("companion");
-      setTab("companion");
-      return;
-    }
-    setChangingPet(true);
-    try {
-      const res = await setActivePet(selectedId);
-      const activated = res?.pet;
-      if (activated) {
-        const p = petFromOwned(activated);
-        setPet(p);
-        setActivePetId(p.id);
-      }
-      go("companion");
-      setTab("companion");
-    } catch (e: any) {
-      showToast(e?.message || "选宠失败");
-    } finally {
-      setChangingPet(false);
     }
   };
 
@@ -496,11 +479,33 @@ export default function App() {
     }
   };
 
-  const isMainApp = !screen.startsWith("onboard");
-  const showTabBar = Boolean(tokens) && isMainApp && !FULL_SCREENS.includes(screen);
+  const showTabBar = Boolean(tokens) && !FULL_SCREENS.includes(screen);
+
+  // 第一次来到首页：直接在真实界面上开始新手引导（只在这台设备上走一次，「我的」里能重走）
+  useEffect(() => {
+    if (screen !== "companion" || !tokens || guideAutoStarted.current) return;
+    if (DEV_BYPASS && !DEV_GUIDE) return;
+    guideAutoStarted.current = true;
+    let alive = true;
+    const run = async () => {
+      if (!DEV_GUIDE && (await guideSeen())) return;
+      setTimeout(() => { if (alive) guideRef.current?.start(); }, 1200);
+    };
+    void run();
+    return () => { alive = false; };
+  }, [screen, tokens]);
+
+  const replayGuide = () => {
+    go("companion");
+    setTab("companion");
+    setTimeout(() => guideRef.current?.start(), 900);
+  };
 
   return (
     <NightCtx.Provider value={night}>
+    <GuideProvider petName={pet.name} onFinish={() => showToast("就这些啦。剩下的，我们慢慢来。")}>
+    <TodayProvider celebrate={petCelebrating} enabled={Boolean(tokens) && !DEV_BYPASS} onToast={showToast} petName={pet.name}>
+      <Bridge guideRef={guideRef} todayRef={todayRef} />
       <StatusBar barStyle={night ? "light-content" : "dark-content"} />
       <AppShell
         activeTab={tab}
@@ -508,6 +513,7 @@ export default function App() {
         onTabChange={(nextTab) => {
           setTab(nextTab);
           go(nextTab as Screen);
+          if (nextTab === "mailbox") guideRef.current?.emit("tab:mailbox");
         }}
         showNavigation={showTabBar}
         toast={toast ? <ToastSurface message={toast} /> : undefined}
@@ -516,48 +522,20 @@ export default function App() {
             <AuthScreen
               onAuthed={(t, m) => {
                 setTokens(t);
-                if (m === "register") {
-                  setScreen("onboard-1");
-                } else {
-                  setScreen("companion");
-                  setTab("companion");
-                }
+                // 新用户默认由米露陪伴（之后可在「我的」里换）；登录后都直接进真实首页
+                if (m === "register") setActivePet("miro").catch(() => {});
+                setScreen("companion");
+                setTab("companion");
               }}
             />
           ) : (
           <>
           <Animated.View style={{ flex: 1, opacity: fade }}>
-            {screen === "onboard-1" && (
-              <OnboardWelcome
-                onNext={() => go("onboard-2")}
-                onSkip={() => { go("companion"); setTab("companion"); }}
-              />
-            )}
-            {screen === "onboard-2" && <OnboardHow onNext={() => go("onboard-3")} onBack={() => go("onboard-1")} />}
-            {screen === "onboard-3" && (
-              <OnboardPet onNext={() => go("onboard-4")} onBack={() => go("onboard-2")}
-                pets={presets.length ? presets : [
-                  { id: "miro" as any, presetId: "miro", name: "米露", emoji: "✨", summary: "情绪碎片收藏家：安静、敏锐、擅长倾听和承接情绪" },
-                  { id: "bobi" as any, presetId: "bobi", name: "波比", emoji: "☀️", summary: "晨光信使：温暖、热烈、有行动力，也尊重边界" },
-                ]}
-                selectedId={pendingPetId}
-                onSelect={(id) => setPendingPetId(id)} />
-            )}
-            {screen === "onboard-4" && (
-              <OnboardPermission
-                onNext={() => handleOnboardPetDone(pendingPetId)}
-                onBack={() => go("onboard-3")} />
-            )}
-
             {screen === "companion" && (
-              <CompanionIdle petName={pet.name} petEmoji={pet.emoji} petPresetId={pet.presetId}
-                petMood={petCelebrating ? "happy" : undefined}
+              <TodayScreen petEmoji={pet.emoji} petPresetId={pet.presetId}
                 night={night} onNightToggle={() => setNight(n => !n)}
-                onChat={() => { setSeedConvId(null); setLetterReplyBody(""); go("chat"); }}
-                onVoiceChat={(text) => { setSeedConvId(null); setLetterReplyBody(""); setChatSeedText(text); go("chat"); }}
                 onVoiceCall={() => go("voice-call")}
-                onOpenJournal={() => go("journal")}
-                onResumeChat={(id) => { setChatSeedText(""); setLetterReplyBody(""); setSeedConvId(id); go("chat"); }}
+                onOpenMailbox={() => { setTab("mailbox"); go("mailbox"); guideRef.current?.emit("tab:mailbox"); }}
                 onModeSheet={() => setShowMode(true)} />
             )}
             {screen === "chat" && (
@@ -586,24 +564,11 @@ export default function App() {
                   setTab("scene");
                 }} />
             )}
-            {screen === "sleep-dump" && (
-              <SleepDump initialText={dumpSeedText}
-                onBack={() => { setDumpSeedText(""); go("companion"); setTab("companion"); }}
-                onProcess={(t) => { setDumpText(t); go("processing"); }} />
-            )}
-            {screen === "processing" && (
-              <ProcessingScreen text={dumpText}
-                onDone={(r) => { setDumpReceipt(r); go("receipt"); }} />
-            )}
-            {screen === "receipt" && (
-              <ReceiptScreen receipt={dumpReceipt}
-                onDone={() => { go("companion"); setTab("companion"); }}
-                onView={() => { go("mailbox"); setTab("mailbox"); }} />
-            )}
-
             {screen === "mailbox" && (
               <MailboxScreen
                 petName={pet.name}
+                petPresetId={pet.presetId}
+                petEmoji={pet.emoji}
                 onToast={showToast}
                 onPlayScene={(sceneId, theaterId) => {
                   setSceneId(sceneId);
@@ -639,6 +604,7 @@ export default function App() {
                 onMemory={() => go("memory-list")}
                 onMemoryReview={() => go("memory-review")}
                 onUserProfile={() => go("user-profile")}
+                onReplayGuide={replayGuide}
                 preferences={preferences}
                 onSetPreference={handleSetPreference}
                 onLogout={async () => {
@@ -673,11 +639,13 @@ export default function App() {
           </Animated.View>
 
           <ModeSheet visible={showMode} onClose={() => setShowMode(false)}
-            onSleepDump={() => { setDumpSeedText(""); setShowMode(false); go("sleep-dump"); }}
+            onSleepDump={() => { setShowMode(false); todayRef.current?.openDump(); }}
+            onJournal={() => { setShowMode(false); go("journal"); }}
             onChat={(m) => { setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(""); setChatMode(m); setShowMode(false); go("chat"); }} />
           </>
           )}
       </AppShell>
+      <TodayOverlays visible={Boolean(tokens) && screen === "companion"} />
       {updateInfo && (
         <UpdateSheet
           info={updateInfo}
@@ -689,6 +657,8 @@ export default function App() {
           }}
         />
       )}
+    </TodayProvider>
+    </GuideProvider>
     </NightCtx.Provider>
   );
 }

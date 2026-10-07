@@ -98,3 +98,27 @@ export function stopLetterPolling(): void {
     timer = null;
   }
 }
+
+/**
+ * 待办的明早提醒：在本机排一条定时通知（不依赖后端推送）。
+ * web 没有系统通知，直接跳过；排失败也不影响后端那边已经记下的截止时间。
+ */
+export async function scheduleTodoReminder(petName: string, text: string, at: Date): Promise<void> {
+  if (Platform.OS === "web" || at.getTime() <= Date.now()) return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `${petName}来叫你啦`,
+        body: `说好今早提醒你：${preview(text)}`,
+        data: { type: "todo_reminder" },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: at,
+        channelId: CHANNEL_ID,
+      },
+    });
+  } catch {
+    /* 没有通知权限等：忽略 */
+  }
+}

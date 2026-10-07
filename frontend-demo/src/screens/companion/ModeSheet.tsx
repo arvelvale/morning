@@ -3,13 +3,15 @@
  */
 import React from "react";
 import { ScrollView, View } from "react-native";
-import { ChevronRight, Clapperboard, Cloud, Mountain, Waves } from "lucide-react-native";
+import { BookOpen, ChevronRight, Clapperboard, Cloud, Mountain, Waves } from "lucide-react-native";
 
 import { ListItem, ResponsiveOverlay, useTheme } from "../../design-system";
 
 type ModeSheetProps = {
   onChat: (mode: string) => void;
   onClose: () => void;
+  /** 翻往日对话（原首页「往日」入口）。 */
+  onJournal?: () => void;
   onSleepDump: () => void;
   visible: boolean;
 };
@@ -39,12 +41,19 @@ const modes = [
     label: "回看一个片段",
     mode: "review_fragment",
   },
+  {
+    description: "以前聊过的，都在这儿",
+    icon: BookOpen,
+    label: "翻翻往日",
+    mode: "_journal",
+  },
 ];
 
 /** 陪伴模式选择浮层。 */
 export function ModeSheet({
   onChat,
   onClose,
+  onJournal,
   onSleepDump,
   visible,
 }: ModeSheetProps) {
@@ -58,7 +67,7 @@ export function ModeSheet({
           padding: theme.spacing[4],
         }}
       >
-        {modes.map((mode) => {
+        {modes.filter((mode) => mode.mode !== "_journal" || onJournal).map((mode) => {
           const ModeIcon = mode.icon;
           return (
             <ListItem
@@ -79,7 +88,7 @@ export function ModeSheet({
                 </View>
               }
               onPress={() =>
-                mode.mode === "_dump" ? onSleepDump() : onChat(mode.mode)
+                mode.mode === "_dump" ? onSleepDump() : mode.mode === "_journal" ? onJournal?.() : onChat(mode.mode)
               }
               title={mode.label}
               trailing={

@@ -4,7 +4,7 @@ import { Animated, AppState, Easing, Image, StyleSheet, View } from "react-nativ
 import { PetPlaceholder, useReducedMotion, useTheme } from "../design-system";
 import { getPetStill } from "../pets/assets";
 import { PetRigView } from "../pets/rig/PetRigView";
-import { isRigPet, type PetMood } from "../pets/rig/types";
+import { isRigPet, type PetLook, type PetMood } from "../pets/rig/types";
 
 const FALLBACK_FADE_MS = 260;
 
@@ -16,6 +16,16 @@ type HomePetArtworkProps = {
   mood?: PetMood;
   /** 0~1，倾听时传用户音量。 */
   level?: number;
+  /** 视线（引导时看向被高亮的地方）。 */
+  look?: PetLook;
+  /** 变化一次就被戳一下。 */
+  pokeKey?: number;
+  /** 强制用夜间配色（坐在夜空主卡、登录天空上时眼睛和星星发光）；缺省跟随主题。 */
+  glow?: boolean;
+  /** 身后的淡色光晕；放在深色卡片上时关掉。 */
+  halo?: boolean;
+  /** 所在页面不可见时暂停渲染。 */
+  paused?: boolean;
 };
 
 /**
@@ -32,6 +42,11 @@ export function HomePetArtwork({
   size = 215,
   mood = "idle",
   level = 0,
+  look = null,
+  pokeKey,
+  glow,
+  halo = true,
+  paused = false,
 }: HomePetArtworkProps) {
   const night = useTheme().isNight;
   const reduceMotion = useReducedMotion();
@@ -77,24 +92,28 @@ export function HomePetArtwork({
         justifyContent: "center",
       }}
     >
-      <View
-        style={{
-          position: "absolute",
-          width: size * 1.34,
-          height: size * 1.34,
-          borderRadius: size,
-          backgroundColor: night ? "rgba(216,169,78,0.10)" : "rgba(184,134,11,0.09)",
-        }}
-      />
+      {halo ? (
+        <View
+          style={{
+            position: "absolute",
+            width: size * 1.34,
+            height: size * 1.34,
+            borderRadius: size,
+            backgroundColor: night ? "rgba(255,212,103,0.08)" : "rgba(117,99,222,0.07)",
+          }}
+        />
+      ) : null}
       <View style={{ width: size * 1.42, height: size * 1.42 }}>
         {rigFailed ? null : (
           <PetRigView
             level={level}
+            look={look}
             mood={effectiveMood}
-            night={night}
+            night={glow ?? night}
             onError={() => setRigFailed(true)}
             onReady={onReady}
-            paused={!appActive}
+            paused={!appActive || paused}
+            pokeKey={pokeKey}
             pet={presetId}
             reduceMotion={reduceMotion}
             style={StyleSheet.absoluteFill}

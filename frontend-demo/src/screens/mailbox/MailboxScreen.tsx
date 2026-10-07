@@ -29,6 +29,8 @@ import {
 } from "./shared";
 import { KeepsakeAlbum, KeepsakeDetail } from "./Keepsakes";
 import { DailyLetterView } from "./Letters";
+import { TonightLetter } from "./TonightLetter";
+import { useGuide } from "../../guide/Guide";
 
 /** 思绪批注行：单字章 + 正文 + 元信息 + 轻量动作。 */
 interface ThoughtRow {
@@ -67,14 +69,17 @@ function sealOfKind(kind: string): string {
   return "想";
 }
 
-export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "你的伙伴" }: {
+export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "你的伙伴", petPresetId = null, petEmoji = "✨" }: {
   onReplyLetter: (letter: { title: string; body: string } | null) => void;
   onToast?: (msg: string) => void;
   /** 接受场景邀请后进入片场演绎（sceneId + 预设剧场 id，dynamic_image 时 theaterId 为 null） */
   onPlayScene?: (sceneId: number, theaterId: string | null) => void;
   petName?: string;
+  petPresetId?: string | null;
+  petEmoji?: string;
 }) {
   const { theme, C } = useMailboxSurface();
+  const guide = useGuide();
   const { isExpanded } = useResponsive();
   const [sec, setSec] = useState(0);
   const sections = ["来信", "思绪"];
@@ -267,14 +272,27 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
 
   const unreadLetters = letters.filter(l => !l.is_read).length;
 
+  // 今天的晚间来信到了没有（场景邀请不算）
+  const startOfDay = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+  const todaysLetter = letters.find(l => l.type !== "scene_invite" && new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(l.created_at) ? l.created_at : `${l.created_at}Z`).getTime() >= startOfDay) ?? null;
+  const openTodaysLetter = () => {
+    if (!todaysLetter) return;
+    if (todaysLetter.id !== activeLetter?.id) handleSelectPast(todaysLetter);
+    else handleOpenLetter();
+  };
+
   const letterSection = (
     <>
-      <DailyLetterView letter={activeLetter} petName={petName} letterState={letterState}
+      {!todaysLetter || guide.active ? (
+        <TonightLetter arrived={!!todaysLetter} onOpen={openTodaysLetter}
+          petEmoji={petEmoji} petName={petName} petPresetId={petPresetId} />
+      ) : null}
+      {activeLetter ? <DailyLetterView letter={activeLetter} petName={petName} letterState={letterState}
         onOpenLetter={handleOpenLetter} onSaveLetter={handleSaveLetter}
         onAckLetter={handleAckLetter} acking={ackingLetter} ackedIds={ackedLetterIds}
         onReply={() => onReplyLetter(activeLetter ? { title: activeLetter.title, body: activeLetter.body } : null)}
         onEnterScene={handleEnterScene} entering={enteringScene}
-        onGotoKeepsakes={() => setShowKeepsakes(true)} />
+        onGotoKeepsakes={() => setShowKeepsakes(true)} /> : null}
 
       {pastLetters.length > 0 && !showKeepsakes && (
         <View style={{ marginTop: theme.spacing[6] }}>

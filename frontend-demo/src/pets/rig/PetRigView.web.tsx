@@ -2,10 +2,10 @@ import React, { useEffect, useRef } from "react";
 import { View } from "react-native";
 
 import { PET_RIG_SOURCE } from "./petRigSource.generated";
-import type { PetMood, PetRigKind, PetRigProps } from "./types";
+import type { PetLook, PetMood, PetRigKind, PetRigProps } from "./types";
 
 type RigController = {
-  set: (patch: { mood?: PetMood; night?: boolean; level?: number; reduceMotion?: boolean }) => void;
+  set: (patch: { mood?: PetMood; night?: boolean; level?: number; reduceMotion?: boolean; look?: PetLook }) => void;
   poke: () => void;
   pause: () => void;
   resume: () => void;
@@ -30,6 +30,7 @@ export function PetRigView({
   level = 0,
   reduceMotion = false,
   paused = false,
+  look = null,
   pokeKey,
   onReady,
   onError,
@@ -67,6 +68,11 @@ export function PetRigView({
     if (paused) rigRef.current?.pause();
     else rigRef.current?.resume();
   }, [paused]);
+
+  const lookKey = look ? `${look[0].toFixed(2)},${look[1].toFixed(2)}` : "";
+  useEffect(() => {
+    rigRef.current?.set({ look: lookKey ? (lookKey.split(",").map(Number) as unknown as PetLook) : null });
+  }, [lookKey]);
 
   useEffect(() => {
     if (pokeKey) rigRef.current?.poke();

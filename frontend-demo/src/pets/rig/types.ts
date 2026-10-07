@@ -1,7 +1,10 @@
 import type { StyleProp, ViewStyle } from "react-native";
 
 /** 桌宠状态：与 pet-rig.js 的 MOODS 一一对应。 */
-export type PetMood = "idle" | "listening" | "thinking" | "speaking" | "happy" | "sleep";
+export type PetMood = "idle" | "listening" | "thinking" | "speaking" | "happy" | "sleep" | "shy";
+
+/** 视线 [x, y]，-1..1，x 向右、y 向下为正；null 表示它自己看。 */
+export type PetLook = readonly [number, number] | null;
 
 export type PetRigKind = "miro" | "bobi";
 
@@ -16,6 +19,8 @@ export type PetRigProps = {
   reduceMotion?: boolean;
   /** 后台 / 不可见时暂停渲染。 */
   paused?: boolean;
+  /** 外部指定视线（例如引导时看向被高亮的地方）。 */
+  look?: PetLook;
   /** 每次变化触发一次「被戳」反应。 */
   pokeKey?: number;
   /** 第一帧画好之后回调，用来撤掉静态兜底图。 */

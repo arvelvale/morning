@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import {
-  Archive, Bell, Check, ChevronRight, Clock, Layers, LogOut, Moon, Shield, Trash2, Type,
+  Archive, Bell, Check, ChevronRight, Clock, Layers, LogOut, Moon, RotateCcw, Shield, Trash2, Type,
 } from "lucide-react-native";
 import {
   Button,
@@ -150,12 +150,14 @@ function TimePickerSheet({ visible, initial, night, onCancel, onConfirm }: {
 export function ProfileScreen({
   onChangePet, night, onNightToggle, petName, petEmoji, petPresetId, petSummary,
   onMemory, onMemoryReview, preferences, onSetPreference, onLogout,
-  onUserProfile,
+  onUserProfile, onReplayGuide,
 }: {
   onChangePet: () => void; night: boolean; onNightToggle: () => void;
   petName: string; petEmoji: string; petPresetId?: string | null; petSummary?: string;
   onMemory: () => void; onMemoryReview: () => void;
   onUserProfile: () => void;
+  /** 回到首页，再走一遍新手引导。 */
+  onReplayGuide?: () => void;
   preferences: Preferences;
   onSetPreference: (patch: Partial<Preferences>) => void;
   onLogout?: () => void;
@@ -199,6 +201,7 @@ export function ProfileScreen({
       { icon: <Moon size={16} color={C.text2} />, label: "夜间氛围", val: night ? "开启" : "关闭", act: onNightToggle },
       { icon: <Type size={16} color={C.text2} />, label: "字体大小", val: preferences.font_size, act: cycleFontSize },
       { icon: <Layers size={16} color={C.text2} />, label: "减少透明度", val: preferences.reduce_transparency ? "开启" : "关闭", act: () => onSetPreference({ reduce_transparency: !preferences.reduce_transparency }) },
+      ...(onReplayGuide ? [{ icon: <RotateCcw size={16} color={C.text2} />, label: "再走一遍新手引导", val: "", act: onReplayGuide }] : []),
     ]},
   ];
   const avatar = getPetAvatar(petPresetId ?? null);
@@ -254,7 +257,6 @@ export function ProfileScreen({
                 style={[
                   theme.typography.textStyles.sectionTitle,
                   {
-                    fontFamily: theme.typography.fontFamilies.sans,
                     color: C.text,
                     marginTop: theme.spacing[2],
                   },

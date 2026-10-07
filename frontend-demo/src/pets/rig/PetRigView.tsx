@@ -34,6 +34,7 @@ export function PetRigView({
   level = 0,
   reduceMotion = false,
   paused = false,
+  look = null,
   pokeKey,
   onReady,
   onError,
@@ -66,6 +67,11 @@ export function PetRigView({
   useEffect(() => {
     if (ready) send(paused ? "__rig.pause()" : "__rig.resume()");
   }, [ready, paused]);
+
+  const lookKey = look ? `${look[0].toFixed(2)},${look[1].toFixed(2)}` : "";
+  useEffect(() => {
+    if (ready) send(`__rig.set({look:${lookKey ? `[${lookKey}]` : "null"}})`);
+  }, [ready, lookKey]);
 
   useEffect(() => {
     if (ready && pokeKey) send("__rig.poke()");

@@ -17,6 +17,10 @@ import {
   EyeOff,
 } from "lucide-react-native";
 
+import { LinearGradient } from "expo-linear-gradient";
+
+import { HomePetArtwork } from "../components/HomePetArtwork";
+import type { PetMood } from "../pets/rig/types";
 import { login as apiLogin, register as apiRegister, loginWithEmail, sendEmailCode, type Tokens } from "../api";
 
 /**
@@ -50,21 +54,6 @@ type AuthScreenProps = {
   onAuthed: (tokens: Tokens, mode: Mode) => void;
 };
 
-const authBenefits = [
-  {
-    description: "随时说说话，不催促，也不评判。",
-    title: "有人安静地听",
-  },
-  {
-    description: "重要的念头会被妥善整理和保存。",
-    title: "让思绪有地方放",
-  },
-  {
-    description: "你始终可以查看、调整或删除自己的内容。",
-    title: "主动权一直在你",
-  },
-];
-
 export function AuthScreen({ onAuthed }: AuthScreenProps) {
   const theme = useTheme();
   const { isCompact, isExpanded } = useResponsive();
@@ -82,6 +71,10 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   const [retryAt, setRetryAt] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const busy = useRef(false);
+  const [focus, setFocus] = useState<"username" | "password" | null>(null);
+  const [level, setLevel] = useState(0);
+  const levelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (levelTimer.current) clearTimeout(levelTimer.current); }, []);
   useEffect(() => {
     const tick = () => setRemaining(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
     tick();
@@ -174,29 +167,41 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
     }
   };
 
-  const brand = (
-    <View style={{ flex: isExpanded ? 1 : undefined, maxWidth: isExpanded ? 420 : 440, width: "100%", alignSelf: "center" }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing[3] }}>
-        <Image accessibilityLabel="喵灵" source={require("../../assets/icon.png")}
-          style={{ width: 40, height: 40, borderRadius: theme.radii.control }} />
-        <Text style={[theme.typography.textStyles.sectionTitle, { color: theme.colors.textPrimary }]}>喵灵</Text>
+  // 天空里的米露：听你输入、输密码时捂眼、登录时开心
+  const petMood: PetMood = loading ? "thinking" : focus === "password" && !showPassword ? "shy" : focus ? "listening" : "idle";
+  const petLine = loading ? "" : focus === "password" ? (showPassword ? "那我可以看了？" : "我不看！") : focus === "username" ? "我在听～" : "";
+  const typing = () => {
+    setLevel(0.85);
+    if (levelTimer.current) clearTimeout(levelTimer.current);
+    levelTimer.current = setTimeout(() => setLevel(0), 160);
+  };
+
+  const sky = (
+    <View style={{
+      height: isExpanded ? 520 : 300, width: isExpanded ? 440 : undefined,
+      marginHorizontal: isExpanded ? 0 : -(isCompact ? theme.spacing[5] : theme.spacing[8]),
+      marginTop: isExpanded ? 0 : -(isCompact ? theme.spacing[6] : theme.spacing[10]),
+      borderRadius: isExpanded ? 36 : 0, borderBottomLeftRadius: 40, borderBottomRightRadius: 40,
+      overflow: "hidden", alignItems: "center", justifyContent: "flex-end",
+    }}>
+      <LinearGradient colors={[theme.colors.sky, theme.colors.skyDeep]} end={{ x: 0.7, y: 1 }} start={{ x: 0.1, y: 0 }}
+        style={{ position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }} />
+      {[[12, 20, 1.6], [28, 52, 1.1], [46, 14, 1.3], [64, 30, 1], [80, 18, 1.5], [90, 48, 1]].map(([x, y, r], i) => (
+        <View key={i} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: r * 2, height: r * 2, borderRadius: r, backgroundColor: "#FFF6DD", opacity: 0.75 }} />
+      ))}
+      <View style={{ position: "absolute", left: 22, top: 18, flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Image accessibilityLabel="喵灵" source={require("../../assets/icon.png")} style={{ width: 28, height: 28, borderRadius: 9 }} />
+        <Text style={{ fontFamily: theme.typography.fontFamilies.hand, fontSize: 19, color: "#FFFFFF" }}>喵灵</Text>
       </View>
-      <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing[4] }]}>
-        陪你把心里的事，轻轻放下
-      </Text>
-      {isExpanded ? (
-        <View style={{ marginTop: theme.spacing[12] }}>
-          <Text style={[theme.typography.textStyles.display, theme.typography.textStyles.emotionalTitle, { color: theme.colors.textPrimary, lineHeight: 50 }]}>
-            给纷乱的思绪，{"\n"}留一块安静的地方
-          </Text>
-          <View style={{ marginTop: theme.spacing[10], gap: theme.spacing[5] }}>
-            {authBenefits.map(benefit => (
-              <View key={benefit.title} style={{ borderLeftWidth: 1, borderLeftColor: theme.colors.divider, paddingLeft: theme.spacing[4] }}>
-                <Text style={[theme.typography.textStyles.bodyStrong, { color: theme.colors.textPrimary }]}>{benefit.title}</Text>
-                <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing[1] }]}>{benefit.description}</Text>
-              </View>
-            ))}
-          </View>
+      <View style={{ marginBottom: -14 }}>
+        <HomePetArtwork fallbackEmoji="✨" glow halo={false} level={level} mood={petMood} presetId="miro" size={isExpanded ? 200 : 150} />
+      </View>
+      {petLine ? (
+        <View style={{
+          position: "absolute", right: 22, top: isExpanded ? 120 : 64, paddingHorizontal: 12, paddingVertical: 7,
+          borderRadius: 15, borderBottomRightRadius: 4, backgroundColor: "#FFFFFF",
+        }}>
+          <Text style={[theme.typography.textStyles.petVoice, { fontSize: 15, lineHeight: 21, color: "#211D32" }]}>{petLine}</Text>
         </View>
       ) : null}
     </View>
@@ -224,10 +229,10 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             flexDirection: isExpanded ? "row" : "column",
             alignItems: isExpanded ? "center" : "stretch",
             justifyContent: "space-between",
-            gap: isExpanded ? theme.spacing[16] : theme.spacing[12],
+            gap: isExpanded ? theme.spacing[16] : theme.spacing[2],
           }}
         >
-          {brand}
+          {sky}
 
           <View
             style={{
@@ -248,7 +253,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 { color: theme.colors.textPrimary },
               ]}
             >
-              {isLogin ? "欢迎回来" : "第一次见面"}
+              {isLogin ? "欢迎回来" : "初次见面"}
             </Text>
             <Text
               style={[
@@ -262,7 +267,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             >
               {isLogin
                 ? "它一直在这儿，等你回来说说话。"
-                : "给自己起个名字，我们慢慢认识。"}
+                : "起个名字，进来以后它带你走一圈。"}
             </Text>
 
             {isLogin && EMAIL_LOGIN ? (
@@ -311,10 +316,13 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 autoCapitalize="none"
                 autoCorrect={false}
                 label="用户名"
+                onBlur={() => setFocus((f) => (f === "username" ? null : f))}
                 onChangeText={(value) => {
                   setUsername(value);
                   setHint("");
+                  typing();
                 }}
+                onFocus={() => setFocus("username")}
                 placeholder={isLogin ? "你的名字" : "想让我怎么称呼你"}
                 returnKeyType="next"
                 value={username}
@@ -327,10 +335,12 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 autoCorrect={false}
                 importantForAutofill="no"
                 label="密码"
+                onBlur={() => setFocus((f) => (f === "password" ? null : f))}
                 onChangeText={(value) => {
                   setPassword(value);
                   setHint("");
                 }}
+                onFocus={() => setFocus("password")}
                 onSubmitEditing={submit}
                 placeholder="悄悄话，只有你知道"
                 returnKeyType="done"
