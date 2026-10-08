@@ -29,6 +29,8 @@ type PetRigGlobal = {
   mountFilm: (el: HTMLElement, opts: {
     fit?: 'cover' | 'contain'; loop?: boolean; autoplay?: boolean; autoPause?: boolean;
     reduceMotion?: boolean; posterTime?: number; start?: number;
+    /** 每帧报告当前短片时间（秒），用来在关键时刻触发配乐点缀。 */
+    onTime?: (t: number) => void;
   }) => FilmController;
 };
 

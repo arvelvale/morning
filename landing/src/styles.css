@@ -92,6 +92,9 @@ nav{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:50;width
 .film-toggle:hover{transform:scale(1.06)} .film-toggle:active{transform:scale(.95)}
 .film-toggle:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .film-toggle svg{width:18px;height:18px;fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+/* 配乐开关：排在暂停键左边；打开时用金色底，表示正在出声 */
+.film-toggle.film-sound{right:62px}
+.film-toggle.film-sound[aria-pressed="true"]{background:var(--gold)}
 
 /* 下载按钮：贴纸按钮 */
 .dl-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px}

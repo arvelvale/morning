@@ -6,7 +6,7 @@ export default function Footer() {
     <footer>
       <div className="foot">
         <a className="brand" href="#hero">
-          <img src="/assets/favicon.png" alt="喵灵 logo" />
+          <img src={`${import.meta.env.BASE_URL}assets/favicon.png`} alt="喵灵 logo" />
           <b>喵灵</b>
           <span>Morning</span>
         </a>

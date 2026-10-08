@@ -17,7 +17,7 @@ export default function DumpSection() {
           <i className="tape tape-c" aria-hidden="true" />
           <div className="bubble user">今天有好多事情没做完，明天还要交东西，我现在脑子有点乱……</div>
           <div className="bubble miro-b">
-            <span className="who"><img src="/assets/pets/miro-idle.png" alt="" />米露</span>
+            <span className="who"><img src={`${import.meta.env.BASE_URL}assets/pets/miro-idle.png`} alt="" />米露</span>
             我在呢。先深呼吸一下——你说，我听着。刚才那些事情，我帮你挑出来了三件，放在这里了。
           </div>
           <div className="tidy">
