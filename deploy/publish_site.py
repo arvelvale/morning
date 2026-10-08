@@ -122,7 +122,7 @@ def push_site(version: str) -> None:
             return
         run(["git", "-c", "core.autocrlf=false", "-c", "user.name=arvelvale",
              "-c", "user.email=arvelvale@users.noreply.github.com",
-             "commit", "-q", "-m", f"publish: 官网 {version}"], cwd=work)
+             "commit", "-q", "-m", f"发布：喵灵官网 {version}"], cwd=work)
         run(["git", "push", "-q", "origin", "HEAD:main"], cwd=work)
 
 

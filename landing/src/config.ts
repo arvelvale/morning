@@ -8,8 +8,8 @@ export const DOWNLOADS = {
     sub: 'HarmonyOS NEXT',
   },
   android: {
-    url: 'https://github.com/arvelvale/morning-site/releases/download/v0.3.13/morning-android-0.3.13.apk',
-    version: 'v0.3.13',
+    url: 'https://github.com/arvelvale/morning-site/releases/download/v0.3.14/morning-android-0.3.14.apk',
+    version: 'v0.3.14',
     sub: 'Android 10+',
   },
 } as const;

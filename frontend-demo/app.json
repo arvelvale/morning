@@ -2,7 +2,7 @@
   "expo": {
     "name": "喵灵",
     "slug": "morning",
-    "version": "0.3.13",
+    "version": "0.3.14",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -37,6 +37,7 @@
     },
     "android": {
       "package": "com.morning.app",
+      "versionCode": 17,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundImage": "./assets/icon-background.png",

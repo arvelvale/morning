@@ -1,13 +1,15 @@
 {
-  "latest": "0.3.13",
+  "latest": "0.3.14",
   "min_supported": "0.1.0",
-  "version_code": 16,
-  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.13.apk",
+  "version_code": 17,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.14.apk",
   "apk_sha256": "placeholder-will-be-replaced-by-publish-script",
   "size_bytes": 0,
   "size_mb": 0,
   "mandatory": false,
   "changelog": [
+    "修复常驻陪伴服务前台注册超时导致的启动闪退",
+    "修复登录恢复时陪伴服务启动与停止交错的问题",
     "首页改版：一眼看到今天接住了几件事，倒出来的话会飞进米露的星星",
     "待办可以让它明早 8 点提醒你；信箱里能看到今晚的信什么时候到",
     "新手引导改在真实首页上，跟着米露做一遍就会用",

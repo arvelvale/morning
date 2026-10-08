@@ -6,6 +6,7 @@
  */
 import { requireOptionalNativeModule } from "expo-modules-core";
 import type { EventSubscription } from "expo-modules-core";
+import { createCompanionTaskQueue } from "./serviceTasks";
 
 type MorningCompanionModule = {
   startCompanionService: (petName: string) => Promise<boolean>;
@@ -63,22 +64,18 @@ export function addAudioChunkListener(cb: (e: AudioChunk) => void): EventSubscri
 /** 原生前台服务是否可用（真机 Android build 才为 true）。 */
 export const isCompanionAvailable = Native != null;
 
+// Token restoration and pet updates can overlap at launch. Preserve call order so
+// an initial stop cannot overtake a later foreground start on native async queues.
+const enqueueCompanion = createCompanionTaskQueue();
+
 /** 拉起常驻陪伴通知：「{petName}正在陪伴你 · 已运行 X 分钟」+ 暂停/打开按钮。 */
 export async function startCompanion(petName: string): Promise<boolean> {
   if (!Native) return false;
-  try {
-    return await Native.startCompanionService(petName);
-  } catch {
-    return false;
-  }
+  return enqueueCompanion(() => Native.startCompanionService(petName));
 }
 
 /** 停止常驻陪伴通知（等同用户点「暂停陪伴」）。 */
 export async function stopCompanion(): Promise<boolean> {
   if (!Native) return false;
-  try {
-    return await Native.stopCompanionService();
-  } catch {
-    return false;
-  }
+  return enqueueCompanion(() => Native.stopCompanionService());
 }

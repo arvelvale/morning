@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 
 /**
  * 常驻陪伴前台服务：状态栏保留一条安静的通知
@@ -33,28 +34,40 @@ class CompanionForegroundService : Service() {
 
   override fun onBind(intent: Intent?): IBinder? = null
 
+  override fun onCreate() {
+    super.onCreate()
+    startedAtMs = System.currentTimeMillis()
+    // Fulfil startForegroundService's deadline before any start/stop intent is handled.
+    startInForeground()
+    Log.i(TAG, "Created and promoted to foreground")
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_STOP) {
       stopTicking()
-      stopSelf()
+      stopForeground(STOP_FOREGROUND_REMOVE)
+      stopSelfResult(startId)
       return START_NOT_STICKY
     }
 
     intent?.getStringExtra(EXTRA_PET_NAME)?.takeIf { it.isNotBlank() }?.let { petName = it }
 
     if (!running) {
-      startedAtMs = System.currentTimeMillis()
-      running = true
       startInForeground()
+      running = true
       handler.postDelayed(tick, REFRESH_MS)
     } else {
-      updateNotification()
+      // A repeated foreground start must also acknowledge the system request.
+      startInForeground()
     }
+    Log.i(TAG, "Foreground start acknowledged: $startId")
     return START_STICKY
   }
 
   override fun onDestroy() {
     stopTicking()
+    stopForeground(STOP_FOREGROUND_REMOVE)
+    Log.i(TAG, "Destroyed")
     super.onDestroy()
   }
 
@@ -149,6 +162,7 @@ class CompanionForegroundService : Service() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
   companion object {
+    private const val TAG = "MorningCompanion"
     const val ACTION_START = "com.morning.companion.START"
     const val ACTION_STOP = "com.morning.companion.STOP"
     const val EXTRA_PET_NAME = "pet_name"

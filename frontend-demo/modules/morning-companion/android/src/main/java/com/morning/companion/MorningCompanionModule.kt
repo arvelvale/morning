@@ -28,10 +28,8 @@ class MorningCompanionModule : Module() {
 
     AsyncFunction("stopCompanionService") {
       val ctx = appContext.reactContext ?: return@AsyncFunction false
-      val intent = Intent(ctx, CompanionForegroundService::class.java).apply {
-        action = CompanionForegroundService.ACTION_STOP
-      }
-      ctx.startService(intent)
+      // Stopping must never instantiate a service during the app's initial token load.
+      ctx.stopService(Intent(ctx, CompanionForegroundService::class.java))
       true
     }
   }
