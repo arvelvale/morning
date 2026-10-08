@@ -1,8 +1,10 @@
-"""把 landing/dist 同步到官网服务器 yingjiapp.com（107.155.55.76）。
+"""【已停用】把 landing/dist 同步到 yingjiapp.com（107.155.55.76）。
 
-用法：
-  $env:MORNING_SSH_PASSWORD='...'
-  python deploy/sync_landing_site.py
+2026-10-08 起停用：yingjiapp.com 是映记 / 栖光的域名（大创结题与竞赛演示要用），
+/var/www/yinji-smart-diary 是它的网站根目录。喵灵官网改由 GitHub Pages 提供，
+发布用 deploy/publish_site.py（https://arvelvale.github.io/morning-site/）。
+这里保留代码只为留档；直接运行会退出，避免再次覆盖栖光的网站。
+恢复栖光网站见 deploy/yingjiapp_site.py。
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ WEB_ROOT = "/var/www/yinji-smart-diary"
 
 
 def main() -> None:
+    sys.exit("已停用：yingjiapp.com 归映记 / 栖光使用，喵灵官网请用 deploy/publish_site.py 发布到 GitHub Pages")
     if not PASSWORD:
         sys.exit("缺少 MORNING_SSH_PASSWORD")
     if not DIST.is_dir():

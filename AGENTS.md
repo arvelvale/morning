@@ -12,7 +12,7 @@
 | `backend/docs/api-design.md` | REST 接口契约（各节标注 ✅ 已实现 / 未实现） |
 | `.kiro/specs/memory-system/` | 双轴记忆系统 spec（requirements/design/tasks），Phase 0–6 已全部实现 |
 | `theater/` | three.js 重演剧场场景库（六个预置场景），详见 `theater/README.md` |
-| `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，已部署于 yingjiapp.com，日志见 `docs/progress/2026-09-02.md`） |
+| `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，发布到 GitHub Pages：https://arvelvale.github.io/morning-site/ ，用 `deploy/publish_site.py`；yingjiapp.com 已于 2026-10-08 还给映记 / 栖光，`deploy/sync_landing_site.py` 停用） |
 | `morning-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
 | `frontend-demo/` | React Native / Expo 移植版（`npm run web` 浏览器预览 / `npm run android`），详见 `frontend-demo/README.md` |
 | `frontend-demo/src/pets/rig/` | 米露/波比角色运行时 `pet-rig.js`（程序化骨骼动画，App、官网、鸿蒙共用一份源码）；改完在 frontend-demo 下 `npm run rig:build` 同步各处副本，不要手改副本。状态演示见 `design-demos/pet-motion/pet.html` |
