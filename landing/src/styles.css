@@ -333,6 +333,8 @@ footer{padding:36px 0 48px}
   .desk-pet{width:190px !important;right:6px}
   .reminder-card{left:20px;top:210px;max-width:210px}
   .dl-btn{flex:1 1 100%}
+  /* 首屏标题第二行不换行（约 8.2 个字宽）：360 以下按视口缩小，320 宽时 34px 正好放进 288px 的正文宽度 */
+  .hero-copy h1{font-size:clamp(30px,10.6vw,38px)}
   .stage{aspect-ratio:3/4}
   .stage-city{bottom:22%}
   .stage-pet{width:36% !important}
