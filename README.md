@@ -70,7 +70,6 @@
 morning/
 ├─ backend/          # FastAPI 后端、AI 网关、业务 API 与本地记忆系统
 ├─ frontend-demo/    # Expo / React Native 主前端，Web 与移动端共用代码
-├─ theater/          # 可独立运行的 Three.js 低多边形场景库
 ├─ morning-proto/    # 早期 Web 交互原型
 ├─ design-system/    # 设计探索与辅助资料
 ├─ docs/             # 产品、设计、API、规格与实施文档
@@ -189,7 +188,6 @@ Morning 当前是一个**开发中的原型**：
 ### 相关文档
 
 - [后端说明与 API 验证](backend/README.md)
-- [Three.js 片场场景库](theater/README.md)
 - [项目功能说明](Morning项目功能文档-精简版.md)
 - [前端视觉重构规格](docs/superpowers/specs/2026-07-25-morning-frontend-visual-redesign.md)
 
@@ -248,7 +246,6 @@ Morning does not pressure users into completing tasks, create emotional dependen
 morning/
 ├─ backend/          # FastAPI backend, AI gateway, business APIs, and local memory
 ├─ frontend-demo/    # Main Expo / React Native app shared by Web and mobile
-├─ theater/          # Standalone Three.js low-poly scene library
 ├─ morning-proto/    # Early Web interaction prototype
 ├─ design-system/    # Design explorations and supporting material
 ├─ docs/             # Product, design, API, specification, and implementation docs
@@ -367,6 +364,5 @@ Morning is a **prototype under active development**:
 ### Documentation
 
 - [Backend guide and API verification](backend/README.md)
-- [Three.js theater scene library](theater/README.md)
 - [Product feature overview (Chinese)](Morning项目功能文档-精简版.md)
 - [Frontend visual redesign specification (Chinese)](docs/superpowers/specs/2026-07-25-morning-frontend-visual-redesign.md)

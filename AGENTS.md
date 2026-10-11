@@ -11,7 +11,6 @@
 | `backend/app/routers/`、`backend/app/services/` | 按业务域分子包（routers：`ai/ scene/ mailbox/ companion/ memory/ system/`；services：`scene/ mailbox/ pet/ memory/ companion/ signals/ infra/`），新模块归入对应域；导入用绝对路径 `app.services.<域>.X`，子包 `__init__.py` 只写职责说明、不做万能 re-export |
 | `backend/docs/api-design.md` | REST 接口契约（各节标注 ✅ 已实现 / 未实现） |
 | `.kiro/specs/memory-system/` | 双轴记忆系统 spec（requirements/design/tasks），Phase 0–6 已全部实现 |
-| `theater/` | three.js 重演剧场场景库（六个预置场景），详见 `theater/README.md` |
 | `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，发布到 GitHub Pages：https://arvelvale.github.io/morning-site/ ，用 `deploy/publish_site.py`；yingjiapp.com 已于 2026-10-08 还给映记 / 栖光，`deploy/sync_landing_site.py` 停用） |
 | `morning-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
 | `frontend-demo/` | React Native / Expo 移植版（`npm run web` 浏览器预览 / `npm run android`），详见 `frontend-demo/README.md` |
@@ -33,10 +32,6 @@ cd backend && uv run uvicorn app.main:app --reload    # 起服务（:8000）
 cd backend && uv run alembic upgrade head             # prod 迁移
 # 测试脚本：见 backend/README.md「验证」一节；Windows 需 PYTHONUTF8=1，
 # service 层脚本需 PYTHONPATH=.
-
-# 剧场
-cd theater && npm install && npm run dev              # 开发
-cd theater && npm run build                           # 产出单文件 dist/index.html（双击可离线打开）
 ```
 
 ## 硬约定（新人必读）
