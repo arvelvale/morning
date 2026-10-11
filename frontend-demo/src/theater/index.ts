@@ -25,6 +25,7 @@ export type { AssembleResult } from "./generated/auto";
 export { isSemanticSpec, solveLayout } from "./generated/layout/solve";
 export { SEMANTIC_FIXTURES } from "./generated/layout/fixtures";
 export type { SemanticSceneSpec, LayoutReport } from "./generated/layout/types";
+export { reviewSpec, reviewScore, reviewItems } from "./generated/layout/review";
 
 export const THEATER_SCENES: Record<TheaterSceneId, () => TheaterScene> = {
   campsite: campsite.create,

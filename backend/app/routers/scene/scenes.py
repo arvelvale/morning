@@ -441,6 +441,72 @@ def get_scene(scene_id: int, user: User = Depends(get_current_user), db: Session
     return _get_owned(db, user.id, scene_id)
 
 
+class SpecIssueIn(BaseModel):
+    """端上校验器报出的一条问题；code 必须在 REVISE_HINTS 白名单里，id 必须是规格里真实存在的。"""
+    code: str
+    ids: list[str] = []
+    expected: str | None = None
+    actual: str | None = None
+
+
+class SpecReviseIn(BaseModel):
+    spec: dict                    # 端上当前这一版（第 2 轮时是第 1 轮被采纳的稿，不一定已入库）
+    issues: list[SpecIssueIn]
+
+
+class SpecSaveIn(BaseModel):
+    spec: dict
+
+
+def _semantic_3d_or_409(s: Scene) -> dict:
+    if s.render_kind != "generated_3d" or not isinstance(s.scene_spec, dict) or s.scene_spec.get("kind") != "semantic":
+        raise HTTPException(status.HTTP_409_CONFLICT, "只有关系式的生成式 3D 场景可以让导演改稿")
+    return s.scene_spec
+
+
+@router.post("/{scene_id}/spec/revise", response_model=None)
+def revise_spec(
+    scene_id: int, body: SpecReviseIn,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """校验回传环：端上把布局校验报出的问题发来，让导演（LLM）改一轮规格。
+
+    只返回候选稿，**不入库**——是否更好由端上重新解算、比分后决定，采纳了再 POST /spec 存回。
+    成本防护：每个场景一辈子最多 MAX_REVISE_ATTEMPTS 次，先记账再调模型（失败也算一次）。
+    """
+    from app.services.scene.scene_spec import MAX_REVISE_ATTEMPTS, revise_scene_spec
+
+    s = _get_owned(db, user.id, scene_id)
+    stored = _semantic_3d_or_409(s)
+    review = dict(stored.get("review") or {})
+    attempts = int(review.get("attempts", 0))
+    if attempts >= MAX_REVISE_ATTEMPTS:
+        return {"spec": None, "reason": "limit"}
+    review["attempts"] = attempts + 1
+    s.scene_spec = {**stored, "review": review}
+    db.commit()
+    revised = revise_scene_spec(body.spec, [i.model_dump() for i in body.issues], place=s.setting or "")
+    return {"spec": revised, "reason": None if revised else "unusable"}
+
+
+@router.post("/{scene_id}/spec", response_model=None)
+def save_spec(
+    scene_id: int, body: SpecSaveIn,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """存回端上采纳的改稿（或只是"已改过几轮"的记录，避免下次打开重复烧模型）。"""
+    from app.services.scene.scene_spec import prepare_saved_spec
+
+    s = _get_owned(db, user.id, scene_id)
+    stored = _semantic_3d_or_409(s)
+    clean = prepare_saved_spec(stored, body.spec)
+    if clean is None:
+        raise HTTPException(422, "规格不合法，或删掉了人物、改了室内外/时段")
+    s.scene_spec = clean
+    db.commit()
+    return {"ok": True, "review": clean.get("review")}
+
+
 @router.post("/{scene_id}/choices", response_model=None)
 def choose(
     scene_id: int,

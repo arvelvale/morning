@@ -20,6 +20,7 @@ import { useTypewriter } from "../../useTypewriter";
 import type { TheaterSceneId } from "../../theater";
 import { SceneChoice, SceneDetail } from "./shared";
 import { getSceneAdvancePhase } from "./sceneReview";
+import { useReviewedSpec } from "./useReviewedSpec";
 
 const bgFill = { position: "absolute" as const, top: 0, left: 0, right: 0, bottom: 0 };
 const NARRATION_VOICE_KEY = "morning.sceneNarrationVoice";
@@ -216,6 +217,8 @@ export function ScenePlay({ sceneId, theater, onEnd }: {
   const isDynamic = scene?.render_kind === "dynamic_image";
   // 生成式 3D：后端下发 scene_spec，前端 assembleScene 拼装低多边形场景
   const genSpec = scene?.render_kind === "generated_3d" ? scene?.scene_spec ?? null : null;
+  // 校验回传：端上先校验布局，有问题就让导演后台改（只采纳更好的稿），改好后无缝换上
+  const reviewedSpec = useReviewedSpec(sceneId, genSpec);
   const bgImageUrl = isDynamic ? absUrl(scene?.bg_image) : null;
   const spriteUrl = isDynamic ? absUrl(scene?.characters?.[0]?.sprite_url) : null;
   const spriteCharName = scene?.characters?.[0]?.name;
@@ -326,7 +329,7 @@ export function ScenePlay({ sceneId, theater, onEnd }: {
       {isDynamic ? (
         <DynamicBackground url={bgImageUrl} reducedMotion={reducedMotion} />
       ) : genSpec ? (
-        <Scene3D spec={genSpec} />
+        <Scene3D spec={reviewedSpec ?? genSpec} />
       ) : (
         <Scene3D sceneId={effectiveTheater} />
       )}

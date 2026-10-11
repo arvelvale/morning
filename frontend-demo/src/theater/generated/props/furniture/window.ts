@@ -20,6 +20,9 @@ export const buildWindow: PropBuilder = (p) => {
   );
   pane.position.z = 0.05;
   g.add(frame, barV, barH, sill, pane);
+  // 离地高度放在内层：根节点保持在原点，装配时 pos.y 不会把窗台高度抹掉
   g.position.y = numOf(p.sill, 1.2) + h / 2;
-  return g;
+  const root = new THREE.Group();
+  root.add(g);
+  return root;
 };

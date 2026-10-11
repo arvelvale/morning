@@ -126,6 +126,32 @@ export const fixtureGrandmaHouse: SemanticSceneSpec = {
   ],
 };
 
+/** 深夜书房（单房间骨架）：后墙一扇窗、左墙一扇门；书桌/书架靠后墙，床靠左墙，人坐在桌前。 */
+export const fixtureStudyNight: SemanticSceneSpec = {
+  kind: "semantic",
+  env: { mode: "indoor", time: "night" },
+  mood: "cozy_indoor_night",
+  room: {
+    width: 5.4, depth: 4.6, height: 2.8, wallColor: "#d9cdb8", floorColor: "#a9855d",
+    openings: [
+      { kind: "window", wall: "back", offset: 0.15, width: 1.3, sill: 1.0, height: 1.2 },
+      { kind: "door", wall: "left", offset: -0.6, width: 0.95 },
+    ],
+  },
+  props: [
+    { id: "desk1", type: "desk", at: { zone: "background", side: "center", edge: "back", bias: [0.4, 0] } },
+    { id: "shelf1", type: "bookshelf", at: { zone: "background", side: "right", edge: "back" } },
+    { id: "bed1", type: "bed", at: { zone: "midground", side: "right", edge: "left" } },
+    { id: "rug1", type: "rug", at: { zone: "midground", side: "center", bias: [0.3, 0.2] }, params: { width: 2.2, depth: 1.5, color: "#7a5a58" } },
+    { id: "chair1", type: "chair", inFrontOf: "desk1", rotY: Math.PI },
+    { id: "lamp1", type: "lamp", on: "desk1" },
+    { id: "photo1", type: "photoFrame", on: "desk1" },
+  ],
+  characters: [
+    { id: "me", pose: "sitting", sitOn: "chair1", facing: "toward:desk1", type: "student", bodyColor: "#8a97ad" },
+  ],
+};
+
 /** 夹具注册表（预览屏按 key 切换）。 */
 export const SEMANTIC_FIXTURES: Record<string, SemanticSceneSpec> = {
   campfireNight: fixtureCampfireNight,
@@ -134,4 +160,5 @@ export const SEMANTIC_FIXTURES: Record<string, SemanticSceneSpec> = {
   rainyPier: fixtureRainyPier,
   schoolComfort: fixtureSchoolComfort,
   grandmaHouse: fixtureGrandmaHouse,
+  studyNight: fixtureStudyNight,
 };

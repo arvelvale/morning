@@ -329,6 +329,12 @@ export const parseSceneRole = (b: {
 
 export const listScenes = () => get("/api/v1/scenes");
 export const getScene = (id: number) => get(`/api/v1/scenes/${id}`);
+/** 校验回传：把端上布局校验报出的问题连同当前规格发给导演改一轮；只返回候选稿，不入库。 */
+export const reviseSceneSpec = (id: number, spec: unknown, issues: unknown[]) =>
+  post<{ spec: any | null; reason: string | null }>(`/api/v1/scenes/${id}/spec/revise`, { spec, issues }, LLM_TIMEOUT_MS);
+/** 存回端上采纳的改稿（或"已改过几轮"的记录）；后端会再清洗并校验人物不少、室内外/时段不变。 */
+export const saveSceneSpec = (id: number, spec: unknown) =>
+  post<{ ok: boolean }>(`/api/v1/scenes/${id}/spec`, { spec });
 /** 删除场景（仅属主，后端 204）。 */
 export const deleteScene = (id: number) => del<void>(`/api/v1/scenes/${id}`);
 /** 非流即时建场景（方案B 一键进入用）：可带 theater_id，返回含 scene_id/theater_id 的 SceneOut。

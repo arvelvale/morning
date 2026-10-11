@@ -4,6 +4,7 @@ import { PROP_META, propMeta, metaKind } from './propMeta';
 import { boundsOverlap, worldBounds } from './bounds';
 import { addIssue } from './report';
 import { footprintInHost, relationRadius, supportAncestor } from './relations';
+import { openingRect, roomInterior, type RoomSpec } from './room';
 import * as THREE from 'three';
 
 export interface CheckOutput { camera?: { pos: [number, number, number]; look: [number, number, number] } }
@@ -11,7 +12,7 @@ const CONTACT_TOLERANCE = .05;
 const FACE_TOLERANCE = Math.PI / 12; // 15 degrees
 const SOFT_TOLERANCE = .6; // metres
 
-export function runChecks(nodes: LayoutNode[], _sem: { env?: { mode?: string } }, report: LayoutReport): CheckOutput {
+export function runChecks(nodes: LayoutNode[], _sem: { env?: { mode?: string } }, report: LayoutReport, room?: RoomSpec): CheckOutput {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const warn = (code: string, ids: string[], expected: string, actual: string) => addIssue(report,
     { code, objectIds: ids, severity: 'warning', status: 'unresolved', expected, actual }, code + '：' + ids.join(' ↔ ') + '；' + actual);
@@ -34,7 +35,8 @@ export function runChecks(nodes: LayoutNode[], _sem: { env?: { mode?: string } }
     if (!n.backdrop) {
       const b = worldBounds(n);
       if (Math.max(Math.abs(b.minX), Math.abs(b.maxX), Math.abs(b.minZ), Math.abs(b.maxZ)) > 11.05) warn('OUT_OF_BOUNDS', [n.id], '几何范围在 ±11m 内', '未钳回，避免拆散承载关系');
-      if (!n.carrier && n.dirRef?.rel !== 'heldBy' && Math.abs(b.minY) > .15) warn('GROUND_CONTACT_ERROR', [n.id], '自由件贴地，误差 ≤0.15m', '底面 y=' + b.minY.toFixed(3));
+      const hung = n.kind === 'prop' && PROP_META[(n.sem as SemanticPropInstance).type]?.hung;   // 挂墙件离地是设计
+      if (!n.carrier && !hung && n.dirRef?.rel !== 'heldBy' && Math.abs(b.minY) > .15) warn('GROUND_CONTACT_ERROR', [n.id], '自由件贴地，误差 ≤0.15m', '底面 y=' + b.minY.toFixed(3));
     }
     // Inspect EVERY requested relationship, even discarded conflicts/cycles.
     for (const rel of ['on', 'inside', 'in', 'sitOn', 'heldBy', 'nextTo', 'near', 'inFrontOf', 'behind'] as const) {
@@ -101,7 +103,46 @@ export function runChecks(nodes: LayoutNode[], _sem: { env?: { mode?: string } }
       }
     }
   }
+  if (room) checkRoom(nodes, room, report);
   return {};
+}
+
+/**
+ * 房间专属检查：东西是否在屋里、门前是否被堵、窗前是否被高柜遮住。
+ * 人物不算堵门/堵窗（站在门口、倚窗本来就是戏）；摆在别的件上的小物跟着宿主，不单独查。
+ */
+function checkRoom(nodes: LayoutNode[], room: RoomSpec, report: LayoutReport) {
+  const warn = (code: string, ids: string[], expected: string, actual: string) => addIssue(report,
+    { code, objectIds: ids, severity: 'warning', status: 'unresolved', expected, actual }, code + '：' + ids.join(' ↔ ') + '；' + actual);
+  const inside = roomInterior(room);
+  const roots = nodes.filter(n => !n.backdrop && !n.carrier && n.dirRef?.rel !== 'heldBy');
+  for (const n of roots) {
+    const b = worldBounds(n);
+    const w = b.maxX - b.minX, d = b.maxZ - b.minZ;
+    if (w > room.width + .05 || d > room.depth + .05) {
+      warn('ROOM_OBJECT_TOO_BIG', [n.id], '物件整体放得进房间（' + room.width.toFixed(1) + '×' + room.depth.toFixed(1) + 'm）', '物件 ' + w.toFixed(1) + '×' + d.toFixed(1) + 'm，比房间还大');
+    } else if (b.minX < inside.minX - .05 || b.maxX > inside.maxX + .05 || b.minZ < inside.minZ - .05 || b.maxZ > inside.maxZ + .05) {
+      warn('ROOM_OBJECT_OUTSIDE', [n.id], '物件在四面墙以内', '超出墙面');
+    }
+  }
+  const movers = roots.filter(n => n.kind === 'prop' && metaKind(PROP_META[(n.sem as SemanticPropInstance).type]) === 'solid');
+  room.openings.forEach((o, i) => {
+    const r = openingRect(room, o);
+    // 往屋里延伸：门前留 0.9m 通道；窗前只看紧贴窗的 0.45m
+    const depth = o.kind === 'door' ? .9 : .45, pad = o.kind === 'door' ? .1 : 0;
+    const zone = o.wall === 'back'
+      ? { minX: r.minX - pad, maxX: r.maxX + pad, minZ: inside.minZ, maxZ: inside.minZ + depth }
+      : { minX: inside.minX, maxX: inside.minX + depth, minZ: r.minZ - pad, maxZ: r.maxZ + pad };
+    const label = o.kind + '@' + o.wall + '#' + (i + 1);
+    for (const n of movers) {
+      const b = worldBounds(n);
+      const hit = Math.min(b.maxX, zone.maxX) - Math.max(b.minX, zone.minX) > .02 && Math.min(b.maxZ, zone.maxZ) - Math.max(b.minZ, zone.minZ) > .02;
+      if (!hit) continue;
+      if (o.kind === 'door' && b.minY < 1.9 && b.maxY > .05) warn('DOOR_BLOCKED', [n.id, label], '门前 0.9m 内无家具', n.id + ' 挡在' + (o.wall === 'back' ? '后' : '左') + '墙的门前');
+      if (o.kind === 'window' && b.maxY > o.sill + .1 && b.minY < o.sill + o.height) warn('WINDOW_BLOCKED', [n.id, label], '窗前不被高过窗台的家具遮住', n.id + ' 高 ' + b.maxY.toFixed(2) + 'm，遮住窗台 ' + o.sill.toFixed(2) + 'm 的窗');
+    }
+  });
+
 }
 
 /** Conservative preview only; S4 supplies actual viewport/FOV and composition. No camera mutation. */

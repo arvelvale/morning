@@ -22,12 +22,14 @@ export const buildDepartureBoard: PropBuilder = (p) => {
   });
   g.add(board, glow);
   g.position.y = numOf(p.height, 3.4);
+  const root = new THREE.Group();   // 离地高度放在内层：装配时 pos.y 不会把它抹掉
+  root.add(g);
   const base = glowMat.color.getHex();
   const emiBase = glowMat.emissive.getHex();
-  g.userData.update = (t: number) => {
+  root.userData.update = (t: number) => {
     const k = 0.85 + Math.sin(t * 1.2) * 0.15;
     glowMat.color.setHex(base).multiplyScalar(k);
     glowMat.emissive.setHex(emiBase).multiplyScalar(k);
   };
-  return g;
+  return root;
 };

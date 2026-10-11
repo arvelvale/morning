@@ -25,6 +25,7 @@ import { buildBookshelf } from "./furniture/bookshelf";
 import { buildCabinet } from "./furniture/cabinet";
 import { buildMirror } from "./furniture/mirror";
 import { buildStairs } from "./furniture/stairs";
+import { buildRoom } from "./furniture/room";
 // nature
 import { buildPineTree } from "./nature/pineTree";
 import { buildRock } from "./nature/rock";
@@ -100,6 +101,7 @@ export const PROP_BUILDERS: Record<string, PropBuilder> = {
   cabinet: buildCabinet,
   mirror: buildMirror,
   stairs: buildStairs,
+  room: buildRoom,   // 单房间骨架：由语义规格的 room 字段展开，LLM 不直接选这个 type
   streetlight: buildStreetlight,
   tent: buildTent,
   wildgrass: buildWildgrass,

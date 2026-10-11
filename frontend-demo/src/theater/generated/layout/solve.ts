@@ -20,6 +20,7 @@ import { PROP_META, propMeta, metaKind, measureProp, type MeasuredBox } from "./
 import { addIssue } from './report';
 import { runChecks, checkCameraVisibility } from "./validator";
 import { boundsOverlap, worldBounds } from './bounds';
+import { normalizeRoom, roomInterior, zoneBox, edgeAnchorU, type RoomSpec } from './room';
 import type {
   SemanticSceneSpec,
   SemanticPropInstance,
@@ -74,6 +75,7 @@ function mulberry32(seed: number): () => number {
 function seedOf(spec: SemanticSceneSpec): number {
   const stable = JSON.stringify({
     env: spec.env,
+    room: spec.room,
     p: (spec.props ?? []).map((p) => [p.id, p.type, p.on, p.inside, p.heldBy, p.nextTo, p.near, p.inFrontOf, p.behind, p.at]),
     c: (spec.characters ?? []).map((c) => [c.id, c.pose, c.sitOn, c.nextTo, c.near, c.inFrontOf, c.behind, c.facing, c.at]),
   });
@@ -94,6 +96,20 @@ export function solveLayout(sem: SemanticSceneSpec): SolveResult {
     characters: [...(sem.characters ?? [])].sort((a, b) => (a.id ?? '').localeCompare(b.id ?? '')),
   });
   const measureCache = new Map<string, MeasuredBox | null>();
+
+  // ── 房间骨架：先定房间、再摆家具。房间作为 backdrop 零件进节点表，之后的区位/限位都按屋内算。 ──
+  let room: RoomSpec | undefined;
+  let propsIn: SemanticPropInstance[] = sem.props ?? [];
+  if (sem.room && typeof sem.room === 'object') {
+    const norm = normalizeRoom(sem.room);
+    room = norm.room;
+    for (const note of norm.notes) {
+      addIssue(report, { code: note.code, objectIds: note.objectIds, severity: 'warning', status: note.status, actual: note.text }, `${note.code}：${note.text}`);
+    }
+    // 参数里放原始 room（构造器会用同一个 normalizeRoom 得到同样的结果）
+    propsIn = [{ id: '__room', type: 'room', params: sem.room as unknown as Record<string, unknown> }, ...propsIn];
+  }
+  const interior = room ? roomInterior(room) : undefined;
 
   /** 依赖某宿主的全部节点（闭包于本次解算的 nodes）。 */
   function dependentsOf(hostId: string): LNode[] {
@@ -160,7 +176,7 @@ export function solveLayout(sem: SemanticSceneSpec): SolveResult {
   const byId = new Map<string, LNode>();
   let pi = 0, ci = 0;
 
-  for (const sp of sem.props ?? []) {
+  for (const sp of propsIn) {
     const base = `prop${pi}`;
     let id = sp.id || base;
     while (byId.has(id)) { id = `${base}-${++pi}-dup`; addIssue(report, { code: 'ID_RENAMED', objectIds: [String(sp.id), id], severity: 'warning', status: 'repaired' }, `id 冲突：${sp.id} 重名，已改名 ${id}`); }
@@ -332,7 +348,7 @@ export function solveLayout(sem: SemanticSceneSpec): SolveResult {
         if (n.dirRef.rel === "inFrontOf") { vx = fwdX * d; vz = fwdZ * d; }
         else if (n.dirRef.rel === "behind") { vx = -fwdX * d; vz = -fwdZ * d; }
         else { vx = sideX * d; vz = sideZ * d; }   // nextTo / near 都走侧向，near 更远
-        n.x = host.x + vx; n.z = host.z + vz; n.y = -(n.box?.minY ?? 0);
+        n.x = host.x + vx; n.z = host.z + vz; n.y = groundY(n);
         n.onSupport = false; n.supportY = n.y; // near a raised object does not imply standing on it
         // 零件保持默认朝向；人物转过来面向宿主（回头呼唤的自然感）
         if (n.explicitRotY !== undefined) n.rotY = n.explicitRotY;
@@ -364,19 +380,54 @@ export function solveLayout(sem: SemanticSceneSpec): SolveResult {
   function scatter(n: LNode) {
     const rand = mulberry32(seed ^ fnv1a(n.id));
     const at = n.at ?? defaultZoneFor(n);
-    const zb = ZONE_Z[at.zone], xb = SIDE_X[at.side];
-    const marginZ = 0.9, marginX = 0.8;
+    if (room && n.kind === "prop" && at.edge) { placeAgainstWall(n, at); return; }
+    // 窗帘必须挂在墙上：没写靠墙就自动贴到第一扇窗所在的墙、对齐窗的位置（不然会飘在屋子中间）
+    if (room && n.kind === "prop" && (n.sem as SemanticPropInstance).type === "curtain") {
+      const win = room.openings.find(o => o.kind === "window");
+      placeAgainstWall(n, { ...at, edge: win?.wall ?? "back" }, win?.u);
+      return;
+    }
+    if (at.edge && !room) {
+      addIssue(report, { code: 'EDGE_WITHOUT_ROOM', objectIds: [n.id], severity: 'warning', status: 'degraded', actual: '规格里没有 room，at.edge 已忽略' }, `靠墙无效：${n.id}（规格里没有 room）`);
+    }
+    // 有房间：三等分屋内；没有：沿用旧的固定区位带
+    const cell = room ? zoneBox(room, at.zone, at.side) : undefined;
+    const zb = cell ? cell.z : ZONE_Z[at.zone], xb = cell ? cell.x : SIDE_X[at.side];
+    const marginZ = room ? 0.35 : 0.9, marginX = room ? 0.35 : 0.8;
     const myHalf = halfExtent(n);
+    const lim = interior
+      ? { x0: interior.minX + myHalf, x1: interior.maxX - myHalf, z0: interior.minZ + myHalf, z1: interior.maxZ - myHalf }
+      : { x0: -COORD_LIMIT + myHalf, x1: COORD_LIMIT - myHalf, z0: -COORD_LIMIT + myHalf, z1: COORD_LIMIT - myHalf };
     const biased = at.bias !== undefined;
     for (let i = 0; i < 8; i++) {
-      const jx = biased ? at.bias![0] : lerp(xb[0] + marginX, xb[1] - marginX, rand());
-      const jz = biased ? at.bias![1] : lerp(zb[0] + marginZ, zb[1] - marginZ, rand());
-      const x = clampRange(jx, -COORD_LIMIT + myHalf, COORD_LIMIT - myHalf);
-      const z = clampRange(jz, -COORD_LIMIT + myHalf, COORD_LIMIT - myHalf);
+      const jx = biased ? at.bias![0] : lerp(xb[0] + Math.min(marginX, (xb[1] - xb[0]) / 2), xb[1] - Math.min(marginX, (xb[1] - xb[0]) / 2), rand());
+      const jz = biased ? at.bias![1] : lerp(zb[0] + Math.min(marginZ, (zb[1] - zb[0]) / 2), zb[1] - Math.min(marginZ, (zb[1] - zb[0]) / 2), rand());
+      const x = clampRange(jx, Math.min(lim.x0, lim.x1), Math.max(lim.x0, lim.x1));
+      const z = clampRange(jz, Math.min(lim.z0, lim.z1), Math.max(lim.z0, lim.z1));
       if (biased || i === 7 || !hitsSolid(n, x, z)) { n.x = x; n.z = z; break; }
     }
-    n.y = -(n.box?.minY ?? 0); n.supportY = n.y;
+    n.y = groundY(n); n.supportY = n.y;
     n.rotY = n.explicitRotY ?? (n.kind === "prop" ? 0 : faceTowardCameraDefault());
+  }
+
+  /**
+   * 靠墙：贴着 at.edge 那面墙的内表面摆，正面朝屋内。
+   * 沿墙位置 = side 的三等分中心 + bias[0]（镜头看去向右为正）；贴合用旋转后的真实包围盒算，
+   * 所以不管家具厚薄，背面都恰好挨着墙。
+   */
+  function placeAgainstWall(n: LNode, at: SemanticAt, alongOverride?: number) {
+    const r = room!, edge = at.edge!;
+    // 正面（+z）朝屋内：后墙 0；左墙 +x → π/2；右墙 -x → -π/2
+    const faceRot = edge === "back" ? 0 : edge === "left" ? Math.PI / 2 : -Math.PI / 2;
+    n.rotY = n.explicitRotY ?? faceRot;
+    const probe = { ...n, x: 0, z: 0 } as LNode;
+    const wb = worldBounds(probe);
+    const along = alongOverride ?? edgeAnchorU(r, edge, at.side) + (at.bias?.[0] ?? 0);
+    const gap = 0.005;
+    if (edge === "back") { n.x = along - (wb.minX + wb.maxX) / 2; n.z = -r.depth / 2 + gap - wb.minZ; }
+    else if (edge === "left") { n.z = -along - (wb.minZ + wb.maxZ) / 2; n.x = -r.width / 2 + gap - wb.minX; }
+    else { n.z = along - (wb.minZ + wb.maxZ) / 2; n.x = r.width / 2 - gap - wb.maxX; }
+    n.y = groundY(n); n.supportY = n.y;
   }
 
   // ── 碰撞消解（solid 对 solid；flat 给 solid 让路；ambient 不参与）──
@@ -429,13 +480,22 @@ export function solveLayout(sem: SemanticSceneSpec): SolveResult {
 
   // ── 边界钳制 + 贴地（backdrop 骨架件豁免：road/water 本来就横越坐标语义）──
   for (const n of nodes) {
-    if (!n.backdrop && !n.carrier && n.dirRef?.rel !== 'heldBy') {
+    if (room && !n.backdrop && !n.carrier && n.dirRef?.rel !== 'heldBy') {
+      // 屋内限位：按旋转后的真实包围盒把整件推回四面墙以内；比屋子还大的件在校验里报 ROOM_OBJECT_TOO_BIG
+      const b = worldBounds(n), i = interior!;
+      const dx = b.minX < i.minX ? i.minX - b.minX : b.maxX > i.maxX ? i.maxX - b.maxX : 0;
+      const dz = b.minZ < i.minZ ? i.minZ - b.minZ : b.maxZ > i.maxZ ? i.maxZ - b.maxZ : 0;
+      if (Math.abs(dx) > 1e-4 || Math.abs(dz) > 1e-4) {
+        addIssue(report, { code: 'BOUNDARY_CLAMPED', objectIds: [n.id], severity: 'warning', status: 'repaired', actual: '推回屋内' }, `推回屋内：${n.id}`);
+        n.x += dx; n.z += dz;
+      }
+    } else if (!n.backdrop && !n.carrier && n.dirRef?.rel !== 'heldBy') {
       const h = halfExtent(n);
       const nx = clampRange(n.x, -COORD_LIMIT + h, COORD_LIMIT - h);
       const nz = clampRange(n.z, -COORD_LIMIT + h, COORD_LIMIT - h);
       if (nx !== n.x || nz !== n.z) { addIssue(report, { code: 'BOUNDARY_CLAMPED', objectIds: [n.id], severity: 'warning', status: 'repaired' }, `越界钳回：${n.id}`); n.x = nx; n.z = nz; }
     }
-    if (!n.onSupport && !n.backdrop) n.y = -(n.box?.minY ?? 0);
+    if (!n.onSupport && !n.backdrop) n.y = groundY(n);
   }
 
   // ── 朝向推导（位置定完才有"互相面向"可言）──
@@ -475,7 +535,7 @@ export function solveLayout(sem: SemanticSceneSpec): SolveResult {
   }
 
   // ── Validator 五项检查（穿模兜底已在 resolveOverlaps 处理过，这里复核并产出报告）──
-  runChecks(nodes, sem, report);
+  runChecks(nodes, sem, report, room);
 
   // ── 组装绝对坐标 SceneSpec ──
   const props: PropInstance[] = [];
@@ -568,6 +628,12 @@ function fitCamera(nodes: LNode[], sem: SemanticSceneSpec): SceneSpec["camera"] 
 }
 
 // ─── 工具函数 ────────────────────────────────────────────────────────────────
+
+/** 自由件的 y：贴地（-minY）。挂墙件的离地高度在构造器里，不能再被抹成 0 以下。 */
+function groundY(n: LNode): number {
+  if (n.kind === 'prop' && PROP_META[(n.sem as SemanticPropInstance).type]?.hung) return 0;
+  return -(n.box?.minY ?? 0);
+}
 
 const CONV_POSES = new Set(["arguing", "comforting", "hugging", "handingItem", "waving", "lookingBack"]);
 

@@ -80,6 +80,16 @@ ALLOWED_MOODS = {
 MAX_PROPS = 16
 MAX_CHARACTERS = 3
 
+# 单房间骨架（与前端 layout/room.ts 保持一致，改动需两端同步）。
+# 房间由前端展开成墙/地/门窗洞口；LLM 只给大小与洞口，不写坐标，也不直接选 "room" 这个 type。
+ROOM_LIMITS = {"width": (3.0, 9.0), "depth": (3.0, 8.0), "height": (2.4, 3.4)}
+ALLOWED_OPENING_KINDS = {"window", "door"}
+ALLOWED_OPENING_WALLS = {"back", "left", "right", "front"}   # right/front 不画，前端会就近改到 back/left
+ALLOWED_EDGES = {"back", "left", "right"}                    # at.edge：靠墙
+MAX_OPENINGS = 6
+# 有 room 时这些件由房间自己带，LLM 另放会和墙洞叠在一起
+ROOM_OWNED_PROPS = {"wall", "window", "door", "doorway"}
+
 # 零件分类 tag 表：prompt 按 seed 场景类型裁剪下发（P1 按 place 关键词路由，
 # 未命中发全集）。裁剪映射只在这张表维护；新零件记得顺手归类。
 PROP_CATEGORIES: dict[str, set[str]] = {
@@ -119,6 +129,19 @@ FEW_SHOT = """\
  {"id":"student1","pose":"waving","sitOn":"bench1","type":"student","outfit":"uniform","backpack":true},
  {"id":"adult1","pose":"lookingBack","behind":"student1","facing":"toward:student1","type":"adult","outfit":"coat"}]}
 
+【例·深夜书房（先定房间，再靠墙放家具）】
+{"env":{"mode":"indoor","time":"night"},"mood":"cozy_indoor_night",
+"room":{"width":5.4,"depth":4.6,"openings":[
+ {"kind":"window","wall":"back","offset":0.15,"width":1.3},{"kind":"door","wall":"left","offset":-0.6}]},
+"props":[
+ {"id":"desk1","type":"desk","at":{"zone":"background","side":"center","edge":"back"}},
+ {"id":"shelf1","type":"bookshelf","at":{"zone":"background","side":"right","edge":"back"}},
+ {"id":"bed1","type":"bed","at":{"zone":"midground","side":"right","edge":"left"}},
+ {"id":"chair1","type":"chair","inFrontOf":"desk1","rotY":3.14},
+ {"id":"lamp1","type":"lamp","on":"desk1"}],
+"characters":[
+ {"id":"me","pose":"sitting","sitOn":"chair1","facing":"toward:desk1","type":"student"}]}
+
 【例·家中桌边喝茶（注意：人只坐椅子，不坐桌子）】
 {"env":{"mode":"indoor","time":"day"},"props":[
  {"id":"table1","type":"table","at":{"zone":"midground","side":"center"}},
@@ -145,11 +168,17 @@ SPEC_SYSTEM_PROMPT = """\
             "ground": {{ "color": "#RRGGBB" }} 可省 }},
   可选 "mood": "warm_day|sunset|night_calm|rainy|rainy_night|
 cozy_indoor_day|cozy_indoor_night|campfire_night"（贴合情绪就给一个）,
+  室内场景可选 "room": {{ "width": 3~9, "depth": 3~8, "height": 2.4~3.4,
+            "wallColor": "#RRGGBB", "floorColor": "#RRGGBB",
+            "openings": [ {{ "kind": "window"|"door", "wall": "back"|"left",
+                            "offset": -1~1（站在镜头一侧看这面墙：-1 最左、0 居中、1 最右）,
+                            "width": 米 }} ] }},
   "props": [ {{ "id": "唯一短id", "type": "零件type", "params": {{ 外观参数 }},
                可选关系: "on"/"inside"/"nextTo"/"near"/"inFrontOf"/"behind"=另一件的id,
                          "heldBy"=某人物id(把信物放到TA手上),
                可选区位: "at": {{ "zone":"foreground|midground|background",
-                                "side":"left|center|right", "bias":[dx,dz] }} }} ],
+                                "side":"left|center|right", "bias":[dx,dz],
+                                "edge":"back|left|right"（靠墙，仅室内有 room 时） }} }} ],
   "characters": [ {{ "id": "唯一短id", "pose": "standing|sitting|phone|walking|waving|
 lookingBack|headDown|arguing|comforting|hugging|handingItem|crying|sittingGround",
               可选形象: "type":"child|student|adult|elderly","build","outfit","hairstyle",
@@ -166,6 +195,11 @@ lookingBack|headDown|arguing|comforting|hugging|handingItem|crying|sittingGround
 - 大结构（路面 road、校门 schoolGate、站台 platform、老屋 oldHouse、海面 water）
   用 at.background 定基调；人物默认 midground.center，近景特写才 foreground；
 - nextTo 紧邻，near 是松散的"在那附近"（约两个身位），按构图意图选；
+- 室内场景先给 room（单间：卧室/书房/客厅/厨房，一般 4~6 米见方），再往里放家具：
+  床、书桌、书架、柜子、沙发这类大件在 at 里写 "edge" 贴墙（后墙 back / 左墙 left；右墙 right
+  镜头看不到正面，尽量少用），side 决定贴在墙的哪一段，窗帘/镜子这类挂墙件也要写 edge；小件放在这些大件上（on）或旁边（nextTo）；
+- 有 room 时不要再单独放 wall / window / door，门窗写进 room.openings；窗前别摆比窗台高的柜子，
+  门前留出通道，别让家具比房间还大；
 - 宁少勿多：道具 4~8 个，只有剧情里的人上场；对视说话的两人给互相 facing；
 - 颜色低饱和柔和；信息不足就选贴合情绪的合理默认。
 
@@ -197,6 +231,70 @@ def _clean_str(v: Any, cap: int = 32) -> str | None:
     return v[:cap] if isinstance(v, str) and v.strip() else None
 
 
+def _num(v: Any, lo: float, hi: float) -> float | None:
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    return round(min(hi, max(lo, float(v))), 2)
+
+
+def _hex_color(v: Any) -> str | None:
+    import re
+    return v if isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v) else None
+
+
+def _sanitize_room(raw: Any) -> dict[str, Any] | None:
+    """房间骨架清洗：尺寸钳进范围、颜色只收 #RRGGBB、洞口最多 MAX_OPENINGS 个。
+
+    不在这里判断洞口放不放得下/会不会重叠——那需要几何，由前端 normalizeRoom 如实记入校验报告。
+    """
+    if not isinstance(raw, dict):
+        return None
+    room: dict[str, Any] = {}
+    for key, (lo, hi) in ROOM_LIMITS.items():
+        v = _num(raw.get(key), lo, hi)
+        if v is not None:
+            room[key] = v
+    for key in ("wallColor", "floorColor"):
+        c = _hex_color(raw.get(key))
+        if c:
+            room[key] = c
+    openings: list[dict[str, Any]] = []
+    for o in (raw.get("openings") or [])[:MAX_OPENINGS]:
+        if not isinstance(o, dict) or o.get("kind") not in ALLOWED_OPENING_KINDS:
+            continue
+        item: dict[str, Any] = {"kind": o["kind"]}
+        if o.get("wall") in ALLOWED_OPENING_WALLS:
+            item["wall"] = o["wall"]
+        for key, lo, hi in (("offset", -1.0, 1.0), ("width", 0.5, 2.6), ("sill", 0.4, 2.0), ("height", 0.5, 2.2)):
+            v = _num(o.get(key), lo, hi)
+            if v is not None:
+                item[key] = v
+        openings.append(item)
+    if openings:
+        room["openings"] = openings
+    return room
+
+
+def _clean_at(at_in: Any, allow_edge: bool = False) -> dict[str, Any] | None:
+    """零件的区位：zone/side 合法才收；allow_edge（规格里有 room）时多收 edge 靠墙，缺 zone/side 补默认。"""
+    if not isinstance(at_in, dict):
+        return None
+    edge = at_in.get("edge") if allow_edge and at_in.get("edge") in ALLOWED_EDGES else None
+    zone, side = at_in.get("zone"), at_in.get("side")
+    if zone not in ALLOWED_ZONES or side not in ALLOWED_SIDES:
+        if not edge:
+            return None
+        zone = zone if zone in ALLOWED_ZONES else "midground"
+        side = side if side in ALLOWED_SIDES else "center"
+    at: dict[str, Any] = {"zone": zone, "side": side}
+    if edge:
+        at["edge"] = edge
+    bias = at_in.get("bias")
+    if isinstance(bias, (list, tuple)) and len(bias) == 2 and all(isinstance(b, (int, float)) for b in bias):
+        at["bias"] = [round(float(bias[0]), 2), round(float(bias[1]), 2)]
+    return at
+
+
 def _sanitize_semantic(parsed: Any) -> dict[str, Any] | None:
     """把 LLM 文本产物清洗成可信的 SemanticSceneSpec；结构性失败返回 None。
 
@@ -217,6 +315,9 @@ def _sanitize_semantic(parsed: Any) -> dict[str, Any] | None:
     if isinstance(env_in.get("ground"), dict) and isinstance(env_in["ground"].get("color"), str):
         env["ground"] = {"color": env_in["ground"]["color"][:9]}
 
+    # 房间骨架：先于家具；有 room 时门窗由房间自带，LLM 另放的 wall/window/door 会和墙洞叠在一起，丢弃
+    room = _sanitize_room(parsed.get("room")) if mode == "indoor" else None
+
     # ── 第一遍：收集全部 id ──
     used_ids: set[str] = set()
 
@@ -229,7 +330,8 @@ def _sanitize_semantic(parsed: Any) -> dict[str, Any] | None:
         return cand
 
     raw_props = [p for p in (parsed.get("props") or [])[:MAX_PROPS]
-                 if isinstance(p, dict) and p.get("type") in ALLOWED_PROPS]
+                 if isinstance(p, dict) and p.get("type") in ALLOWED_PROPS
+                 and not (room is not None and p.get("type") in ROOM_OWNED_PROPS)]
     raw_chars = [c for c in (parsed.get("characters") or [])[:MAX_CHARACTERS] if isinstance(c, dict)]
     all_ids = {_clean_str(p.get("id"), 24) or "" for p in raw_props}
     all_ids |= {_clean_str(c.get("id"), 24) or "" for c in raw_chars}
@@ -260,14 +362,8 @@ def _sanitize_semantic(parsed: Any) -> dict[str, Any] | None:
         hb = ref_ok(inst.get("heldBy"))
         if hb:
             p["heldBy"] = hb
-        at_in = inst.get("at")
-        if isinstance(at_in, dict) and at_in.get("zone") in ALLOWED_ZONES \
-                and at_in.get("side") in ALLOWED_SIDES:
-            at: dict[str, Any] = {"zone": at_in["zone"], "side": at_in["side"]}
-            bias = at_in.get("bias")
-            if isinstance(bias, (list, tuple)) and len(bias) == 2 and \
-                    all(isinstance(b, (int, float)) for b in bias):
-                at["bias"] = [round(float(bias[0]), 2), round(float(bias[1]), 2)]
+        at = _clean_at(inst.get("at"), allow_edge=room is not None)
+        if at:
             p["at"] = at
         props_out.append(p)
 
@@ -322,10 +418,24 @@ def _sanitize_semantic(parsed: Any) -> dict[str, Any] | None:
         logger.warning("[scene-sem] 承载关系成环 %s，已剥除降级", sorted(ring_members))
 
     out: dict[str, Any] = {"kind": "semantic", "env": env, "props": props_out, "characters": chars_out}
+    if room is not None:
+        out["room"] = room
     mood = _clean_str(parsed.get("mood"), 24)
     if mood in ALLOWED_MOODS:
         out["mood"] = mood
+    review = _clean_review(parsed.get("review"))
+    if review:
+        out["review"] = review
     return out
+
+
+def _clean_review(raw: Any) -> dict[str, int] | None:
+    """校验回传环留下的记录（改过几轮、前后分数、请求次数）：只收有界整数。"""
+    if not isinstance(raw, dict):
+        return None
+    out = {k: int(raw[k]) for k in ("rounds", "before", "after", "attempts")
+           if isinstance(raw.get(k), (int, float)) and not isinstance(raw.get(k), bool) and 0 <= raw[k] <= 99}
+    return out or None
 
 
 def _find_cycle_members(graph: dict[str, str]) -> set[str]:
@@ -389,3 +499,146 @@ def generate_scene_spec(seed: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     return _parse(resp.content)
+
+
+# ─── 校验回传：让导演按布局校验报告再改一轮 ────────────────────────────────────
+#
+# 求解器和校验器在前端跑（frontend-demo/src/theater/generated/layout/，TypeScript），
+# 后端没有第二份。所以流程是：端上解算 → 挑出"改规格能解决"的问题（review.ts 的 CODE_WEIGHT）
+# → POST /scenes/{id}/spec/revise → 这里让模型改稿 → 端上重新解算、比分、只收更好的 → POST /scenes/{id}/spec 存回。
+# 这张 code 表与前端 review.ts 的 CODE_WEIGHT 同步；不在表里的 code 一律丢弃（也挡住客户端塞进 prompt 的任意文字）。
+
+REVISE_HINTS: dict[str, str] = {
+    "RESIDUAL_OVERLAP": "两件东西叠在一起：给其中一件换 at 的 zone/side，或改成靠墙 edge，或换更小的零件",
+    "RELATION_DEGRADED": "关系没生效（引用的 id 不存在、坐具没有座位、小物不能手持、贴片不能当参照）：改成存在的 id，坐着的人只 sitOn 椅/凳/长椅/沙发，或改用 at 区位",
+    "SUPPORT_FOOTPRINT_OVERFLOW": "物件比承载它的台面还大：换成更小的物件，或换更大的承载件",
+    "CONTAINER_HEIGHT_OVERFLOW": "容器装不下这件东西：换矮一点的物件或换更大的容器",
+    "DOOR_BLOCKED": "家具堵在门前：给它换一面墙（edge）或换 side，或把 room.openings 里那扇门的 offset 挪开",
+    "WINDOW_BLOCKED": "高家具挡住了窗：把它换到别的墙/别的 side，或换成比窗台矮的家具，或把窗的 offset 挪开",
+    "ROOM_OBJECT_TOO_BIG": "物件比房间还大：减小它的 params.width/depth，或加大 room.width/depth（上限 9×8）",
+    "ROOM_OBJECT_OUTSIDE": "物件超出墙面：换 side 或换 zone",
+    "OUT_OF_BOUNDS": "物件超出场景范围：换 zone/side",
+    "FACING_TARGET_INVALID": "facing 的目标不存在或指向自己：改成存在的 id，或 camera / away",
+    "ROOM_OPENING_DROPPED": "门窗放不进墙或与别的洞口重叠：缩小 width，或换墙 / 换 offset",
+    "EDGE_WITHOUT_ROOM": "写了 at.edge 但规格里没有 room：先补 room，或去掉 edge",
+    "SOFT_RELATION_RESIDUAL": "位置与关系词有偏差：换成更松的关系（near），或改用 at 区位",
+    "FACING_RESIDUAL": "朝向没转到位：检查 facing 的目标，或换 at 位置",
+}
+_RELATION_NOT_APPLIED_HINT = "写的关系没生效（引用无效、冲突、成环或宿主没有对应锚点）：改成存在的 id，或去掉这条关系改用 at 区位"
+MAX_REVISE_ISSUES = 8
+MAX_REVISE_ATTEMPTS = 4          # 同一个场景一辈子最多向模型要几次改稿（防止客户端反复触发烧钱）
+
+# 改稿时人物外观以原稿为准（外观是用户的故事设定，不是布局问题）
+_APPEARANCE_KEYS = ("type", "build", "outfit", "hairstyle", "backpack", "bodyColor", "skinColor", "hairColor")
+
+REVISE_SYSTEM_PROMPT = """\
+你是喵灵的「场景导演」。你之前写的场景规格已经过布局引擎解算和校验，下面这些问题需要你改。
+只改规格里和问题相关的地方，输出**修改后的完整 JSON**（格式与规则同上一版，不要 markdown、不要解释）。
+
+硬性要求：
+- 所有人物和他们的 id、外观（type/build/outfit/hairstyle/backpack/颜色）保持不变；不要新增人物；
+- 不要改 env（室内外、时段）、mood；不要新增超过 3 个零件，不要删掉与剧情有关的零件；
+- 优先用最小的改动解决问题：换 at 的 zone/side/edge、换关系词的宿主、缩小 params 尺寸、挪门窗 offset；
+- 没提到的部分原样保留。
+
+可用零件 type：{props}
+
+【当前规格】
+{spec}
+
+【布局校验发现的问题】（按严重程度排序）
+{issues}
+"""
+
+
+def _flat(v: Any) -> str:
+    """客户端报上来的说明文字：压成一行、去掉花括号、截断，免得往 prompt 里带进格式字符。"""
+    import re
+    return re.sub(r"[\r\n{}]+", " ", str(v))[:80]
+
+
+def _issue_lines(issues: list[dict[str, Any]], known_ids: set[str]) -> list[str]:
+    """把客户端报上来的问题整理成 prompt 行：code 必须在白名单，id 必须真实存在，文字截断。"""
+    import re
+    lines: list[str] = []
+    for it in issues[:MAX_REVISE_ISSUES]:
+        code = str(it.get("code") or "")
+        hint = REVISE_HINTS.get(code) or (_RELATION_NOT_APPLIED_HINT if code.startswith("RELATION_NOT_APPLIED_") else None)
+        if not hint:
+            continue
+        ids = [i for i in (it.get("ids") or []) if isinstance(i, str)
+               and (i in known_ids or re.fullmatch(r"(door|window)@(back|left)#\d", i))][:3]
+        detail = " ".join(k + "：" + _flat(it[k]) for k in ("expected", "actual") if it.get(k))
+        lines.append(f"- [{code}] 涉及 {'、'.join(ids) or '（未指明）'}。{hint}" + (f"（{detail}）" if detail else ""))
+    return lines
+
+
+def _check_revision(original: dict[str, Any], revised: dict[str, Any]) -> dict[str, Any] | None:
+    """改稿的最后一道保险：人物一个不少、外观/环境/情绪以原稿为准。不合格返回 None。"""
+    orig_chars = {c["id"]: c for c in original.get("characters", [])}
+    new_chars = {c["id"]: c for c in revised.get("characters", [])}
+    if not set(orig_chars) <= set(new_chars):
+        logger.warning("[scene-revise] 改稿删了人物 %s，弃稿", sorted(set(orig_chars) - set(new_chars)))
+        return None
+    for cid, oc in orig_chars.items():
+        nc = new_chars[cid]
+        for k in _APPEARANCE_KEYS:
+            nc.pop(k, None)
+            if k in oc:
+                nc[k] = oc[k]
+    revised["characters"] = [new_chars[c["id"]] for c in revised.get("characters", []) if c["id"] in orig_chars]
+    revised["env"] = original["env"]
+    if original.get("mood"):
+        revised["mood"] = original["mood"]
+    else:
+        revised.pop("mood", None)
+    revised.pop("review", None)   # 回传环的记录由前端/存档接口写，不信模型的
+    return revised
+
+
+def revise_scene_spec(spec: dict[str, Any], issues: list[dict[str, Any]], place: str = "") -> dict[str, Any] | None:
+    """按校验问题让模型改一轮规格；失败/不合格返回 None（调用方保留原稿）。"""
+    original = _sanitize_semantic(spec)
+    if original is None:
+        return None
+    known_ids = {p["id"] for p in original.get("props", [])} | {c["id"] for c in original.get("characters", [])}
+    lines = _issue_lines(issues, known_ids)
+    if not lines:
+        return None
+    clean = {k: v for k, v in original.items() if k != "review"}
+    try:
+        llm = get_chat_model()
+        resp = llm.invoke([
+            {"role": "system", "content": REVISE_SYSTEM_PROMPT.format(
+                props="、".join(sorted(_select_props(place))),
+                spec=json.dumps(clean, ensure_ascii=False, separators=(",", ":")),
+                issues="\n".join(lines))},
+            {"role": "user", "content": "请输出修改后的完整规格 JSON。"},
+        ])
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[scene-revise] LLM call failed: %s", e)
+        return None
+    revised = _parse(resp.content)
+    if revised is None:
+        return None
+    return _check_revision(clean, revised)
+
+
+def prepare_saved_spec(previous: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any] | None:
+    """前端把"改稿被采纳"的规格存回时的校验：重新清洗、人物一个不少、室内外/时段不变。
+
+    attempts（向模型要过几次稿）是服务端记账，以库里的为准，不信客户端。不合格返回 None（调用方回 422）。
+    """
+    clean = _sanitize_semantic(incoming)
+    prev = _sanitize_semantic(previous)
+    if clean is None or prev is None:
+        return None
+    if not {c["id"] for c in prev.get("characters", [])} <= {c["id"] for c in clean.get("characters", [])}:
+        return None
+    if clean["env"].get("mode") != prev["env"].get("mode") or clean["env"].get("time") != prev["env"].get("time"):
+        return None
+    attempts = int((previous.get("review") or {}).get("attempts", 0))
+    review = dict(clean.get("review") or {})
+    review["attempts"] = attempts
+    clean["review"] = review
+    return clean

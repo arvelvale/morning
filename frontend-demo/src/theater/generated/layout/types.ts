@@ -6,6 +6,8 @@
  * 与后端 scene_spec.py 的白名单保持一致（改动需两端同步）。
  */
 import type { SceneEnv, SceneLighting, Vec3 } from "../spec";
+import type { SemanticRoom } from "./room";
+export type { SemanticRoom, SemanticOpening } from "./room";
 
 /** 空间关系词表（P2 扩至 11 词；后端 scene_spec.py 白名单同步此清单）。 */
 export type SemanticRelation =
@@ -28,7 +30,13 @@ export type ZoneSide = "left" | "center" | "right";
 export interface SemanticAt {
   zone: ZoneBand;
   side: ZoneSide;
+  /**
+   * 无 edge：[x,z] 是世界坐标意图。
+   * 有 edge：只用 bias[0]，表示沿墙再挪多少米（镜头看去向右为正）。
+   */
   bias?: [number, number];
+  /** 靠墙（仅零件、且规格里有 room 时生效）：贴着该墙内表面摆，朝向屋内；side 决定沿墙的位置。 */
+  edge?: "back" | "left" | "right";
 }
 
 /** 零件实例：type 命中 props 目录；关系字段与 at 二选一或组合；不写 pos。 */
@@ -89,6 +97,10 @@ export interface SemanticSceneSpec {
   env: SceneEnv;
   /** 可选情绪基调（如 "rainy_night"）；缺省由 env+props 自动推断。 */
   mood?: string;
+  /** 单房间骨架（墙/地/门窗洞口）；有它时家具的区位与边界都按屋内算。 */
+  room?: SemanticRoom;
+  /** 回传环留下的记录：已经按校验报告改过几轮、前后分数。只用来避免重复改稿，渲染不读它。 */
+  review?: { rounds: number; before?: number; after?: number };
   props?: SemanticPropInstance[];
   characters?: SemanticCharacterInstance[];
   lighting?: SceneLighting;

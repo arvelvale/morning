@@ -41,6 +41,11 @@ export interface PropAnchorMeta {
    * solver 以它乘实例最终 scale；LLM 的 scale 自 P2 起被后端剥离不再传入。
    */
   visualScale?: number;
+  /**
+   * 挂墙件：构造器自带离地高度（窗台高度），求解器不能再按 -minY 把它按到地面上。
+   * （之前 window 被放到 y=-1.13，整扇窗在地下。）
+   */
+  hung?: boolean;
 }
 
 export const PROP_META: Record<string, PropAnchorMeta> = {
@@ -66,7 +71,9 @@ export const PROP_META: Record<string, PropAnchorMeta> = {
   pavement:  { flatUnderlay: true },        // 石砖地微环境贴片
   steppingStones: { flatUnderlay: true },   // 汀步石板路贴片
   wall:      { flatUnderlay: true },   // 背景板，不与前景件互挤
-  window:    { flatUnderlay: true },   // 挂墙面：先用 at.bias 贴近，后续补"贴面"关系
+  // 单房间骨架：原点 = 房间中心，权威定位；家具不与它互挤，由求解器按房间内边界限位
+  room:      { flatUnderlay: true, backdrop: { x: 0, z: 0 } },
+  window:    { flatUnderlay: true, hung: true },   // 挂墙面：保留构造器自带的窗台高度；靠 at.edge 贴墙
 
   water:     { ambientOnly: true, backdrop: { x: 0, y: -0.1, z: -16 } },
   cityscape: { ambientOnly: true, backdrop: { x: 0, z: -38 } },
@@ -80,6 +87,7 @@ export const PROP_META: Record<string, PropAnchorMeta> = {
 
   // ── 超大交通骨架：站台横贯画面 + 列车在站台远侧 ──
   platform:  { top: 0.8, backdrop: { x: 0, z: -6 } },
+  departureBoard: { hung: true },   // 吊牌：构造器自带离地高度
   train:     { backdrop: { x: 0, z: -10, rotY: Math.PI / 2 } },
 };
 
