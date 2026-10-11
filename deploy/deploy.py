@@ -6,7 +6,7 @@
 
 做的事：
 1. docker —— 装 Docker Engine + compose 插件（Ubuntu 22.04，走阿里云 apt 镜像）
-2. backup —— 为当前镜像打回滚 tag，并用 SQLite backup API 生成一致性数据库备份
+2. backup —— 为当前镜像打回滚 tag，并生成 SQLite 一致性备份或 PostgreSQL pg_dump
 3. sync   —— 上传 backend/ 源码 + docker-compose.yml，并生成线上 /opt/morning/.env
 4. up     —— docker compose up -d --build
 5. status —— 打印容器状态 + /health 探测
@@ -41,7 +41,10 @@ REMOTE_BACKEND = posixpath.join(REMOTE_ROOT, "backend")
 
 # 只同步运行期需要的文件；.venv / db / 日志 / 本地 .env 一律不传
 SYNC_DIRS = ["app", "alembic"]
-SYNC_FILES = ["requirements.txt", "Dockerfile", "docker-entrypoint.sh", "alembic.ini"]
+SYNC_FILES = [
+    "requirements.txt", "Dockerfile", ".dockerignore", "docker-entrypoint.sh", "alembic.ini",
+    "scripts/migrate_sqlite_to_postgres.py",
+]
 SKIP_DIR_NAMES = {"__pycache__", ".venv", "static", "node_modules", ".pytest_cache"}
 SKIP_SUFFIXES = {".pyc", ".pyo", ".log", ".err", ".db", ".db-wal", ".db-shm"}
 
@@ -135,7 +138,7 @@ def step_docker(client: paramiko.SSHClient) -> None:
 
 # ─── 步骤 2：发布前回滚点 ───────────────────────────────────────────────────
 def step_backup(client: paramiko.SSHClient) -> None:
-    """备份当前运行镜像和 SQLite；只写入 /opt/morning/backups。"""
+    """备份当前运行镜像和当前数据库；只写入 /opt/morning/backups。"""
     log("创建发布前回滚点")
     command = f"""set -eu
 stamp=$(date +%Y%m%d-%H%M%S)
@@ -144,11 +147,24 @@ if ! docker inspect morning-backend >/dev/null 2>&1; then
   echo '当前容器不存在，跳过回滚镜像和数据库备份'
   exit 0
 fi
+database_kind=$(docker exec morning-backend python -c 'from app.db import engine; print(engine.dialect.name)')
+if [ "$database_kind" != sqlite ] && [ "$database_kind" != postgresql ]; then
+  echo '未知数据库类型，停止备份' >&2
+  exit 1
+fi
 image=$(docker inspect -f '{{{{.Image}}}}' morning-backend)
 tag=morning-backend:rollback-$stamp
 docker tag "$image" "$tag"
 echo "rollback_image=$tag"
-if docker exec morning-backend test -f /data/morning.db; then
+if [ "$database_kind" = postgresql ]; then
+  docker inspect morning-postgres >/dev/null 2>&1
+  archive={REMOTE_ROOT}/backups/morning-$stamp.dump
+  docker exec morning-postgres pg_dump -U morning -d morning -Fc > "$archive"
+  chmod 600 "$archive"
+  test -s "$archive"
+  docker exec -i morning-postgres pg_restore -l < "$archive" >/dev/null
+  echo "database_backup=$archive"
+elif docker exec morning-backend test -f /data/morning.db; then
   inside=/data/morning-$stamp.db
   docker exec morning-backend python -c "import sqlite3; s=sqlite3.connect('/data/morning.db'); d=sqlite3.connect('$inside'); s.backup(d); d.close(); s.close()"
   docker cp morning-backend:$inside {REMOTE_ROOT}/backups/morning-$stamp.db >/dev/null
@@ -257,13 +273,16 @@ def step_sync(client: paramiko.SSHClient) -> None:
 
     lines = [
         "# Morning 线上环境变量（由 deploy/deploy.py 生成，请勿手改后又重跑同步）",
-        "DATABASE_URL=sqlite:////data/morning.db",
+        # 切库后保持线上 PostgreSQL URL；默认部署仍沿用 SQLite。
+        f"DATABASE_URL={remote_env.get('DATABASE_URL') or 'sqlite:////data/morning.db'}",
+        *([f"MORNING_PG_PASSWORD={remote_env['MORNING_PG_PASSWORD']}"] if remote_env.get('MORNING_PG_PASSWORD') else []),
         f"JWT_SECRET={jwt_secret}",
         "CORS_ORIGINS=*",
     ]
     missing: list[str] = []
     for key in PASSTHROUGH_KEYS:
-        val = local_env.get(key)
+        # 本地未配置的线上密钥/开关沿用原值，避免一次同步意外清空现网配置。
+        val = local_env.get(key) or remote_env.get(key)
         if val:
             lines.append(f"{key}={val}")
         elif key in ("STEPFUN_API_KEY",):

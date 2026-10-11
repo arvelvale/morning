@@ -8,7 +8,10 @@ mindoff.db-*
 .env.*
 !.env.example
 static/
-scripts/
+scripts/*
+!scripts/migrate_sqlite_to_postgres.py
+wheels/
+Dockerfile.pg-candidate
 docs/
 *.log
 *.err

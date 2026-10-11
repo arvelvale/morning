@@ -1,4 +1,4 @@
-# MindOff 后端镜像。SQLite + 静态文件都落在挂载卷 /data 上，容器可随时重建。
+# Morning 后端镜像。SQLite 数据卷保留供迁移/回滚；PostgreSQL 由 DATABASE_URL 连接。
 FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
+COPY scripts/migrate_sqlite_to_postgres.py ./scripts/migrate_sqlite_to_postgres.py
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
@@ -28,7 +29,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # 容器重建不丢数据。
 RUN mkdir -p /data /app/static/scene_images /app/static/tts_audio
 
-ENV DATABASE_URL="sqlite:////data/mindoff.db"
+ENV DATABASE_URL="sqlite:////data/morning.db"
 
 EXPOSE 8000
 

@@ -19,11 +19,18 @@ def upgrade() -> None:
     op.add_column("letters", sa.Column("delivery_slot", sa.Integer(), nullable=True))
 
     # 旧信按东八区日期纳入额度；每天最早两封占槽，已有超额历史保留但不再扩张。
-    op.execute(
-        "UPDATE letters "
-        "SET delivery_date = strftime('%Y-%m-%d', datetime(created_at, '+8 hours')), "
-        "generation_key = 'legacy:' || id"
-    )
+    if op.get_bind().dialect.name == "postgresql":
+        op.execute(
+            "UPDATE letters SET delivery_date = "
+            "to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD'), "
+            "generation_key = 'legacy:' || id::text"
+        )
+    else:
+        op.execute(
+            "UPDATE letters "
+            "SET delivery_date = strftime('%Y-%m-%d', datetime(created_at, '+8 hours')), "
+            "generation_key = 'legacy:' || id"
+        )
     op.execute(
         "UPDATE letters AS current SET delivery_slot = ("
         "SELECT COUNT(*) FROM letters AS earlier "

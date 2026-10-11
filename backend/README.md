@@ -1,6 +1,6 @@
 # 喵灵（Morning）后端
 
-FastAPI + SQLAlchemy(SQLite) + LangGraph。分两层：
+FastAPI + SQLAlchemy（SQLite / PostgreSQL）+ LangGraph。分两层：
 
 - **AI 网关 `/ai/*`**：阶跃星辰的文本/语音转写/实时通话封装，API key 只留服务端。
 - **业务层 `/api/v1/*`**：账号、对话、睡前倾倒、双轴记忆、信箱、桌宠等，全部
@@ -46,6 +46,19 @@ uv run uvicorn app.main:app --reload   # 默认 http://127.0.0.1:8000
 
 启动时自动 `create_all` 建表（dev）；生产走 Alembic：`uv run alembic upgrade head`。
 
+### PostgreSQL 迁移（先预演，后切换）
+
+2026-09-26 已把线上喵灵后端切到自有服务器的独立 PostgreSQL 容器 `morning-postgres`（仅 Docker 内网，无公网端口）；原 SQLite 数据卷和一致性备份保留。不要把其它项目的 PostgreSQL/Supabase 账号填进喵灵。以下步骤供新环境或恢复演练复用，不能对已有表的生产 PG 库重跑 `--copy`。
+
+1. 在服务器用 SQLite backup API 从 `/data/morning.db` 生成一致性快照，复制到受控环境。不要直接复制写入中的 WAL 主文件。
+2. 在 `backend/` 中执行 `PYTHONPATH=. python scripts/migrate_sqlite_to_postgres.py --source <快照.db>`；它只读审计表、字段及行数。
+3. 将 `MORNING_PG_MIGRATE_URL` 设为 `postgresql+psycopg://...`（仅环境变量，不写仓库），在**独占空库**执行 `PYTHONPATH=. python scripts/migrate_sqlite_to_postgres.py --source <快照.db> --copy`。脚本拒绝非空库，保留主键/JSON，核对逐表行数与逐行内容摘要、重置自增序列，并在同一事务中写 Alembic head 标记。迁移后可用同一命令的 `--verify` 只读复核。若失败须清理这只专用目标库再重试。
+4. 用新库连接独立预演实例，检查登录、历史对话、记忆、来信及新数据写入；核对总数和内容摘要。然后停写、重做最终快照与复制，更新线上 `.env` 的 `DATABASE_URL`，重建容器，检查 `/health`、`alembic current` 和真实用户路径。原 SQLite 快照保留为切换时刻的回滚点；切换后 PG 已有新写入时不能直接退回旧 SQLite，否则会丢失这些新增记录。
+
+`deploy/deploy.py` 会保留线上已有 `DATABASE_URL` 与 PostgreSQL 密码，不会将其改回 SQLite；`backup` 现在对 PostgreSQL 执行自有 `morning-postgres` 容器中的 `pg_dump -Fc` 并检查归档目录。PostgreSQL 有表却无 Alembic 版本时容器拒绝启动，避免把不完整迁移当成成功。
+
+本次线上回滚材料：`/opt/morning/backups/morning-final-20260926.db`（停写后的 SQLite 快照）、`/opt/morning/backups/.env-before-cutover-20260926`、`morning-backend:rollback-pg-20260926`（旧镜像）；切换后 PG 备份示例为 `/opt/morning/backups/morning-20260926-172559.dump`。若需回滚，先停写并保存当前 PG 新增数据，按数据增量决定恢复/合并方式，再修改数据库连接；不要直接覆盖数据卷或盲目退回 SQLite。
+
 ## 线上部署（Docker）
 
 ### SMTP 邮箱登录
@@ -76,7 +89,7 @@ uv run --with paramiko python deploy/deploy.py --step up      # 重建容器
 ```
 
 服务器上看日志：`cd /opt/morning && docker compose logs -f backend`。
-SQLite 与静态文件在命名卷 `morning_morning-data` / `morning_morning-static`，重建容器不丢。
+原 SQLite 与静态文件分别在命名卷 `mindoff_mindoff-data` / `mindoff_mindoff-static`，PostgreSQL 在 `morning-postgres-data`；重建喵灵容器不丢这些卷的数据。
 首次启动由 `docker-entrypoint.sh` 用 `create_all` 落基线并 `alembic stamp head`，
 之后每次启动跑 `alembic upgrade head`。
 

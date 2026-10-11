@@ -32,8 +32,11 @@ def keyed(value: str) -> str:
 
 
 def _begin(db: Session):
-    # 当前项目仅使用 SQLite；BEGIN IMMEDIATE 避免多个 worker 同时通过限额或消费验证码。
-    db.execute(text("BEGIN IMMEDIATE"))
+    # SQLite 用写事务；PG 用事务级 advisory lock，同一时刻仅一个验证码事务调整额度/消费。
+    if db.bind.dialect.name == "sqlite":
+        db.execute(text("BEGIN IMMEDIATE"))
+    else:
+        db.execute(text("SELECT pg_advisory_xact_lock(287464873)"))
 
 
 def _rate(db: Session, key: str, limit: int, window: int, now: int):

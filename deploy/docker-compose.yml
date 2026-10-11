@@ -14,9 +14,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    # DATABASE_URL 只从 .env 读取，避免宿主机同名变量误覆盖线上库。
     environment:
-      # SQLite 落在命名卷里，容器重建不丢
-      DATABASE_URL: sqlite:////data/morning.db
       TZ: Asia/Shanghai
     ports:
       - "8000:8000"
@@ -29,9 +28,33 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  postgres:
+    profiles: ["pg"]
+    image: postgres:16
+    container_name: morning-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: morning
+      POSTGRES_DB: morning
+      POSTGRES_PASSWORD: ${MORNING_PG_PASSWORD:-}
+    volumes:
+      - morning-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U morning -d morning"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   # 改名继承：沿用 mindoff 时代的存量卷名，避免用户数据迁移
   morning-data:
     name: mindoff_mindoff-data
   morning-static:
     name: mindoff_mindoff-static
+  morning-postgres-data:
+    name: morning-postgres-data

@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import select, text, cast
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, get_db
@@ -98,20 +99,24 @@ def get_brain_dump(
     if root is None or root.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dump not found")
 
-    # 找所有 provenance 包含 dump_id 的记忆：用 SQLite json_each 在库内过滤，
-    # 避免把用户全量记忆拉进 Python（随记忆总量线性变慢）
+    # JSON 列在 PostgreSQL 为 JSON（非 JSONB），查询时转成 JSONB 做数组包含。
+    # SQLite 仍使用 json_each；两边都在数据库内过滤，避免拉取用户全量记忆。
+    provenance_filter = (
+        cast(MemoryItem.provenance, JSONB).contains([dump_id])
+        if db.bind.dialect.name == "postgresql"
+        else text(
+            "EXISTS (SELECT 1 FROM json_each(memory_items.provenance) "
+            "WHERE json_each.value = :dump_id)"
+        ).bindparams(dump_id=dump_id)
+    )
     stmt = (
         select(MemoryItem)
         .where(
             MemoryItem.user_id == root.user_id,
             MemoryItem.is_forgotten == False,  # noqa: E712
             MemoryItem.is_latest == True,  # noqa: E712
-            text(
-                "EXISTS (SELECT 1 FROM json_each(memory_items.provenance) "
-                "WHERE json_each.value = :dump_id)"
-            ),
+            provenance_filter,
         )
-        .params(dump_id=dump_id)
     )
     children = list(db.scalars(stmt).all())
 

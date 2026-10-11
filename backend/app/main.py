@@ -160,6 +160,8 @@ def _ensure_preference_location_columns() -> None:
     让重启后端即生效、不丢数据、无需手动跑 alembic（生产仍走 alembic 012）。
     """
     from sqlalchemy import inspect, text
+    if engine.dialect.name != "sqlite":
+        return
     try:
         insp = inspect(engine)
         names = insp.get_table_names()
