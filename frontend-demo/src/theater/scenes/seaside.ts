@@ -7,7 +7,8 @@ import type { TheaterScene } from "../types";
 export function create(): TheaterScene {
   const group = new THREE.Group();
 
-  group.add(createSkyDome({ top: 0x060b1c, bottom: 0x142238 }));
+  const sky = createSkyDome({ top: 0x060b1c, bottom: 0x142238, clouds: { color: 0x3a4a70, shade: 0x1a2540, amount: 0.35 } });
+  group.add(sky);
   const stars = createStars({ count: 1200 });
   group.add(stars);
   group.add(createMoon({ size: 5, height: 32, angle: 0 }));
@@ -124,26 +125,6 @@ export function create(): TheaterScene {
     group.add(light);
   });
 
-  // 低空薄云（几团扁球叠出的云，半透明，缓慢漂移）
-  const mkCloud = (x: number, y: number, z: number, s: number) => {
-    const cg = new THREE.Group();
-    const mat = new THREE.MeshBasicMaterial({ color: 0x1a2740, transparent: true, opacity: 0.32, depthWrite: false });
-    ([[0, 0, 1], [0.9, 0.15, 0.75], [-0.95, 0.1, 0.7], [0.3, 0.35, 0.55]] as const).forEach(([dx, dy, k]) => {
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.6 * s * k, 8, 6), mat);
-      puff.position.set(dx * s * 1.6, dy * s, 0);
-      puff.scale.y = 0.32;
-      cg.add(puff);
-    });
-    cg.position.set(x, y, z);
-    return cg;
-  };
-  const clouds: { mesh: THREE.Group; baseX: number; speed: number }[] = [];
-  ([[-14, 27, -75, 1.6], [18, 30, -82, 2.0]] as const).forEach(([x, y, z, s], i) => {
-    const cloud = mkCloud(x, y, z, s);
-    clouds.push({ mesh: cloud, baseX: x, speed: 0.5 + i * 0.3 });
-    group.add(cloud);
-  });
-
   // 人物：站在沙滩上打电话，面向海
   const me = createFigure({ bodyColor: 0x8a7a9a, pose: "phone" });
   me.position.set(-1.2, 0, 6);
@@ -189,6 +170,7 @@ export function create(): TheaterScene {
   group.add(shoreFill);
 
   function update(t: number) {
+    sky.userData.update(t);
     stars.userData.update(t);
     seaMat.uniforms.time.value = t;
     // 浪沫缓慢推向岸边
@@ -200,10 +182,6 @@ export function create(): TheaterScene {
     boatLights.forEach((light, i) => {
       (light.material as THREE.MeshBasicMaterial).opacity =
         0.45 + 0.35 * Math.sin(t * 0.8 + i * 2.1);
-    });
-    // 薄云缓移
-    clouds.forEach(({ mesh, baseX, speed }) => {
-      mesh.position.x = baseX + Math.sin(t * 0.04 * speed) * 4;
     });
   }
 

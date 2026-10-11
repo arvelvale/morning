@@ -217,8 +217,8 @@ export function create(): TheaterScene {
   group.add(me);
 
   // 环境光 + 半球补光：夜晚但不至于看不清（物理光照模式下需要较高强度）
-  group.add(new THREE.AmbientLight(0x3a4a68, 6.5));
-  group.add(new THREE.HemisphereLight(0x4a5a78, 0x2a2a3a, 3.5));
+  group.add(new THREE.AmbientLight(0x3a4a68, 8));
+  group.add(new THREE.HemisphereLight(0x4a5a78, 0x2a2a3a, 4.5));
 
   // 手机屏幕微光（点光，照亮人物侧脸和窗台）
   const phoneGlow = new THREE.PointLight(0x88aaff, 1.4, 3, 2);

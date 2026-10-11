@@ -21,6 +21,8 @@ export interface MoodPreset {
     sunGlowStrength?: number;
     sunTint?: number;
   };
+  /** 云层：缺省无云。 */
+  clouds?: { color: number; shade: number; amount: number };
   /** 地面基色。 */
   ground: number;
   hemi: { sky: number; ground: number; intensity: number };
@@ -35,6 +37,7 @@ export interface MoodPreset {
 export const MOOD_PRESETS = {
   warm_day: {
     sky: { top: 0x8fb3e0, bottom: 0xe6eef6 }, ground: 0x8a9a78,
+    clouds: { color: 0xffffff, shade: 0xc4d2e6, amount: 0.8 },
     hemi: { sky: 0xbdd4ee, ground: 0x9a8a70, intensity: 0.85 },
     key: { color: 0xfff2d8, intensity: 1.35, pos: [18, 32, 22] },
     fill: { color: 0xdce8f5, intensity: 0.35 },
@@ -43,15 +46,17 @@ export const MOOD_PRESETS = {
   sunset: {
     // 黄昏：暮紫天顶 → 晚霞粉橙 → 地平线暖金；太阳方位晚霞加成勾勒金色轮廓感
     sky: { top: 0x2b1b3d, bottom: 0xd35400, mid: 0xb0566a, horizon: 0xf1c40f, sunGlowStrength: 0.85, sunTint: 0xffa050 },
-    ground: 0x6a5a4c,
+    ground: 0x8c7862,
+    clouds: { color: 0xffd2b0, shade: 0x9c5a78, amount: 0.8 },
     hemi: { sky: 0xc7a0b8, ground: 0x8a6a52, intensity: 0.95 },
     key: { color: 0xffa060, intensity: 1.75, pos: [-28, 14, 22] },
-    fill: { color: 0xc09a92, intensity: 0.55 },
+    fill: { color: 0xc09a92, intensity: 0.75 },
     fog: { color: 0xe8a878, near: 34, far: 120 },
     exposureBias: 0.05,
   },
   night_calm: {
     sky: { top: 0x070d1f, bottom: 0x16223d }, ground: 0x35493f,
+    clouds: { color: 0x41537c, shade: 0x1b2744, amount: 0.45 },
     hemi: { sky: 0xadc4df, ground: 0x596d7c, intensity: 1.15 },
     key: { color: 0xb6c9e8, intensity: 1.05, pos: [20, 35, 25] },
     fill: { color: 0x9fb9d6, intensity: 0.65 },
@@ -59,6 +64,7 @@ export const MOOD_PRESETS = {
   rainy: {
     // 阴雨：低对比冷灰蓝 + 近雾压缩纵深
     sky: { top: 0x3a4552, bottom: 0x5d6a76 }, ground: 0x3c4442,
+    clouds: { color: 0x8a96a2, shade: 0x55616d, amount: 1.0 },
     hemi: { sky: 0x5d6d80, ground: 0x39413e, intensity: 0.9 },
     key: { color: 0xaebcc8, intensity: 0.65, pos: [12, 26, 14] },
     fill: { color: 0x46505a, intensity: 0.42 },
@@ -67,6 +73,7 @@ export const MOOD_PRESETS = {
   },
   rainy_night: {
     sky: { top: 0x05080f, bottom: 0x121a24 }, ground: 0x141a18,
+    clouds: { color: 0x2c3a4c, shade: 0x131c28, amount: 0.7 },
     hemi: { sky: 0x91a9c2, ground: 0x506371, intensity: 1.1 },
     key: { color: 0xa4bedb, intensity: 1, pos: [-14, 30, 20] },
     fill: { color: 0x91a8c1, intensity: 0.65 },
@@ -76,6 +83,7 @@ export const MOOD_PRESETS = {
   cozy_indoor_day: {
     // 白天室内：窗口方向冷调天光为主光，室内偏暖
     sky: { top: 0x8fb3e0, bottom: 0xe6eef6 }, ground: 0xb8a884,
+    clouds: { color: 0xffffff, shade: 0xc4d2e6, amount: 0.7 },
     hemi: { sky: 0xcfdcee, ground: 0xa89374, intensity: 0.9 },
     key: { color: 0xf2ead8, intensity: 1.15, pos: [-8, 22, 10] },
     fill: { color: 0xe8dcc8, intensity: 0.5 },
@@ -92,6 +100,7 @@ export const MOOD_PRESETS = {
     // 篝火夜：黑夜氛围但主体可读——冷色月夜环境打底（帐篷/树/地面轮廓可见），
     // 篝火是画面唯一暖焦点，"火边最亮、远处渐暗"的层次由实用光衰减自然形成
     sky: { top: 0x0a1020, bottom: 0x182234 }, ground: 0x35453c,
+    clouds: { color: 0x3a4a70, shade: 0x1a2540, amount: 0.35 },
     hemi: { sky: 0xadc4df, ground: 0x596b78, intensity: 1.15 },
     key: { color: 0xb1c6e4, intensity: 1, pos: [-16, 30, 18] },
     fill: { color: 0x9fb6d1, intensity: 0.65 },

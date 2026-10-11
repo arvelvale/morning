@@ -23,13 +23,16 @@ export interface FigureParts {
   armR: FigureArm;
   legL: THREE.Group;
   legR: THREE.Group;
+  /** 膝 pivot（大腿 → 小腿）：坐姿时小腿下垂，走路时后腿弯曲。 */
+  kneeL?: THREE.Group;
+  kneeR?: THREE.Group;
   /** 手机 / 递出的物品等小道具（可选）。 */
   prop?: THREE.Object3D;
 }
 
 /** 把骨架摆成指定姿态（静态部分；动画部分由 makePoseUpdate 叠加）。 */
 export function applyPose(p: FigureParts, pose: FigurePose) {
-  const { upper, head, armL, armR, legL, legR } = p;
+  const { upper, head, armL, armR, legL, legR, kneeL, kneeR } = p;
 
   switch (pose) {
     case "sitting":
@@ -39,6 +42,7 @@ export function applyPose(p: FigureParts, pose: FigurePose) {
       legR.position.y = 0.26;
       legL.rotation.x = -1.4;
       legR.rotation.x = -1.4;
+      if (kneeL && kneeR) kneeL.rotation.x = kneeR.rotation.x = 1.25;   // 小腿垂下，脚点地
       armL.shoulder.rotation.x = -0.35;
       armL.elbow.rotation.x = -0.75;
       armR.shoulder.rotation.x = -0.35;
@@ -53,6 +57,7 @@ export function applyPose(p: FigureParts, pose: FigurePose) {
       legR.rotation.x = -1.45;
       legL.rotation.z = 0.08;
       legR.rotation.z = -0.08;
+      if (kneeL && kneeR) kneeL.rotation.x = kneeR.rotation.x = .22;     // 腿伸直但膝盖不锁死
       armL.shoulder.rotation.x = 0.3;
       armR.shoulder.rotation.x = 0.3;
       armL.shoulder.rotation.z = -0.35;
@@ -138,7 +143,7 @@ export function applyPose(p: FigureParts, pose: FigurePose) {
  * baseY 为 body/upper 的初始高度（坐姿类不会被动画姿态使用，直接取当前值）。
  */
 export function makePoseUpdate(p: FigureParts, pose: FigurePose): ((t: number) => void) | null {
-  const { body, upper, head, armL, armR, legL, legR } = p;
+  const { body, upper, head, armL, armR, legL, legR, kneeL, kneeR } = p;
   const baseBodyY = body.position.y;
   const baseUpperY = upper.position.y;
   const baseHeadX = head.rotation.x;
@@ -156,6 +161,8 @@ export function makePoseUpdate(p: FigureParts, pose: FigurePose): ((t: number) =
         armL.elbow.rotation.x = -0.3;
         armR.elbow.rotation.x = -0.3;
         body.position.y = baseBodyY + Math.abs(Math.cos(t * 4.5)) * 0.04;
+        // 摆腿向前的那一侧屈膝，落地的那一侧伸直
+        if (kneeL && kneeR) { kneeL.rotation.x = Math.max(0, -Math.cos(t * 4.5)) * 0.65; kneeR.rotation.x = Math.max(0, Math.cos(t * 4.5)) * 0.65; }
       };
     case "waving":
       return (t) => {

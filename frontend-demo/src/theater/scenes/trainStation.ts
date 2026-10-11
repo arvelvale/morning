@@ -8,7 +8,8 @@ export function create(): TheaterScene {
   const group = new THREE.Group();
 
   // 白天晴空
-  group.add(createSkyDome({ top: 0x4a7fc0, bottom: 0xc8dcec }));
+  const sky = createSkyDome({ top: 0x4a7fc0, bottom: 0xc8dcec, clouds: { color: 0xffffff, shade: 0xc4d2e6, amount: 0.75 } });
+  group.add(sky);
   // 太阳
   const sunDisc = new THREE.Mesh(new THREE.CircleGeometry(4, 32),
     new THREE.MeshBasicMaterial({ color: 0xfff8e0, fog: false }));
@@ -170,6 +171,7 @@ export function create(): TheaterScene {
   group.add(roofLight);
 
   function update(t: number) {
+    sky.userData.update(t);
     // 列车极轻微的停站晃动（车体制动后的余振）
     train.position.y = Math.sin(t * 2.2) * 0.008;
   }

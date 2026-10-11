@@ -8,12 +8,13 @@ import type { TheaterScene } from "../types";
 export function create(): TheaterScene {
   const group = new THREE.Group();
 
-  group.add(createSkyDome({ top: 0x070d1f, bottom: 0x16223d }));
+  const sky = createSkyDome({ top: 0x070d1f, bottom: 0x16223d, clouds: { color: 0x41537c, shade: 0x1b2744, amount: 0.4 } });
+  group.add(sky);
   const stars = createStars({ count: 1100 });
   group.add(stars);
   group.add(createMoon({ size: 3.5, height: 40, angle: 0.5 }));
   group.add(createMountains({ color: 0x0d1728, count: 8, radius: 75 }));
-  group.add(createGround({ color: 0x18251f }));
+  group.add(createGround({ color: 0x2c3f36 }));
 
   // 松林环绕
   for (let i = 0; i < 14; i++) {
@@ -99,12 +100,15 @@ export function create(): TheaterScene {
   me.position.y = -0.35; // 坐姿沉到原木高度
 
   // 环境光 + 月光
-  group.add(new THREE.AmbientLight(0x33415e, 0.7));
-  const moonLight = new THREE.DirectionalLight(0x8fa8d8, 0.5);
+  // 夜景要「黑但看得清」：冷色月光打底，篝火是唯一的暖焦点
+  group.add(new THREE.AmbientLight(0x4a5c80, 1.5));
+  group.add(new THREE.HemisphereLight(0xadc4df, 0x596b78, 0.9));
+  const moonLight = new THREE.DirectionalLight(0xa4bce0, 1.3);
   moonLight.position.set(20, 35, 25);
   group.add(moonLight);
 
   function update(t: number) {
+    sky.userData.update(t);
     stars.userData.update(t);
     // 火焰跳动
     const f1 = Math.sin(t * 11) * 0.5 + Math.sin(t * 23 + 1.3) * 0.3 + Math.sin(t * 5 + 0.6) * 0.2;

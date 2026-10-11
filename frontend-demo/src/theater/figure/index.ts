@@ -1,7 +1,9 @@
 /**
- * 风格化人物/行李箱。低多边形、非写实——"假"恰恰给人安全感。
+ * 风格化人物/行李箱。圆润的玩偶质感，不追求写实——"假"恰恰给人安全感。
  *
- * 骨架：髋 pivot 腿 + 上半身 pivot（躯干/头/两臂），手臂为「肩 → 肘 → 手」两段式。
+ * 这个文件是「总调度」：只负责按骨架（髋 → 膝、肩 → 肘、颈）把各模块的产物装起来，
+ *   head.ts  头骨 / 发型        face.ts  五官与表情        body.ts  躯干 / 衣服 / 手臂 / 腿 / 鞋
+ *   geo.ts   几何小工具（每个 pivot 下的部件合并成一个顶点色 mesh，所以细节多了 mesh 数反而少）
  * 姿态与情感动作见 poses.ts；类型/体型/服装/发型预设见 presets.ts。
  * 动画姿态（walking/waving/arguing/comforting/hugging/handingItem/crying）
  * 通过 figure.userData.update(t) 驱动，场景 update 里调用。
@@ -24,6 +26,9 @@ import {
 } from "./presets";
 import { applyPose, makePoseUpdate, type FigureParts } from "./poses";
 import { createFace } from './face';
+import { buildHair, buildHeadSkin } from './head';
+import { buildArm, buildBackpack, buildLeg, buildSkirt, buildTorso, type Colors } from './body';
+import { mergePieces, shade, type Piece } from './geo';
 
 export type { FigureBuild, FigureHair, FigureOutfit, FigurePose, FigureType } from "./presets";
 
@@ -43,6 +48,16 @@ export interface CreateFigureOptions {
   seatContactEnabled?: boolean;
 }
 
+/** 各服装的配套：裤子 / 鞋 / 点缀色。 */
+const GEAR: Record<FigureOutfit, { trouser: number; shoe: number; accent: number }> = {
+  casual: { trouser: 0x4a5878, shoe: 0xf1ebe0, accent: 0xd9604f },
+  uniform: { trouser: 0x2c374e, shoe: 0x2e2825, accent: 0xb8453f },
+  coat: { trouser: 0x3a3430, shoe: 0x2b2420, accent: 0xa8542e },
+  skirt: { trouser: 0, shoe: 0x6a3f3a, accent: 0xe9b4a0 },
+};
+/** 脖子根（头部转动的轴）和头心的世界高度。 */
+const NECK_Y = 1.285, HEAD_CENTER_Y = 1.52;
+
 export function createFigure({
   type = "adult",
   build = "average",
@@ -52,7 +67,7 @@ export function createFigure({
   pose = "standing",
   scale = 1,
   bodyColor,
-  skinColor = 0xe8c8a8,
+  skinColor = 0xeccaa6,
   hairColor,
   externalHandProp = false,
   seatContactEnabled = false,
@@ -60,196 +75,88 @@ export function createFigure({
   const preset = TYPE_PRESETS[type] ?? TYPE_PRESETS.adult;
   const clothColor = bodyColor ?? OUTFIT_COLORS[outfit] ?? OUTFIT_COLORS.casual;
   const finalHair = hairColor ?? preset.hairColor ?? 0x3a3230;
+  const gear = GEAR[outfit] ?? GEAR.casual;
+  const colors: Colors = { cloth: clothColor, skin: skinColor, trouser: gear.trouser, shoe: gear.shoe, sole: 0xe6dccb, accent: gear.accent };
+  const w = BUILD_WIDTH[build] ?? 1;
 
   const g = new THREE.Group();
   const body = new THREE.Group(); // 整体升降（走路起伏）
   const contactMeshes: THREE.Mesh[] = [];
   g.add(body);
 
-  const skin = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.9, flatShading: true });
-  const cloth = new THREE.MeshStandardMaterial({ color: clothColor, roughness: 0.95, flatShading: true });
-  const hairMat = new THREE.MeshStandardMaterial({ color: finalHair, roughness: 1, flatShading: true });
-  const trouserMat = outfit === 'skirt' ? skin : new THREE.MeshStandardMaterial({
-    color: new THREE.Color(clothColor).multiplyScalar(.62), roughness: .98, flatShading: true,
-  });
-
-  // ---------- 腿（髋 pivot，加粗一档）----------
-  const legGeo = new THREE.CapsuleGeometry(0.085, 0.42, 3, 8);
-  const shoeGeo = new THREE.SphereGeometry(1, 8, 6);
-  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x403934, roughness: .95, flatShading: true });
-  const mkLeg = (x: number) => {
-    const pivot = new THREE.Group();
-    pivot.position.set(x, HIP_Y, 0);
-    const mesh = new THREE.Mesh(legGeo, trouserMat);
-    mesh.position.y = -0.28;
-    pivot.add(mesh);
-    contactMeshes.push(mesh);
-    // One continuous shoe silhouette per leg, never a second static foot on the floor.
-    const shoe = new THREE.Mesh(shoeGeo, shoeMat);
-    shoe.name = x < 0 ? 'shoe-left' : 'shoe-right';
-    shoe.scale.set(.082, .045, .135);
-    shoe.position.set(0, -.515, .055);
-    pivot.add(shoe);
-    body.add(pivot);
-    return pivot;
+  // 全身只用三种材质：衣服/皮肤（顶点色）、头发（略带光泽）、裙摆（双面）
+  const vc = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .86, metalness: 0 });
+  const hairMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5, metalness: 0 });
+  const skirtMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .9, side: THREE.DoubleSide });
+  const mesh = (pieces: Piece[], mat: THREE.Material = vc, name?: string) => {
+    const m = new THREE.Mesh(mergePieces(pieces), mat);
+    if (name) m.name = name;
+    return m;
   };
-  const legL = mkLeg(-0.11);
-  const legR = mkLeg(0.11);
 
-  // ---------- 上半身（髋 pivot：前倾/驼背/摇晃/坐姿下移）；躯干改锥度筒形，下宽上窄 ----------
+  // ---------- 腿（髋 pivot → 膝 pivot）----------
+  const mkLeg = (side: 1 | -1) => {
+    const parts = buildLeg(outfit, colors, side);
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.105, HIP_Y, 0);
+    const thigh = mesh(parts.thigh);
+    pivot.add(thigh);
+    contactMeshes.push(thigh);
+    const knee = new THREE.Group();
+    knee.position.y = -0.28;
+    knee.add(mesh(parts.shin));
+    // One continuous shoe silhouette per leg, never a second static foot on the floor.
+    knee.add(mesh(parts.shoe, vc, side < 0 ? 'shoe-left' : 'shoe-right'));
+    pivot.add(knee);
+    body.add(pivot);
+    return { pivot, knee };
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+
+  // ---------- 上半身（髋 pivot：前倾/驼背/摇晃/坐姿下移）----------
   const upper = new THREE.Group();
   upper.position.y = HIP_Y;
   body.add(upper);
+  upper.add(mesh(buildTorso(outfit, w, colors)));
 
-  const w = BUILD_WIDTH[build] ?? 1;
-  const torsoLen = outfit === "coat" ? 0.56 : 0.42;
-  const torsoHeight = torsoLen + .26;
-  const torsoProfile = [[.245, -.5], [.245, -.44], [.205, .12], [.21, .32], [.16, .45], [.095, .5]];
-  const torso = new THREE.Mesh(new THREE.LatheGeometry(
-    torsoProfile.map(([radius, y]) => new THREE.Vector2(radius, y * torsoHeight)), 12,
-  ), cloth);
-  torso.position.y = 0.95 - HIP_Y - (outfit === "coat" ? 0.05 : 0);
-  torso.scale.set(w, 1, w * 0.86);          // z 向略薄：人体不是圆筒
-  upper.add(torso);
-  contactMeshes.push(torso);
-  // One continuous shoulder/chest outline instead of overlapping cylinder/sphere seams.
-
-  // ── 衣领 + 围巾：打断"球直接插在躯干上"的突兀感 ──
-  if (outfit === "uniform") {
-    // 校服白领圈 + 深色下摆（保留原设计）
-    const collar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.16, 0.2, 0.08, 10),
-      new THREE.MeshStandardMaterial({ color: 0xe8e4da, roughness: 0.9, flatShading: true })
-    );
-    collar.position.y = 1.24 - HIP_Y;
-    const hem = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.23, 0.25, 0.16, 10),
-      new THREE.MeshStandardMaterial({ color: 0x2e3a4c, roughness: 0.95, flatShading: true })
-    );
-    hem.position.y = 0.66 - HIP_Y;
-    upper.add(collar, hem);
-    contactMeshes.push(hem);
-  } else if (outfit === "coat") {
-    // 大衣立领 + 暖赭围巾（围脖环 + 向后扬起的尾帕，定格微风）
-    const coatCollar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.095, 0.125, 0.11, 10, 1, true),
-      new THREE.MeshStandardMaterial({ color: clothColor, roughness: 0.95, flatShading: true, side: THREE.DoubleSide })
-    );
-    coatCollar.position.y = 1.32 - HIP_Y;
-    upper.add(coatCollar);
-    const scarfMat = new THREE.MeshStandardMaterial({ color: 0xa8542e, roughness: 0.98, flatShading: true });
-    const scarfRing = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.038, 8, 14), scarfMat);
-    scarfRing.rotation.x = Math.PI / 2;
-    scarfRing.position.y = 1.4 - HIP_Y;
-    const scarfTail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.035), scarfMat);
-    scarfTail.position.set(-0.07, 1.24 - HIP_Y, 0.17);
-    scarfTail.rotation.x = -0.12;      // 从围脖垂到胸前，不再悬在腰后
-    scarfTail.rotation.z = 0.18;
-    upper.add(scarfRing, scarfTail);
-  } else {
-    // 便装简约领圈
-    const collarRing = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.085, 0.108, 0.06, 10, 1, true),
-      new THREE.MeshStandardMaterial({ color: clothColor, roughness: 0.95, flatShading: true, side: THREE.DoubleSide })
-    );
-    collarRing.position.y = 1.3 - HIP_Y;
-    upper.add(collarRing);
-  }
-
+  // 连衣裙的裙摆：独立 mesh，坐姿时压平到大腿上
   let seatedSkirt: THREE.Mesh | undefined;
-  // 裙子：腰部伞裙（腿露出下摆）
   if (outfit === "skirt") {
-    const skirt = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.2, 0.36, 0.34, 12, 1, true),
-      new THREE.MeshStandardMaterial({ color: clothColor, roughness: 0.95, flatShading: true, side: THREE.DoubleSide })
-    );
+    const skirt = mesh(buildSkirt(clothColor), skirtMat);
     skirt.position.y = 0.52 - HIP_Y;
     upper.add(skirt);
     contactMeshes.push(skirt);
     seatedSkirt = skirt;
   }
 
-  // ---------- 头（颈 pivot：低头/回头/侧倾）+ 脖颈 ----------
+  // ---------- 头（颈 pivot：低头/回头/侧倾）----------
   const headGroup = new THREE.Group();
-  headGroup.position.y = 1.52 - HIP_Y;
+  headGroup.position.y = NECK_Y - HIP_Y;
   upper.add(headGroup);
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.09, 8), skin);
-  neck.position.y = -0.205;
-  headGroup.add(neck);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), skin);
-  head.scale.setScalar(preset.headScale);
-  head.scale.y *= 1.06;                       // 蛋形头：纵向略长，比正球更像"角色"
-  headGroup.add(head);
-
-  const face = createFace(pose, preset.headScale);
+  headGroup.add(mesh([{ geo: new THREE.CylinderGeometry(.054, .062, .12, 12), color: shade(skinColor, .95) }], vc, 'neck'));
+  const hs = preset.headScale;
+  const headShape = new THREE.Group();            // 蛋形头 + 头发，一起按类型缩放（儿童头更大）
+  headShape.position.y = HEAD_CENTER_Y - NECK_Y;
+  headShape.scale.setScalar(hs);
+  headShape.add(mesh(buildHeadSkin(skinColor), vc, 'head'));
+  headShape.add(mesh(buildHair(hairstyle, finalHair, gear.accent), hairMat, 'hair'));
+  headGroup.add(headShape);
+  const face = createFace(pose, hs, { skin: skinColor, glasses: type === 'elderly' });
+  face.group.position.y = HEAD_CENTER_Y - NECK_Y;
   headGroup.add(face.group);
 
-  // ── 发型：短发的帽壳 + 错位刘海 + 后脑盖（打破"光秃球"）──
-  const hs = preset.headScale;
-  const hairCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.2 * hs, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.44),
-    hairMat
-  );
-  hairCap.position.set(0, 0.03, -0.01);
-  headGroup.add(hairCap);
-  // 前额刘海三片（错位高低 + 微前倾）
-  const fringeGeo = new THREE.SphereGeometry(1, 8, 6);
-  ([[-0.085, 0.105], [0.0, 0.125], [0.085, 0.1]] as const).forEach(([fx, fy], i) => {
-    const fringe = new THREE.Mesh(fringeGeo, hairMat);
-    fringe.scale.set(.063 * hs, .065 * hs, .034 * hs);
-    fringe.position.set(fx * hs, fy * hs, (0.148 - (i === 1 ? 0.006 : 0)) * hs);
-    fringe.rotation.x = -0.28;
-    fringe.rotation.z = (i - 1) * 0.12;
-    headGroup.add(fringe);
-  });
-  // 后脑盖片
-  const backHair = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), hairMat);
-  backHair.scale.set(.17 * hs, .155 * hs, .075 * hs);
-  backHair.position.set(0, -0.015 * hs, -0.135 * hs);
-  headGroup.add(backHair);
-  if (hairstyle === "long") {
-    const back = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), hairMat);
-    back.scale.set(.175 * hs, .27 * hs, .09 * hs);
-    back.position.set(0, -0.14 * hs, -0.155 * hs);
-    headGroup.add(back);
-  } else if (hairstyle === "ponytail") {
-    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.05 * hs, 0.24 * hs, 3, 6), hairMat);
-    tail.position.set(0, -0.05 * hs, -0.22 * hs);
-    tail.rotation.x = 0.5;
-    headGroup.add(tail);
-  } else if (hairstyle === "bun") {
-    // 盘发发髻：主发包高置后脑 + 两侧小鬓包，避免被帽壳吞掉成"钢盔"
-    const bun = new THREE.Mesh(new THREE.SphereGeometry(0.105 * hs, 10, 8), hairMat);
-    bun.position.set(0, 0.185 * hs, -0.115 * hs);
-    const bunSide1 = new THREE.Mesh(new THREE.SphereGeometry(0.055 * hs, 8, 6), hairMat);
-    bunSide1.position.set(-0.12 * hs, 0.1 * hs, -0.08 * hs);
-    const bunSide2 = bunSide1.clone();
-    bunSide2.position.x = 0.12 * hs;
-    headGroup.add(bun, bunSide1, bunSide2);
-  }
-
-  // ---------- 手臂：肩 → 上臂 → 肘 → 前臂 → 手球 ----------
-  const shoulderHalf = 0.24 + (w - 1) * 0.1;
+  // ---------- 手臂：肩 → 上臂 → 肘 → 前臂 → 手 ----------
+  const shoulderHalf = 0.226 + (w - 1) * 0.1;
   const mkArm = (side: 1 | -1) => {
+    const parts = buildArm(outfit, colors, side);
     const shoulder = new THREE.Group();
     shoulder.position.set(shoulderHalf * side, SHOULDER_Y - HIP_Y, 0);
-    // 肩球：遮住上臂胶囊与躯干相交的硬边，肩部衔接更自然
-    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), cloth);
-    shoulderBall.scale.set(1, 0.85, 1);
-    shoulder.add(shoulderBall);
-    const upperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.2, 3, 8), cloth);
-    upperArm.position.y = -0.13;
-    shoulder.add(upperArm);
+    shoulder.add(mesh(parts.upper));
     const elbow = new THREE.Group();
     elbow.position.y = -0.26;
     shoulder.add(elbow);
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.18, 3, 8), cloth);
-    fore.position.y = -0.11;
-    elbow.add(fore);
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), skin);
-    hand.position.y = -0.25;
-    elbow.add(hand);
+    elbow.add(mesh(parts.fore));
+    elbow.add(mesh(parts.hand));
     upper.add(shoulder);
     return { shoulder, elbow };
   };
@@ -262,18 +169,7 @@ export function createFigure({
   armR.elbow.rotation.x = -0.15;
 
   // ---------- 书包 ----------
-  if (backpack) {
-    const packMat = new THREE.MeshStandardMaterial({ color: 0xc47a3a, roughness: 0.85, flatShading: true });
-    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.38, 0.16), packMat);
-    pack.position.set(0, 1.0 - HIP_Y, -0.24);
-    const strapGeo = new THREE.BoxGeometry(0.05, 0.3, 0.03);
-    const strapMat = new THREE.MeshStandardMaterial({ color: 0x8a5228, roughness: 0.9 });
-    const s1 = new THREE.Mesh(strapGeo, strapMat);
-    s1.position.set(-0.1, 1.06 - HIP_Y, -0.13);
-    const s2 = new THREE.Mesh(strapGeo, strapMat);
-    s2.position.set(0.1, 1.06 - HIP_Y, -0.13);
-    upper.add(pack, s1, s2);
-  }
+  if (backpack) upper.add(mesh(buildBackpack(), vc, 'backpack'));
 
   // ---------- 小道具（手机 / 递出的物品，挂在右手随手走） ----------
   let prop: THREE.Object3D | undefined;
@@ -303,16 +199,17 @@ export function createFigure({
   armR.elbow.add(handAnchor);
   g.userData.handAnchor = handAnchor;
 
-  // Shoes belong exclusively to their animated leg pivots.
-
   // ---------- 姿态 + 动画 ----------
-  const parts: FigureParts = { body, upper, head: headGroup, armL, armR, legL, legR, prop };
+  const parts: FigureParts = {
+    body, upper, head: headGroup, armL, armR, legL: legL.pivot, legR: legR.pivot, kneeL: legL.knee, kneeR: legR.knee, prop,
+  };
   applyPose(parts, pose);
   if (seatContactEnabled && pose === 'sitting') {
     // The old downward-sloping straight legs touched only beyond the chair edge.
     // A horizontal thigh has a real contact strip over the seat, not a remote lowest tip.
-    legL.rotation.x = -Math.PI / 2;
-    legR.rotation.x = -Math.PI / 2;
+    legL.pivot.rotation.x = -Math.PI / 2;
+    legR.pivot.rotation.x = -Math.PI / 2;
+    legL.knee.rotation.x = legR.knee.rotation.x = .5;       // 小腿自然向下垂一点，脚不再平伸
     if (seatedSkirt) {
       // Fold the standing skirt onto the lap; a hanging cone outside the seat cannot set hip height.
       seatedSkirt.scale.y = .35;
@@ -330,10 +227,10 @@ export function createFigure({
   g.updateMatrixWorld(true);
   let contactY = Infinity;
   const contactVertex = new THREE.Vector3();
-  for (const mesh of contactMeshes) {
-    const positions = mesh.geometry.getAttribute('position');
+  for (const m of contactMeshes) {
+    const positions = m.geometry.getAttribute('position');
     for (let i = 0; i < positions.count; i++) {
-      contactVertex.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld);
+      contactVertex.fromBufferAttribute(positions, i).applyMatrix4(m.matrixWorld);
       contactY = Math.min(contactY, contactVertex.y);
     }
   }
@@ -410,5 +307,6 @@ export function createLuggage({ color = 0xb05c4a }: { color?: number } = {}) {
     wheel.position.set(x, 0.035, z);
     g.add(wheel);
   });
+  g.add(body);
   return g;
 }

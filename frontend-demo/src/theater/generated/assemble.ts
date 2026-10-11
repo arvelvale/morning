@@ -7,7 +7,7 @@
  * 任一步骤失败都不影响整体（尽量渲染出能看的场景），契合「离线可跑、稳定兜底」。
  */
 import * as THREE from "three";
-import { createGround, createMoon, createMountains, createSkyDome, createStars, createSun } from "../utils";
+import { createGround, createMoon, createMountains, createSkyDome, createStars, createSun, createTufts } from "../utils";
 import { createFigure } from "../figure";
 import type { TheaterScene } from "../types";
 import { buildProp } from "./props";
@@ -37,7 +37,8 @@ export function assembleScene(spec: SceneSpec, report?: LayoutReport): TheaterSc
   const outdoor = spec.env.mode === "outdoor";
 
   // ── 天空 + 地面 ──（mood 提供 mid/horizon/sunGlow 时走三段暮色 shader）
-  group.add(createSkyDome({
+  const skyDome = createSkyDome({
+    clouds: preset.clouds,
     top: hexNum(spec.env.sky?.top, preset.sky.top),
     bottom: hexNum(spec.env.sky?.bottom, preset.sky.bottom),
     mid: preset.sky.mid,
@@ -45,8 +46,13 @@ export function assembleScene(spec: SceneSpec, report?: LayoutReport): TheaterSc
     sunDir: [preset.key.pos[0], preset.key.pos[1], preset.key.pos[2]],
     sunGlowStrength: preset.sky.sunGlowStrength ?? 0,
     sunTint: preset.sky.sunTint ?? 0xffa050,
-  }));
-  group.add(createGround({ color: hexNum(spec.env.ground?.color, preset.ground) }));
+  });
+  group.add(skyDome);
+  updates.push((t) => skyDome.userData.update(t));
+  const groundColor = hexNum(spec.env.ground?.color, preset.ground);
+  group.add(createGround({ color: groundColor }));
+  // 户外再撒一层草丛：活动区之外，几百簇一次绘制；颜色跟随地面基色（夜里自然变暗）
+  if (outdoor) group.add(createTufts({ color: new THREE.Color(groundColor).offsetHSL(0, 0.04, 0.05).getHex() }));
 
   // ── 星空（户外夜晚默认开）──
   const wantStars = spec.env.stars ?? (outdoor && spec.env.time === "night");
@@ -85,7 +91,7 @@ export function assembleScene(spec: SceneSpec, report?: LayoutReport): TheaterSc
   // ── 远山（户外可选）──
   if (spec.env.mountains) {
     const mt = typeof spec.env.mountains === "object" ? spec.env.mountains : {};
-    group.add(createMountains({ color: hexNum(mt.color, preset.sky.top), count: mt.count ?? 7, radius: 72 }));
+    group.add(createMountains({ color: hexNum(mt.color, preset.sky.top), count: mt.count ?? 7, radius: 72, haze: (preset.fog as { color?: number } | undefined)?.color ?? preset.sky.horizon ?? preset.sky.bottom }));
   }
 
   // ── 灯光：mood rig（Hemisphere + Key 投影光 + 反向 Fill）──

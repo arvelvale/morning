@@ -33,7 +33,10 @@ for (const type of Object.keys(TYPE_PRESETS)) for (const hairstyle of ['short','
     }
     if (pose === 'walking') assert.ok(before.distanceTo(shoes[0].getWorldPosition(new THREE.Vector3())) > .01);
     // Upper limits are geometry budgets, not a claim of measured GPU frame rate.
-    assert.ok(meshes <= 36 && triangles <= 3400, `${meshes} meshes / ${triangles} triangles`);
+    // 2026-10：三角形预算 3400 → 5600。人物重做后脸（眼睛高光/眉/腮红）、手（拇指）、鞋（鞋底）、
+    // 圆润的头和四肢都有了真实造型；同一部件合并成顶点色 mesh，mesh 数反而从 ≤36 降到 ≤28。
+    // 一个场景最多 3 个人物，合计仍远低于移动端的几何预算。
+    assert.ok(meshes <= 28 && triangles <= 5600, `${meshes} meshes / ${triangles} triangles`);
     maxMeshes = Math.max(maxMeshes, meshes); maxTriangles = Math.max(maxTriangles, triangles);
     const geos = new Set(), mats = new Set();
     fig.traverse(o => { if (o.isMesh) { geos.add(o.geometry); mats.add(o.material); } });
