@@ -25,7 +25,7 @@ import {
 } from "../../api";
 import {
   ApiLetter, Keepsake, LetterState, Task, TODAY_DATE,
-  mapTodo, mapTreasure, remainText, useMailboxSurface, _fmtLetterDate,
+  letterListTime, mapTodo, mapTreasure, remainText, useMailboxSurface, _fmtLetterDate,
 } from "./shared";
 import { KeepsakeAlbum, KeepsakeDetail } from "./Keepsakes";
 import { DailyLetterView } from "./Letters";
@@ -43,16 +43,6 @@ interface ThoughtRow {
   onRemove?: () => void;
   onKeep?: () => void;
   onDrop?: () => void;
-}
-
-/** created_at → 「M月D日」（往期来信行的短日期）。 */
-function shortDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return `${d.getMonth() + 1}月${d.getDate()}日`;
-  } catch {
-    return "";
-  }
 }
 
 /** 待办的轻量时间文案：今天 / 今天 15:00 / 8月2日。 */
@@ -306,7 +296,7 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
                 paddingVertical: theme.spacing[3], borderBottomWidth: 1, borderBottomColor: theme.colors.divider,
                 opacity: pressed ? 0.7 : 1,
               })}>
-              <Text style={[theme.typography.textStyles.caption, { color: C.muted, width: 52 }]}>{shortDate(l.created_at)}</Text>
+              <Text style={[theme.typography.textStyles.caption, { color: C.muted, minWidth: 52 }]}>{letterListTime(l.created_at)}</Text>
               <Text style={[theme.typography.textStyles.body, theme.typography.textStyles.emotionalTitle, { color: C.text, flex: 1 }]} numberOfLines={1}>{l.title}</Text>
               {!l.is_read && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.accent }} />}
             </Pressable>
