@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { petRig, type FilmController } from '../rig';
 import { Score } from '../sound';
+import { onFirstGesture, onSoundChange, setSoundOn, soundOn } from '../sfx';
 
 /**
  * 首屏短片：40 秒程序化动画（米露与波比的一天），与 App 角色同源。
  * 自动播放、滚出视口暂停；超过 5 秒的自动动画必须能停，所以右下角有暂停键。
- * 配乐默认关闭（浏览器不允许自动出声），点「声音」按钮才开始，由 sound.ts 现场合成。
+ * 配乐默认开启，由 sound.ts 现场合成；浏览器不允许页面一打开就出声，所以在用户第一次点击/按键时才真正响起。
+ * 用户关掉后记在本机（sfx.ts），和桌宠点击音效共用这一个开关。
  * 配乐跟着短片时间走：短片停（暂停、滚出视口、切后台）它就淡出，短片继续它就从当前位置接上。
  * 减弱动态时短片不播放，配乐也就没有意义，声音按钮一并隐藏。
  */
@@ -17,11 +19,16 @@ export default function Film() {
   const reduced = useReducedMotion();
   const [playing, setPlaying] = useState(!reduced);
   const [ready, setReady] = useState(false);
-  const [sound, setSound] = useState(false);
+  const [sound, setSound] = useState(soundOn);
 
   useEffect(() => {
-    scoreRef.current = new Score();
-    return () => { scoreRef.current?.destroy(); scoreRef.current = null; };
+    const score = new Score();
+    scoreRef.current = score;
+    // 默认开：先建好音频（浏览器会让它挂起），第一次交互时再 enable 一次把它恢复出声
+    if (soundOn()) score.enable();
+    const offGesture = onFirstGesture(() => { if (soundOn()) score.enable(); });
+    const offChange = onSoundChange(setSound);
+    return () => { offGesture(); offChange(); score.destroy(); scoreRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -54,7 +61,7 @@ export default function Film() {
     if (!score) return;
     if (sound) score.disable();
     else score.enable(); // 短片暂停时打开也不会响，等短片继续播放才开始
-    setSound(!sound);
+    setSoundOn(!sound);
   };
 
   return (

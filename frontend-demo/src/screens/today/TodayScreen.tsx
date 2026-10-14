@@ -16,6 +16,7 @@ import { HomePetArtwork } from "../../components/HomePetArtwork";
 import { IconButton, useReducedMotion, useResponsive, useTheme } from "../../design-system";
 import { useGuide } from "../../guide/Guide";
 import { useTarget } from "../../guide/targets";
+import { playPetPoke } from "../../petSfx";
 import { useVoiceInput } from "../../useVoiceInput";
 import { ambientCalendar } from "../../utils/lunar";
 import { isTomorrow, KIND_LABEL, KIND_ORDER, parseServerTime, startOfToday, type CaughtKind } from "./caught";
@@ -134,6 +135,7 @@ export function TodayScreen({
 
   const onPetPress = () => {
     today.poke();
+    playPetPoke(petPresetId);
     if (guide.stepKey === "pokeCat") {
       today.say("嘿，你好呀！", 1600);
       guide.emit("pokeCat");

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { petRig, type PetController, type PetKind, type PetMood } from '../rig';
+import { playPoke } from '../sfx';
 
 type PetProps = {
   pet: PetKind;
@@ -38,7 +39,7 @@ export default function Pet({ pet, mood = 'idle', night = false, className, labe
     <button
       aria-label={label}
       className={`pet ${className ?? ''}`}
-      onClick={() => rigRef.current?.poke()}
+      onClick={() => { rigRef.current?.poke(); playPoke(pet); }}
       ref={hostRef}
       type="button"
     >
