@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>信箱改版原型</title>
+<style>
+@font-face { font-family: "MiaolingKai"; src: url("assets/MiaolingKai.ttf") format("truetype"); font-display: swap; }
+:root {
+  --bg: #F3EFE9; --bg2: #E9E3DA; --surface: #FFFFFF; --pressed: #EEE9E1;
+  --text: #211D32; --text2: #5C566C; --muted: #8F889C; --divider: #E7E1D8;
+  --accent: #2D2754; --star: #FFD467; --seal: #E26140;
+  --paper: #FFFCF6; --ink: #4D4249; --body: #62575D; --meta: #8C8187;
+  --envelope: #FFF6E4; --flap: #F4E3C3;
+  --mood: #7563DE; --moodSoft: #ECE8FD; --frag: #23917A; --fragSoft: #D8F0E7; --idea: #C98E00; --ideaSoft: #FBEFC8;
+  --hand: "MiaolingKai", "KaiTi", "STKaiti", serif;
+  --sans: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #E4DED4; font-family: var(--sans); color: var(--text); min-height: 100vh;
+  display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 32px 16px; flex-wrap: wrap; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ── 手机外框 ── */
+.phone { width: 390px; height: 820px; border-radius: 44px; background: var(--bg); position: relative; overflow: hidden;
+  box-shadow: 0 30px 60px -20px rgba(45,39,84,.35), 0 0 0 10px #1d1a2b; flex: none; }
+.status { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 14px; font-weight: 600; }
+.screen { position: absolute; inset: 44px 0 0 0; display: flex; flex-direction: column; transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+.screen.off { transform: translateX(100%); opacity: 0; pointer-events: none; }
+.screen.under { transform: translateX(-18%); opacity: .4; pointer-events: none; }
+.scroll { flex: 1; overflow-y: auto; padding: 8px 20px 24px; scrollbar-width: none; }
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── 底栏：三个 Tab ── */
+.tabs { height: 76px; background: #FFFDF9; border-top: 1px solid var(--divider); display: flex; padding: 8px 12px 16px; }
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.tab .pill { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; }
+.tab.on { color: var(--accent); font-weight: 600; }
+.tab.on .pill { background: var(--accent); color: #fff; }
+
+/* ── 信箱首页 ── */
+.head { display: flex; align-items: flex-end; justify-content: space-between; padding: 10px 0 14px; }
+.head h1 { font-family: var(--hand); font-weight: 400; font-size: 34px; letter-spacing: 2px; }
+.head p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.iconbtn { width: 38px; height: 38px; border-radius: 19px; display: grid; place-items: center; color: var(--text2); background: rgba(255,255,255,.6); }
+
+.tonight { position: relative; display: flex; align-items: center; gap: 12px; background: var(--envelope); border-radius: 18px;
+  padding: 12px 14px; margin-bottom: 22px; overflow: hidden; }
+.tonight .env { width: 44px; height: 32px; border-radius: 6px; background: #fff; position: relative; flex: none; box-shadow: 0 1px 0 var(--flap) inset; }
+.tonight .env::before { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, transparent 49%, var(--flap) 50%, transparent 51%), linear-gradient(20deg, transparent 49%, var(--flap) 50%, transparent 51%); }
+.tonight .env i { position: absolute; left: 50%; top: 52%; width: 14px; height: 14px; border-radius: 7px; background: var(--seal); transform: translate(-50%,-50%); }
+.tonight b { font-family: var(--hand); font-weight: 400; font-size: 17px; color: var(--ink); display: block; }
+.tonight small { font-size: 12px; color: var(--meta); }
+.dots { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle; }
+.dots i { width: 4px; height: 4px; border-radius: 2px; background: var(--meta); animation: blink 1.4s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s } .dots i:nth-child(3) { animation-delay: .4s }
+@keyframes blink { 0%,100% { opacity: .2 } 40% { opacity: 1 } }
+.tonight img { position: absolute; right: -4px; bottom: -14px; width: 66px; }
+
+.day { font-size: 12px; color: var(--muted); letter-spacing: .5px; margin: 0 2px 8px; display: flex; justify-content: space-between; }
+.letter { background: var(--paper); border-radius: 18px; padding: 16px 16px 14px; margin-bottom: 10px; text-align: left; width: 100%;
+  box-shadow: 0 1px 2px rgba(45,39,84,.06), 0 6px 18px -10px rgba(45,39,84,.18); position: relative; display: block; transition: transform .15s; }
+.letter:active { transform: scale(.985); }
+.letter .meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--meta); margin-bottom: 6px; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.letter h3 { font-family: var(--hand); font-weight: 400; font-size: 19px; color: var(--ink); margin-bottom: 4px; }
+.letter p { font-size: 14px; line-height: 1.6; color: var(--body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.unread::after { content: ""; position: absolute; right: 16px; top: 18px; width: 7px; height: 7px; border-radius: 4px; background: var(--seal); }
+.letter.rehearse { background: linear-gradient(180deg, #FBF8FF, var(--paper)); box-shadow: 0 0 0 1px #E4DEFA inset, 0 6px 18px -10px rgba(117,99,222,.35); }
+
+/* 小纸条：一叠，点开展开 */
+.notes { position: relative; margin: 4px 0 18px; }
+.notes .stack { position: relative; width: 100%; text-align: left; padding: 12px 14px; background: #FFFDF8; border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(45,39,84,.06); display: flex; align-items: center; gap: 10px; z-index: 2; }
+.notes .stack::before, .notes .stack::after { content: ""; position: absolute; left: 10px; right: 10px; height: 12px; border-radius: 0 0 12px 12px; background: #F7F2E9; z-index: -1; }
+.notes .stack::before { bottom: -6px; } .notes .stack::after { bottom: -11px; left: 20px; right: 20px; background: #EFE9DE; }
+.notes.open .stack::before, .notes.open .stack::after { display: none; }
+.note-ic { width: 30px; height: 30px; border-radius: 15px; background: var(--ideaSoft); color: var(--idea); display: grid; place-items: center; flex: none; }
+.notes .stack b { font-size: 14px; font-weight: 600; color: var(--ink); }
+.notes .stack span { font-size: 12px; color: var(--meta); display: block; }
+.count { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 2px; }
+.notes .list { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s; }
+.notes.open .list { grid-template-rows: 1fr; }
+.notes .list > div { overflow: hidden; }
+.note { display: flex; gap: 10px; padding: 11px 14px 11px 54px; font-size: 13.5px; line-height: 1.55; color: var(--body); border-bottom: 1px dashed var(--divider); }
+.note time { color: var(--muted); font-size: 12px; flex: none; width: 38px; }
+
+/* 往期：筛选 + 时间线 */
+.filters { display: flex; gap: 8px; overflow-x: auto; margin: 6px -20px 12px; padding: 0 20px; scrollbar-width: none; }
+.chip { flex: none; font-size: 13px; padding: 6px 13px; border-radius: 16px; background: rgba(255,255,255,.7); color: var(--text2); }
+.chip.on { background: var(--accent); color: #fff; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--divider); width: 100%; text-align: left; }
+.row .ic { width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; flex: none; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { font-family: var(--hand); font-weight: 400; font-size: 16px; color: var(--ink); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t span { font-size: 12px; color: var(--muted); }
+.row time { font-size: 12px; color: var(--muted); }
+.more { font-size: 12px; color: var(--muted); padding: 9px 2px 14px 46px; display: block; }
+.keep-entry { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--text2); margin: 18px auto 4px; }
+
+/* ── 读信 ── */
+.topbar { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
+.paper { background: var(--paper); border-radius: 22px; padding: 26px 22px 22px; position: relative;
+  box-shadow: 0 1px 2px rgba(45,39,84,.06), 0 18px 40px -24px rgba(45,39,84,.3);
+  background-image: radial-gradient(rgba(140,129,135,.06) 1px, transparent 1px); background-size: 4px 4px; }
+.paper .date { font-size: 12.5px; color: var(--meta); }
+.paper h2 { font-family: var(--hand); font-weight: 400; font-size: 26px; color: var(--ink); margin: 6px 0 16px; }
+.paper .body { font-family: var(--hand); font-size: 18px; line-height: 1.9; color: var(--body); }
+.sign { font-family: var(--hand); font-size: 17px; color: var(--meta); margin-top: 14px; text-align: right; }
+.stamp { position: absolute; right: 20px; top: 22px; width: 46px; height: 46px; border: 1.5px dashed #D6C9A6; border-radius: 6px; background: var(--ideaSoft);
+  display: grid; place-items: center; color: #6E9C55; transform: rotate(4deg); }
+.music { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 10px 12px; border-radius: 12px; background: #F6F1E8; font-size: 13px; color: var(--text2); }
+.actions { display: flex; align-items: center; gap: 10px; padding: 12px 20px 18px; background: linear-gradient(180deg, rgba(243,239,233,0), var(--bg) 30%); }
+.primary { flex: 1; height: 46px; border-radius: 23px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.primary.done { background: #DCD6EC; color: var(--accent); }
+.ghost { width: 46px; height: 46px; border-radius: 23px; background: #fff; color: var(--text2); display: grid; place-items: center; }
+.ghost.on { color: var(--seal); }
+.hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+/* 重演信的几段 */
+.sec { margin-top: 16px; }
+.sec label { font-size: 12px; color: var(--mood); letter-spacing: 1px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 600; }
+.quote { font-family: var(--hand); font-size: 17px; color: var(--ink); background: var(--moodSoft); padding: 10px 14px; border-radius: 12px; line-height: 1.7; }
+.say { font-family: var(--hand); font-size: 17px; line-height: 1.75; color: var(--body); padding: 2px 0 2px 12px; border-left: 2px solid #D8D0F6; margin: 6px 0; }
+.reply { font-size: 14px; color: var(--text2); line-height: 1.65; margin: 8px 0 4px; }
+.reply b { color: var(--ink); font-weight: 600; }
+.enter { margin-top: 20px; width: 100%; border-radius: 18px; background: var(--accent); color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 12px; text-align: left; }
+.enter .ic { width: 40px; height: 40px; border-radius: 20px; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+.enter b { font-size: 15px; display: block; }
+.enter span { font-size: 12px; opacity: .75; }
+.enter.loading .ic svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* ── 问答片场（沿用现有交互，只是入口变了） ── */
+.stage { position: absolute; inset: 0; background: linear-gradient(180deg, #2B2650 0%, #4A3F6E 45%, #C9A27A 46%, #B48A63 100%); }
+.stage .win { position: absolute; left: 34px; top: 70px; width: 110px; height: 120px; border-radius: 6px; background: linear-gradient(180deg, #1B1838, #3B3266); box-shadow: 0 0 0 6px #E9DCC4; }
+.stage .win::after { content: ""; position: absolute; right: 18px; top: 18px; width: 18px; height: 18px; border-radius: 9px; background: #FFE9A8; box-shadow: 0 0 18px #FFE9A8; }
+.stage .lamp { position: absolute; right: 50px; top: 120px; width: 70px; height: 40px; border-radius: 35px 35px 4px 4px; background: #F6C66C; box-shadow: 0 30px 80px 30px rgba(246,198,108,.35); }
+.stage .table { position: absolute; left: 40px; right: 40px; top: 360px; height: 26px; border-radius: 6px; background: #8E6A4C; }
+.person { position: absolute; top: 250px; width: 70px; }
+.person i { display: block; width: 46px; height: 46px; border-radius: 23px; margin: 0 auto 4px; }
+.person b { display: block; width: 70px; height: 70px; border-radius: 30px 30px 8px 8px; }
+.mom { left: 60px } .mom i { background: #E8C3A4 } .mom b { background: #A7643F }
+.me { right: 60px } .me i { background: #F0CDB0 } .me b { background: #3C5F8F }
+.stage img { position: absolute; right: 16px; top: 330px; width: 64px; }
+.dialog { position: absolute; left: 12px; right: 12px; bottom: 16px; background: rgba(255,252,246,.96); border-radius: 20px; padding: 16px; }
+.who { font-size: 12px; color: var(--mood); font-weight: 600; margin-bottom: 6px; }
+.line { font-family: var(--hand); font-size: 18px; line-height: 1.7; color: var(--ink); min-height: 60px; }
+.opts { display: grid; gap: 8px; margin-top: 12px; }
+.opt { text-align: left; padding: 10px 14px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--divider) inset; font-size: 14px; color: var(--text); line-height: 1.5; }
+.opt.own { color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.scene-top { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; padding: 8px 12px; color: #fff; }
+.scene-top .iconbtn { background: rgba(255,255,255,.16); color: #fff; }
+.from { font-size: 12px; background: rgba(255,255,255,.16); padding: 6px 12px; border-radius: 14px; display: flex; align-items: center; gap: 6px; }
+
+/* ── 说明栏 ── */
+.notes-panel { width: 400px; max-width: 100%; }
+.notes-panel h2 { font-family: var(--hand); font-weight: 400; font-size: 28px; margin-bottom: 6px; }
+.notes-panel > p { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 18px; }
+.card { background: #FFFDF9; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+.card h4 { font-size: 14px; margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+.card h4 em { font-style: normal; font-size: 11px; color: #fff; background: var(--seal); border-radius: 8px; padding: 1px 7px; }
+.card p, .card li { font-size: 13px; line-height: 1.7; color: var(--text2); }
+.card ul { padding-left: 18px; }
+.jump { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 18px; }
+.jump button { font-size: 13px; padding: 7px 12px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--divider) inset; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5z"/><path d="M15 3v6h6"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 17 4 12l5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-door" viewBox="0 0 24 24"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.56v16.88a.5.5 0 0 1-.66.47l-6-1.9A1 1 0 0 1 5.6 19V5.02a1 1 0 0 1 .68-.95l6-1.9a.5.5 0 0 1 .72.47z"/></symbol>
+  <symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"/><path d="M2 21c0-3 1.9-5.4 5.1-6"/></symbol>
+</svg>
+
+<div class="phone">
+  <div class="status"><span>21:42</span><span style="font-size:12px">5G ▮▮▮</span></div>
+
+  <!-- 1. 信箱首页 -->
+  <section class="screen" id="s-home">
+    <div class="scroll">
+      <div class="head">
+        <div><h1>信箱</h1><p>今天 2 封 · 1 封没读</p></div>
+        <button class="iconbtn" aria-label="搜索来信"><svg class="i"><use href="#i-search"/></svg></button>
+      </div>
+
+      <div class="tonight">
+        <div class="env"><i></i></div>
+        <div><b>今晚 21:30 的信</b><small>米露还在写<span class="dots"><i></i><i></i><i></i></span></small></div>
+        <img src="assets/miro-idle.png" alt="">
+      </div>
+
+      <div class="day"><span>今天 · 10月14日 周三</span></div>
+      <button class="letter rehearse unread" data-go="s-rehearse">
+        <div class="meta"><span class="tag" style="background:var(--moodSoft);color:var(--mood)">有句话</span>米露 · 09:30</div>
+        <h3>想跟妈妈说的那件事</h3>
+        <p>昨晚你说，想告诉妈妈实习想去杭州，又怕她担心。我替你想了几种开口的方式，也可以进去先说一遍试试。</p>
+      </button>
+      <button class="letter" data-go="s-read">
+        <div class="meta"><span class="tag" style="background:var(--ideaSoft);color:var(--idea)">晚间信</span>米露 · 昨天 21:30</div>
+        <h3>今天的星星有点亮</h3>
+        <p>你今天把实训材料交上去了，我看见你回来的时候，肩膀终于松下来一点。剩下的事明天再说……</p>
+      </button>
+
+      <div class="notes" id="notes">
+        <button class="stack" id="notesBtn" aria-expanded="false">
+          <span class="note-ic"><svg class="i"><use href="#i-note"/></svg></span>
+          <span><b>3 张小纸条</b><span>该歇一歇了 · 睡前碎碎念 · 提醒</span></span>
+          <span class="count">展开<svg class="i" style="width:14px;height:14px"><use href="#i-chev"/></svg></span>
+        </button>
+        <div class="list"><div>
+          <div class="note"><time>23:10</time>今天的碎片我先帮你收着啦，屏幕的光也调暗点吧？</div>
+          <div class="note"><time>22:40</time>明天要交的材料刚才帮你捋了捋，现在去睡个好觉好不好呀</div>
+          <div class="note"><time>20:00</time>说好提醒你：给导员回消息</div>
+        </div></div>
+      </div>
+
+      <div class="day" style="margin-top:22px"><span>往期</span></div>
+      <div class="filters" id="filters">
+        <button class="chip on">全部</button><button class="chip">晚间信</button><button class="chip">有句话</button>
+        <button class="chip">周报</button><button class="chip">小纸条</button><button class="chip">我留下的</button>
+      </div>
+      <div class="day"><span>昨天 · 10月13日 周二</span></div>
+      <button class="row" data-go="s-read"><span class="ic" style="background:var(--ideaSoft);color:var(--idea)"><svg class="i"><use href="#i-mail"/></svg></span>
+        <span class="t"><b>你把今天过完了</b><span>晚间信</span></span><time>21:30</time></button>
+      <span class="more">+ 2 张小纸条</span>
+      <div class="day"><span>10月12日 周一</span></div>
+      <button class="row"><span class="ic" style="background:var(--fragSoft);color:var(--frag)"><svg class="i"><use href="#i-spark"/></svg></span>
+        <span class="t"><b>这周的小碎片回顾</b><span>周报</span></span><time>20:00</time></button>
+      <button class="row"><span class="ic" style="background:var(--ideaSoft);color:var(--idea)"><svg class="i"><use href="#i-mail"/></svg></span>
+        <span class="t"><b>晚风把今天吹凉了</b><span>晚间信</span></span><time>21:30</time></button>
+      <span class="more">+ 1 张小纸条</span>
+      <button class="keep-entry"><svg class="i"><use href="#i-bookmark"/></svg>我留下的 6 封</button>
+    </div>
+    <nav class="tabs">
+      <button class="tab"><span class="pill"><svg class="i"><use href="#i-star"/></svg></span>今日</button>
+      <button class="tab on"><span class="pill"><svg class="i"><use href="#i-mail"/></svg></span>信箱</button>
+      <button class="tab"><span class="pill"><svg class="i"><use href="#i-user"/></svg></span>我的</button>
+    </nav>
+  </section>
+
+  <!-- 2. 读晚间信 -->
+  <section class="screen off" id="s-read">
+    <div class="topbar">
+      <button class="iconbtn" data-back aria-label="返回"><svg class="i"><use href="#i-back"/></svg></button>
+      <span style="font-size:13px;color:var(--muted)">晚间信</span><span style="width:38px"></span>
+    </div>
+    <div class="scroll">
+      <article class="paper">
+        <div class="stamp"><svg class="i" style="width:22px;height:22px"><use href="#i-leaf"/></svg></div>
+        <div class="date">10月13日 · 周二 21:30</div>
+        <h2>今天的星星有点亮</h2>
+        <div class="body">你今天把实训材料交上去了。我看见你回来的时候，肩膀终于松下来一点。<br><br>剩下没理清的念头，我先收进星星里了，它们明天还在，不会跑。今晚就别惦记啦，安心睡。</div>
+        <div class="music"><svg class="i"><use href="#i-music"/></svg>信里夹了一首歌 ·《晚安》颜人中</div>
+        <div class="sign">—— 米露</div>
+      </article>
+      <p class="hint">不留下的话，它会在明天的新信到达时收进往期。</p>
+    </div>
+    <div class="actions">
+      <button class="primary" id="ack"><svg class="i"><use href="#i-check"/></svg><span>收到啦</span></button>
+      <button class="ghost" aria-label="回它一句"><svg class="i"><use href="#i-reply"/></svg></button>
+      <button class="ghost" id="keep" aria-label="把这封信留下"><svg class="i"><use href="#i-bookmark"/></svg></button>
+    </div>
+  </section>
+
+  <!-- 3. 有句话（重演信） -->
+  <section class="screen off" id="s-rehearse">
+    <div class="topbar">
+      <button class="iconbtn" data-back aria-label="返回"><svg class="i"><use href="#i-back"/></svg></button>
+      <span style="font-size:13px;color:var(--muted)">有句话</span><span style="width:38px"></span>
+    </div>
+    <div class="scroll">
+      <article class="paper">
+        <div class="date">10月14日 · 周三 09:30</div>
+        <h2>想跟妈妈说的那件事</h2>
+        <div class="sec"><label><svg class="i" style="width:14px;height:14px"><use href="#i-chat"/></svg>你昨晚说</label>
+          <div class="quote">“想跟我妈说实习想去杭州，但每次一开口她就说太远了。”</div></div>
+        <div class="sec"><label>可以这样开口</label>
+          <div class="say">“妈，我想先跟你说一件事，你听完再说好不好？”</div>
+          <div class="say">“杭州那家公司给了我实习机会，我挺想去试试的。”</div></div>
+        <div class="sec"><label>她可能会说</label>
+          <p class="reply"><b>“太远了，你一个人怎么照顾自己？”</b><br>你可以接：住的地方离公司很近，我每周跟你视频。</p>
+          <p class="reply"><b>“家附近不也有实习吗？”</b><br>你可以接：这家做的就是我想学的，错过有点可惜。</p></div>
+        <div class="body" style="font-size:16px;margin-top:14px">不用一次说服她。先把这句话说出口，就已经很勇敢了。</div>
+        <div class="sign">—— 米露</div>
+      </article>
+      <button class="enter" id="enter">
+        <span class="ic"><svg class="i"><use href="#i-door"/></svg></span>
+        <span><b>进去说说看</b><span>米露搭好家里的场景，你和“妈妈”练一遍</span></span>
+      </button>
+      <p class="hint">点了才搭场景；不想练，看完这封信就够了。</p>
+    </div>
+  </section>
+
+  <!-- 4. 问答片场（现有交互） -->
+  <section class="screen off" id="s-scene">
+    <div class="stage"><div class="win"></div><div class="lamp"></div>
+      <div class="person mom"><i></i><b></b></div><div class="person me"><i></i><b></b></div>
+      <div class="table"></div><img src="assets/miro-idle.png" alt=""></div>
+    <div class="scene-top">
+      <button class="iconbtn" data-back aria-label="离开场景"><svg class="i"><use href="#i-x"/></svg></button>
+      <span class="from"><svg class="i" style="width:14px;height:14px"><use href="#i-mail"/></svg>来自信：想跟妈妈说的那件事</span>
+    </div>
+    <div class="dialog">
+      <div class="who" id="who">妈妈</div>
+      <div class="line" id="line">吃饭呢，有什么事这么严肃？</div>
+      <div class="opts" id="opts">
+        <button class="opt">妈，我想先跟你说一件事，你听完再说好不好？</button>
+        <button class="opt">杭州那家公司给了我实习机会，我挺想去的。</button>
+        <button class="opt own"><svg class="i"><use href="#i-pen"/></svg>我自己说……</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<aside class="notes-panel">
+  <h2>信箱改版原型</h2>
+  <p>左边可以点：点“有句话”那封 → 读信 → 进去说说看；点晚间信 → 收到啦 / 留下；点“3 张小纸条”展开。</p>
+  <div class="jump">
+    <button data-jump="s-home">信箱首页</button><button data-jump="s-read">读晚间信</button>
+    <button data-jump="s-rehearse">有句话</button><button data-jump="s-scene">问答片场</button>
+  </div>
+  <div class="card"><h4><em>乱</em>信太多太乱 → 按天归组，小纸条叠起来</h4>
+    <p>正经的信（晚间信、有句话、周报）单独成卡；“该歇一歇了”“睡前碎碎念”“提醒”这类一两句话的，叠成一叠“小纸条”，点开才展开，首页不再被同一句话刷屏。</p></div>
+  <div class="card"><h4><em>长</em>信卡片太长 → 列表只给两行，点开再读</h4>
+    <p>列表里只有标题、两行预览、谁写的、几点。三个按钮收成一排：主按钮“收到啦”，回一句和留下变成图标。</p></div>
+  <div class="card"><h4><em>找</em>往期不好找 → 筛选 + 按日期分组</h4>
+    <p>按类型筛（晚间信 / 有句话 / 周报 / 小纸条 / 我留下的），按天分组并显示时分；右上角搜索按标题和正文找。</p></div>
+  <div class="card"><h4><em>丑</em>视觉 → 大信封缩成一条“今晚的信”</h4>
+    <p>原来的大信封占半屏，改成一条：今晚 21:30 的信，米露还在写，并有一个“在写”的小动效。信纸保留手写字体和纸纹，其余用 App 现有的颜色。</p></div>
+  <div class="card"><h4><em>新</em>片场 → 信里的“有句话”</h4>
+    <ul>
+      <li>底栏去掉片场，只剩 今日 / 信箱 / 我的。</li>
+      <li>米露夜里从聊天、倾倒、语音里发现“有话说不出口”，第二天早上来一封“有句话”：你说过什么、可以怎么开口、对方可能怎么回。</li>
+      <li>想练就点“进去说说看”，这时才搭场景，进入<strong>现有的问答片场</strong>；不点就不花 token（现在是每晚提前搭好，不管用不用）。</li>
+    </ul></div>
+</aside>
+
+<script>
+const screens = [...document.querySelectorAll('.screen')];
+const stack = ['s-home'];
+function show(id, push = true) {
+  if (push) stack.push(id);
+  screens.forEach(s => {
+    const i = stack.indexOf(s.id);
+    s.classList.toggle('off', i === -1);
+    s.classList.toggle('under', i !== -1 && i < stack.length - 1);
+  });
+}
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]');
+  if (go) { go.classList.remove('unread'); show(go.dataset.go); return; }
+  if (e.target.closest('[data-back]')) { if (stack.length > 1) { stack.pop(); show(null, false); } return; }
+  const j = e.target.closest('[data-jump]');
+  if (j) { stack.length = 0; stack.push('s-home'); if (j.dataset.jump !== 's-home') { if (j.dataset.jump === 's-scene') stack.push('s-rehearse'); stack.push(j.dataset.jump); } show(null, false); }
+});
+const notes = document.getElementById('notes');
+document.getElementById('notesBtn').onclick = () => {
+  const open = notes.classList.toggle('open');
+  document.getElementById('notesBtn').setAttribute('aria-expanded', open);
+  notes.querySelector('.count').firstChild.textContent = open ? '收起' : '展开';
+};
+document.getElementById('filters').onclick = e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  document.querySelectorAll('#filters .chip').forEach(x => x.classList.toggle('on', x === c));
+};
+const ack = document.getElementById('ack');
+ack.onclick = () => { ack.classList.add('done'); ack.querySelector('span').textContent = '米露知道啦'; };
+const keep = document.getElementById('keep');
+keep.onclick = () => keep.classList.toggle('on');
+const enter = document.getElementById('enter');
+enter.onclick = () => {
+  if (enter.classList.contains('loading')) return;
+  enter.classList.add('loading');
+  enter.querySelector('use').setAttribute('href', '#i-loader');
+  enter.querySelector('b').textContent = '米露在搭场景…';
+  enter.querySelector('b + span').textContent = '大约 10 秒，搭好就进去';
+  setTimeout(() => {
+    enter.classList.remove('loading');
+    enter.querySelector('use').setAttribute('href', '#i-door');
+    enter.querySelector('b').textContent = '进去说说看';
+    enter.querySelector('b + span').textContent = '场景已搭好，随时可以进';
+    show('s-scene');
+  }, 1600);
+};
+const lines = [['妈妈', '嗯？你说，我听着。'], ['妈妈', '杭州？那也太远了，你一个人怎么照顾自己？'], ['妈妈', '……那你先说说，那边住哪儿？']];
+let k = 0;
+document.getElementById('opts').onclick = e => {
+  const o = e.target.closest('.opt'); if (!o || o.classList.contains('own')) return;
+  const [who, line] = lines[Math.min(k++, lines.length - 1)];
+  document.getElementById('who').textContent = who;
+  document.getElementById('line').textContent = line;
+};
+</script>
+</body>
+</html>
