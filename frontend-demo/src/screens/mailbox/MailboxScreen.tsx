@@ -7,9 +7,9 @@
  *
  * 不再有「今日待启 / 三日寄存 / 长久珍藏」分区，来信也不设每日数量上限。
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Archive, Check } from "lucide-react-native";
+import { Archive, Check, ChevronLeft } from "lucide-react-native";
 import {
   Card,
   Chip,
@@ -24,11 +24,12 @@ import {
   markLetterRead, updateTodo,
 } from "../../api";
 import {
-  ApiLetter, Keepsake, LetterState, Task, TODAY_DATE,
-  letterListTime, mapTodo, mapTreasure, remainText, useMailboxSurface, _fmtLetterDate,
+  ApiLetter, Keepsake, Task, TODAY_DATE,
+  dayKey, letterKind, letterTime, mapTodo, mapTreasure, remainText, useMailboxSurface,
 } from "./shared";
 import { KeepsakeAlbum, KeepsakeDetail } from "./Keepsakes";
-import { DailyLetterView } from "./Letters";
+import { LetterPaper } from "./Letters";
+import { LetterList } from "./LetterList";
 import { TonightLetter } from "./TonightLetter";
 import { useGuide } from "../../guide/Guide";
 
@@ -86,44 +87,25 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
 
   // ─── 来信（真实后端）───
   const [letters, setLetters] = useState<ApiLetter[]>([]);
-  const [activeId, setActiveId] = useState<number | null>(null);
-  const [letterState, setLetterState] = useState<LetterState>("waiting");
+  // 改版（2026-10-14）：列表 ↔ 读信两种状态；readingId 为空就是列表
+  const [readingId, setReadingId] = useState<number | null>(null);
   const [savedLetterIds, setSavedLetterIds] = useState<Set<number>>(new Set());
   const [ackingLetter, setAckingLetter] = useState(false);
   const [ackedLetterIds, setAckedLetterIds] = useState<Set<number>>(new Set());
-  // 拆信动画计时器：卸载时清理，避免卸载后 setState
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (openTimer.current) clearTimeout(openTimer.current); }, []);
 
-  const activeLetter = letters.find(l => l.id === activeId) ?? letters[0] ?? null;
-  const pastLetters = letters.filter(l => activeLetter == null || l.id !== activeLetter.id);
+  const activeLetter = letters.find(l => l.id === readingId) ?? null;
 
   const reloadLetters = async () => {
     try {
       const list = await listLetters("");
-      const arr = Array.isArray(list) ? list : [];
-      setLetters(arr);
-      const first = arr[0] ?? null;
-      setActiveId(first ? first.id : null);
-      if (!first) setLetterState("waiting");
-      else if (first.is_read) setLetterState(savedLetterIds.has(first.id) ? "saved" : "opened");
-      else setLetterState("sealed");
+      setLetters(Array.isArray(list) ? list : []);
     } catch { /* 网络异常保持当前 */ }
   };
 
-  const handleOpenLetter = () => {
-    if (letterState !== "sealed" || !activeLetter) return;
-    setLetterState("opening");
-    markLetterRead(activeLetter.id).catch(() => {});
-    setLetters(ls => ls.map(l => l.id === activeLetter.id ? { ...l, is_read: true } : l));
-    if (openTimer.current) clearTimeout(openTimer.current);
-    openTimer.current = setTimeout(() => setLetterState("opened"), 680);
-  };
-
-  /** 往期来信行：点开直接读（跳过信封仪式），顺手标已读。 */
-  const handleSelectPast = (letter: ApiLetter) => {
-    setActiveId(letter.id);
-    setLetterState(savedLetterIds.has(letter.id) ? "saved" : "opened");
+  /** 点开一封信：直接读，顺手标已读。 */
+  const openLetter = (letter: ApiLetter) => {
+    setReadingId(letter.id);
+    setShowKeepsakes(false);
     if (!letter.is_read) {
       markLetterRead(letter.id).catch(() => {});
       setLetters(ls => ls.map(l => l.id === letter.id ? { ...l, is_read: true } : l));
@@ -138,7 +120,6 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
         title: activeLetter.title, content: activeLetter.body,
       });
       setSavedLetterIds(s => new Set(s).add(activeLetter.id));
-      setLetterState("saved");
       onToast?.("已替你收好 ✦");
       reloadTreasures();
     } catch {
@@ -169,7 +150,7 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
       const res = await acceptSceneInvite(letter.id);
       setLetters(ls => ls.map(l => l.id === letter.id ? { ...l, is_read: true } : l));
       if (onPlayScene) onPlayScene(res.scene_id, res.theater_id ?? null);
-      else onToast?.("场景已备好，去片场看看吧");
+      else onToast?.("场景已经搭好，从这封信进去就能开始");
     } catch (e: any) {
       onToast?.(e?.message || "场景没布置好，待会儿再试试");
     } finally {
@@ -262,62 +243,45 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
 
   const unreadLetters = letters.filter(l => !l.is_read).length;
 
-  // 今天的晚间来信到了没有（场景邀请不算）
-  const startOfDay = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
-  const todaysLetter = letters.find(l => l.type !== "scene_invite" && new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(l.created_at) ? l.created_at : `${l.created_at}Z`).getTime() >= startOfDay) ?? null;
-  const openTodaysLetter = () => {
-    if (!todaysLetter) return;
-    if (todaysLetter.id !== activeLetter?.id) handleSelectPast(todaysLetter);
-    else handleOpenLetter();
-  };
+  // 今天的晚间来信到了没有（只认晚间信；有句话、小纸条不算）
+  const todayKeyNow = dayKey(new Date());
+  const todaysLetter = letters.find(l => letterKind(l) === "evening" && (() => {
+    const t = letterTime(l);
+    return t != null && dayKey(t) === todayKeyNow;
+  })()) ?? null;
+  const openTodaysLetter = () => { if (todaysLetter) openLetter(todaysLetter); };
 
-  const letterSection = (
+  const backBar = (label: string, onBack: () => void) => (
+    <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={label}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 6, marginBottom: 10, opacity: pressed ? 0.6 : 1 })}>
+      <ChevronLeft size={18} color={C.text2} />
+      <Text style={[theme.typography.textStyles.caption, { color: C.text2 }]}>{label}</Text>
+    </Pressable>
+  );
+
+  const letterSection = activeLetter ? (
     <>
-      {!todaysLetter || guide.active ? (
+      {backBar("回到信箱", () => setReadingId(null))}
+      <LetterPaper letter={activeLetter} petName={petName}
+        saved={savedLetterIds.has(activeLetter.id)}
+        onAck={handleAckLetter} acking={ackingLetter} acked={ackedLetterIds.has(activeLetter.id)}
+        onReply={() => onReplyLetter({ title: activeLetter.title, body: activeLetter.body })}
+        onSave={handleSaveLetter}
+        onEnterScene={() => handleEnterScene(activeLetter)} entering={enteringScene}
+        onGotoKeepsakes={() => { setReadingId(null); setShowKeepsakes(true); }} />
+    </>
+  ) : showKeepsakes ? (
+    <>
+      {backBar("回到来信", () => setShowKeepsakes(false))}
+      <KeepsakeAlbum keepsakes={keepsakes} onSelectItem={setSelectedKeepsake} onRemove={removeKeepsake} />
+    </>
+  ) : (
+    <LetterList letters={letters} petName={petName} keptCount={keepsakes.length}
+      onOpen={openLetter} onShowKept={() => setShowKeepsakes(true)}
+      header={!todaysLetter || guide.active ? (
         <TonightLetter arrived={!!todaysLetter} onOpen={openTodaysLetter}
           petEmoji={petEmoji} petName={petName} petPresetId={petPresetId} />
-      ) : null}
-      {activeLetter ? <DailyLetterView letter={activeLetter} petName={petName} letterState={letterState}
-        onOpenLetter={handleOpenLetter} onSaveLetter={handleSaveLetter}
-        onAckLetter={handleAckLetter} acking={ackingLetter} ackedIds={ackedLetterIds}
-        onReply={() => onReplyLetter(activeLetter ? { title: activeLetter.title, body: activeLetter.body } : null)}
-        onEnterScene={handleEnterScene} entering={enteringScene}
-        onGotoKeepsakes={() => setShowKeepsakes(true)} /> : null}
-
-      {pastLetters.length > 0 && !showKeepsakes && (
-        <View style={{ marginTop: theme.spacing[6] }}>
-          <Text style={[theme.typography.textStyles.label, { color: C.muted, marginBottom: theme.spacing[1] }]}>
-            往期来信
-          </Text>
-          {pastLetters.map(l => (
-            <Pressable key={l.id} onPress={() => handleSelectPast(l)}
-              style={({ pressed }) => ({
-                flexDirection: "row", alignItems: "center", gap: theme.spacing[3],
-                paddingVertical: theme.spacing[3], borderBottomWidth: 1, borderBottomColor: theme.colors.divider,
-                opacity: pressed ? 0.7 : 1,
-              })}>
-              <Text style={[theme.typography.textStyles.caption, { color: C.muted, minWidth: 52 }]}>{letterListTime(l.created_at)}</Text>
-              <Text style={[theme.typography.textStyles.body, theme.typography.textStyles.emotionalTitle, { color: C.text, flex: 1 }]} numberOfLines={1}>{l.title}</Text>
-              {!l.is_read && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.accent }} />}
-            </Pressable>
-          ))}
-        </View>
-      )}
-
-      {/* 「我留下的」：不占分区，只是来信页底部的安静入口 */}
-      <Pressable onPress={() => setShowKeepsakes(v => !v)}
-        style={({ pressed }) => ({
-          marginTop: theme.spacing[6], paddingVertical: theme.spacing[3], alignItems: "center",
-          opacity: pressed ? 0.7 : 1,
-        })}>
-        <Text style={[theme.typography.textStyles.caption, { color: C.muted }]}>
-          {showKeepsakes ? "回到来信" : `我留下的${keepsakes.length > 0 ? `（${keepsakes.length}）` : ""}`}
-        </Text>
-      </Pressable>
-      {showKeepsakes && (
-        <KeepsakeAlbum keepsakes={keepsakes} onSelectItem={setSelectedKeepsake} onRemove={removeKeepsake} />
-      )}
-    </>
+      ) : null} />
   );
 
   const thoughtSection = (

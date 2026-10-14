@@ -114,7 +114,7 @@ const INITIAL_TAB: AppTab =
   DEV_SCREEN === "mailbox"
     ? "mailbox"
     : DEV_SCREEN === "scene" || DEV_SCREEN === "scene-play" || DEV_SCREEN === "scene-end"
-      ? "scene"
+      ? "mailbox"
       : DEV_SCREEN === "profile" || DEV_SCREEN === "pet-change" || DEV_SCREEN === "pet-handoff"
           || DEV_SCREEN === "memory-list" || DEV_SCREEN === "memory-review" || DEV_SCREEN === "user-profile"
         ? "profile"
@@ -567,7 +567,7 @@ function MorningApp() {
                       : "dining" // 无/非法 theater_id 时用默认剧场兜底
                   );
                   go("scene-play");
-                  setTab("scene");
+                  setTab("companion");
                 }} />
             )}
             {screen === "mailbox" && (
@@ -584,7 +584,7 @@ function MorningApp() {
                       : "dining" // 一期：dynamic_image 邀请先用默认剧场兜底
                   );
                   go("scene-play");
-                  setTab("scene");
+                  setTab("mailbox");
                 }}
                 onReplyLetter={(letter) => { setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(letter?.body ?? ""); go("chat"); setTab("companion"); }} />
             )}

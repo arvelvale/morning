@@ -54,9 +54,9 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
   const late = now.getHours() * 60 + now.getMinutes() >= 21 * 60 + 30;
 
   return (
-    <View style={{ marginTop: 64, marginBottom: 8 }}>
+    <View style={{ marginTop: 40, marginBottom: 20 }}>
       <View collapsable={false} pointerEvents="none" ref={petRef}
-        style={{ position: "absolute", right: -6, top: -104, width: 124, height: 124, zIndex: 2 }}>
+        style={{ position: "absolute", right: -4, top: -26, width: 84, height: 84, zIndex: 2 }}>
         <HomePetArtwork
           fallbackEmoji={petEmoji}
           halo={false}
@@ -64,7 +64,7 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
           mood={poke && guide.active === false && arrived ? "happy" : "thinking"}
           pokeKey={poke}
           presetId={petPresetId}
-          size={80}
+          size={56}
         />
       </View>
       {line ? (
@@ -86,25 +86,29 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
           onPress={press}
           ref={cardRef}
           style={({ pressed }) => ({
-            height: 176, borderRadius: 24, overflow: "hidden", backgroundColor: theme.colors.envelope,
-            transform: [{ scale: pressed ? 0.98 : 1 }], ...theme.shadows.soft,
+            minHeight: 68, borderRadius: 18, overflow: "hidden", backgroundColor: theme.colors.envelope,
+            flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 14, paddingRight: 84, paddingVertical: 12,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
           })}
         >
-          <Svg height="62%" preserveAspectRatio="none" style={{ position: "absolute", left: 0, top: 0 }} viewBox="0 0 100 62" width="100%">
-            <Path d="M0 0H100L50 62Z" fill={theme.colors.envelopeFlap} />
-          </Svg>
-          <View style={{
-            position: "absolute", left: "50%", top: "62%", width: 46, height: 46, marginLeft: -23, marginTop: -23, borderRadius: 23,
-            backgroundColor: theme.colors.todo, alignItems: "center", justifyContent: "center",
-          }}>
-            <Star color={theme.colors.star} fill={theme.colors.star} size={21} />
+          {/* 改版（2026-10-14）：原来占半屏的大信封缩成一条，信的内容在下面的列表里 */}
+          <View style={{ width: 44, height: 32, borderRadius: 6, overflow: "hidden", backgroundColor: theme.colors.surface }}>
+            <Svg height="70%" preserveAspectRatio="none" style={{ position: "absolute", left: 0, top: 0 }} viewBox="0 0 100 62" width="100%">
+              <Path d="M0 0H100L50 62Z" fill={theme.colors.envelopeFlap} />
+            </Svg>
+            <View style={{
+              position: "absolute", left: "50%", top: "62%", width: 16, height: 16, marginLeft: -8, marginTop: -8, borderRadius: 8,
+              backgroundColor: theme.colors.todo, alignItems: "center", justifyContent: "center",
+            }}>
+              <Star color={theme.colors.star} fill={theme.colors.star} size={8} />
+            </View>
           </View>
-          <View style={{ position: "absolute", left: 18, right: 18, bottom: 14, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <Text style={[theme.typography.textStyles.sectionTitle, { color: theme.colors.textPrimary }]}>
-              {arrived ? "今天的信到了" : late ? `${petName}还在写` : `今晚 ${LETTER_TIME} 送达`}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 17, lineHeight: 24, color: theme.colors.textPrimary }]}>
+              {arrived ? "今天的信到了" : `今晚 ${LETTER_TIME} 的信`}
             </Text>
-            <Text numberOfLines={1} style={[theme.typography.textStyles.label, { color: theme.colors.textMuted, fontWeight: "400", flexShrink: 1 }]}>
-              {arrived ? "拆开看看" : `${petName}在攒今天的事`}
+            <Text numberOfLines={1} style={[theme.typography.textStyles.caption, { color: theme.colors.textMuted }]}>
+              {arrived ? "点一下拆开" : late ? `${petName}还在写…` : `${petName}在攒今天的事…`}
             </Text>
           </View>
         </Pressable>

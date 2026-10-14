@@ -1,75 +1,20 @@
 /**
- * 桌宠来信：信封（未拆封）→ 信纸（拆开后）+ 音乐/场景邀请附件 + 等待态。
+ * 读信：信纸（正文 + 附件）+ 一排轻量操作。
+ *
+ * 改版（2026-10-14，原型 docs/design/prototypes/mailbox-redesign）：
+ * - 不再有「信封 → 拆开」的仪式，列表里点哪封就直接读哪封；
+ * - 三个大按钮收成一排：主按钮「收到啦」，回一句 / 留下 变成图标；
+ * - 「有句话」（scene_invite）按段落排：你说过 / 可以这样开口 / 对方可能会说 → 你可以接，
+ *   信末「进去说说看」才去搭场景，进入原来的问答片场。
  */
-import React, { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { Film, Heart, Music, Play } from "lucide-react-native";
-import { CreamRipple, GrainTexture, paperColors, useTheme } from "../../design-system";
-import {
-  ApiLetter,
-  LetterState,
-  SceneInviteAttachment,
-  _fmtLetterDate,
-  isSceneInvite,
-  useMailboxSurface,
-} from "./shared";
+import React, { useState } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Bookmark, Check, DoorOpen, Heart, MessageCircle, Music, Play, Reply } from "lucide-react-native";
+import { GrainTexture, paperColors, useTheme } from "../../design-system";
+import { ApiLetter, Rehearsal, _fmtLetterDate, letterKind, rehearsalOf } from "./shared";
 
-/** 未拆封信封：轻点触发涟漪并拆开。 */
-function SealedEnvelope({ letter, onOpen, isOpening }: {
-  letter: ApiLetter; onOpen: () => void; isOpening: boolean;
-}) {
-  const theme = useTheme();
-  const { C } = useMailboxSurface();
-  const [showRipple, setShowRipple] = useState(false);
-  // 涟漪计时器：存 ref 并在卸载时清理，避免卸载后 setState 警告
-  const rippleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (rippleTimer.current) clearTimeout(rippleTimer.current); }, []);
-  const handleTap = () => {
-    setShowRipple(true);
-    if (rippleTimer.current) clearTimeout(rippleTimer.current);
-    rippleTimer.current = setTimeout(() => setShowRipple(false), 700);
-    onOpen();
-  };
-  return (
-    <Pressable onPress={handleTap} style={({ pressed }) => [{ alignItems: "center", transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
-      <CreamRipple active={showRipple} />
-      <View style={{
-        width: 320, height: 205, borderRadius: 22, overflow: "hidden",
-        backgroundColor: "rgba(252,247,225,0.96)", borderWidth: 1, borderColor: "rgba(255,255,255,0.58)",
-      }}>
-        <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
-          <View style={{ alignItems: "flex-end", marginBottom: 14 }}>
-            <View style={{
-              width: 36, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center",
-              backgroundColor: isSceneInvite(letter) ? "rgba(243,218,202,0.75)" : "rgba(246,231,168,0.72)",
-              borderWidth: 1, borderColor: "rgba(255,255,255,0.55)",
-            }}>
-              {isSceneInvite(letter)
-                ? <Film size={16} color="#A26458" />
-                : <Text style={{ fontSize: 17 }}>🌿</Text>}
-            </View>
-          </View>
-          {isSceneInvite(letter) && (
-            <View style={{ alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, marginBottom: 6, backgroundColor: "rgba(243,218,202,0.5)" }}>
-              <Text style={{ fontSize: 10, fontWeight: "500", letterSpacing: 1, color: "#A26458" }}>场景邀请</Text>
-            </View>
-          )}
-          <Text numberOfLines={2} style={[theme.typography.textStyles.emotionalTitle, { fontSize: 16, lineHeight: 24, marginBottom: 6, color: paperColors.ink2 }]}>{letter.title}</Text>
-          <Text style={{ fontSize: 12, marginBottom: 5, color: paperColors.meta2 }}>{_fmtLetterDate(letter.created_at)}</Text>
-          <Text style={{ fontSize: 12, color: paperColors.dim }} numberOfLines={1}>{letter.body.slice(0, 24)}…</Text>
-        </View>
-        {/* 信封下折角近似 */}
-        <View style={{
-          position: "absolute", bottom: 0, left: 0, right: 0, height: 54,
-          backgroundColor: "rgba(243,216,199,0.20)",
-        }} />
-      </View>
-      {!isOpening && (
-        <Text style={{ marginTop: 20, fontSize: 13, letterSpacing: 0.3, color: C.muted }}>轻点拆开</Text>
-      )}
-    </Pressable>
-  );
-}
+const MOOD = "#7563DE";
+const MOOD_SOFT = "rgba(236,232,253,0.9)";
 
 /** 信中音乐附件：试听 + 收藏。 */
 function LetterAttachment({ attachment, saved, onSave }: {
@@ -77,33 +22,23 @@ function LetterAttachment({ attachment, saved, onSave }: {
 }) {
   return (
     <View style={{
-      marginVertical: 20, borderRadius: 18, overflow: "hidden",
+      marginTop: 20, borderRadius: 16, overflow: "hidden",
       backgroundColor: "rgba(249,241,204,0.55)", borderWidth: 1, borderColor: "rgba(255,255,255,0.55)",
     }}>
-      <View style={{ padding: 16 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+      <View style={{ padding: 14 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
           <Music size={12} color="#B98232" />
           <Text style={{ fontSize: 12, fontWeight: "500", color: "#B98232" }}>{attachment.label ?? "信里夹了点什么"}</Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <View style={{
-            width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center",
-            backgroundColor: "rgba(246,231,168,0.65)", borderWidth: 1, borderColor: "rgba(255,255,255,0.5)",
-          }}>
-            <Music size={20} color="#B98232" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: "500", color: paperColors.ink2 }} numberOfLines={1}>{attachment.title}</Text>
-            {!!attachment.artist && <Text style={{ fontSize: 12, marginTop: 2, color: paperColors.meta2 }}>{attachment.artist}</Text>}
-          </View>
-        </View>
+        <Text style={{ fontSize: 14, fontWeight: "500", color: paperColors.ink2 }} numberOfLines={1}>{attachment.title}</Text>
+        {!!attachment.artist && <Text style={{ fontSize: 12, marginTop: 2, color: paperColors.meta2 }}>{attachment.artist}</Text>}
         {!!attachment.reason && (
-          <Text style={{ fontSize: 13, marginTop: 12, lineHeight: 19, color: paperColors.body }}>{attachment.reason}</Text>
+          <Text style={{ fontSize: 13, marginTop: 10, lineHeight: 19, color: paperColors.body }}>{attachment.reason}</Text>
         )}
         <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
           <Pressable style={{
             flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-            backgroundColor: "rgba(246,231,168,0.72)", borderWidth: 1, borderColor: "rgba(255,255,255,0.5)",
+            backgroundColor: "rgba(246,231,168,0.72)",
           }}>
             <Play size={11} color={paperColors.ink2} />
             <Text style={{ fontSize: 13, fontWeight: "500", color: paperColors.ink2 }}>试听一下</Text>
@@ -112,7 +47,6 @@ function LetterAttachment({ attachment, saved, onSave }: {
             style={{
               flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
               backgroundColor: saved ? "rgba(221,237,227,0.55)" : "rgba(255,255,255,0.5)",
-              borderWidth: 1, borderColor: "rgba(255,255,255,0.45)",
             }}>
             <Heart size={11} color={saved ? "#5A8A6A" : paperColors.meta2} />
             <Text style={{ fontSize: 13, color: saved ? "#5A8A6A" : paperColors.meta2 }}>{saved ? "已留着" : "替我留着"}</Text>
@@ -123,53 +57,102 @@ function LetterAttachment({ attachment, saved, onSave }: {
   );
 }
 
-/** scene_invite 场景邀请卡：Film 图标 + 场景种子摘要 + 「进入场景」按钮 */
-function SceneInviteCard({ attachment, onEnter, entering }: {
-  attachment: SceneInviteAttachment; onEnter?: () => void; entering?: boolean;
-}) {
-  const seed = attachment.seed || {};
-  const people = Array.isArray(seed.people) ? seed.people.filter(Boolean).join("、") : "";
+function SectionLabel({ children }: { children: string }) {
   return (
-    <View style={{
-      marginVertical: 20, borderRadius: 18, overflow: "hidden",
-      backgroundColor: "rgba(243,218,202,0.4)", borderWidth: 1, borderColor: "rgba(255,255,255,0.55)",
-    }}>
-      <View style={{ padding: 16 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
-          <Film size={12} color="#A26458" />
-          <Text style={{ fontSize: 12, fontWeight: "500", color: "#A26458" }}>为你备好了一个小场景</Text>
+    <Text style={{ fontSize: 12, fontWeight: "600", letterSpacing: 1, color: MOOD, marginBottom: 6 }}>{children}</Text>
+  );
+}
+
+/** 「有句话」正文：你说过 / 可以这样开口 / 对方可能会说 → 你可以接。 */
+function RehearsalBody({ r }: { r: Rehearsal }) {
+  const theme = useTheme();
+  const hand = [theme.typography.textStyles.petVoice, { color: paperColors.body }];
+  const who = r.counterpart || "对方";
+  return (
+    <View style={{ gap: 18 }}>
+      {!!r.lead && <Text style={[hand, { fontSize: 17, lineHeight: 28 }]}>{r.lead}</Text>}
+      {!!r.quote && (
+        <View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <MessageCircle size={13} color={MOOD} />
+            <Text style={{ fontSize: 12, fontWeight: "600", letterSpacing: 1, color: MOOD }}>你说过</Text>
+          </View>
+          <View style={{ backgroundColor: MOOD_SOFT, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 }}>
+            <Text style={[hand, { fontSize: 16, lineHeight: 26, color: paperColors.ink2 }]}>“{r.quote}”</Text>
+          </View>
         </View>
-        {!!seed.title && (
-          <Text style={{ fontSize: 14, fontWeight: "500", marginBottom: 6, color: paperColors.ink2 }}>{seed.title}</Text>
-        )}
-        {(!!seed.place || !!people) && (
-          <Text style={{ fontSize: 12, marginBottom: 6, color: paperColors.meta2 }}>
-            {[seed.place, people].filter(Boolean).join(" · ")}
-          </Text>
-        )}
-        {!!seed.plot && (
-          <Text style={{ fontSize: 13, lineHeight: 19, marginBottom: 12, color: paperColors.body }}>{seed.plot}</Text>
-        )}
-        <Pressable onPress={onEnter} disabled={!onEnter || entering}
-          style={({ pressed }) => [{
-            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-            paddingVertical: 12, borderRadius: 999,
-            backgroundColor: entering ? "rgba(246,225,143,0.4)" : "rgba(246,225,143,0.82)",
-            borderWidth: 1, borderColor: "rgba(255,255,255,0.5)",
-            transform: [{ scale: pressed ? 0.97 : 1 }],
-          }]}>
-          <Play size={12} color="#6E5A28" />
-          <Text style={{ fontSize: 14, fontWeight: "500", color: "#6E5A28" }}>
-            {entering ? "正在布置场景…" : "进入场景"}
-          </Text>
-        </Pressable>
+      )}
+      <View>
+        <SectionLabel>可以这样开口</SectionLabel>
+        {r.openers.map((s, i) => (
+          <View key={i} style={{ borderLeftWidth: 2, borderLeftColor: "#D8D0F6", paddingLeft: 12, marginVertical: 4 }}>
+            <Text style={[hand, { fontSize: 16, lineHeight: 26 }]}>“{s}”</Text>
+          </View>
+        ))}
       </View>
+      {r.replies.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <SectionLabel>{`${who}可能会说`}</SectionLabel>
+          {r.replies.map((x, i) => (
+            <View key={i}>
+              <Text style={{ fontSize: 14, lineHeight: 22, fontWeight: "600", color: paperColors.ink2 }}>“{x.they}”</Text>
+              <Text style={{ fontSize: 14, lineHeight: 22, color: paperColors.sub }}>你可以接：{x.you}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {!!r.closing && <Text style={[hand, { fontSize: 16, lineHeight: 26 }]}>{r.closing}</Text>}
     </View>
   );
 }
 
-/** 拆开后的信纸：正文段落 + 附件 + 收到/回信/珍藏操作。 */
-function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, onSave, onEnterScene, entering, onGotoKeepsakes }: {
+/** 信末入口：点了才搭场景，进入问答片场。 */
+function EnterSceneButton({ onEnter, entering, counterpart }: { onEnter?: () => void; entering?: boolean; counterpart?: string }) {
+  const theme = useTheme();
+  return (
+    <View style={{ marginTop: 20 }}>
+      <Pressable onPress={onEnter} disabled={!onEnter || entering}
+        accessibilityRole="button" accessibilityLabel="进去说说看"
+        style={({ pressed }) => ({
+          flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 18,
+          backgroundColor: theme.colors.accent, opacity: entering ? 0.85 : 1,
+          transform: [{ scale: pressed && !entering ? 0.98 : 1 }],
+        })}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.14)" }}>
+          {entering ? <ActivityIndicator color="#fff" size="small" /> : <DoorOpen size={18} color="#fff" />}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: theme.colors.textOnAccent }}>
+            {entering ? "正在搭场景…" : "进去说说看"}
+          </Text>
+          <Text style={{ fontSize: 12, marginTop: 2, color: "rgba(255,255,255,0.75)" }}>
+            {entering ? "搭好就进去，大概十几秒" : `搭一个小场景，和${counterpart || "对方"}练一遍`}
+          </Text>
+        </View>
+      </Pressable>
+      <Text style={{ textAlign: "center", fontSize: 12, marginTop: 10, color: paperColors.meta2 }}>
+        点了才搭场景；不想练，看完这封信就够了。
+      </Text>
+    </View>
+  );
+}
+
+function IconAction({ label, active, onPress, children }: { label: string; active?: boolean; onPress?: () => void; children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+      style={({ pressed }) => ({
+        width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center",
+        backgroundColor: active ? "rgba(226,97,64,0.10)" : theme.colors.surface,
+        transform: [{ scale: pressed ? 0.95 : 1 }],
+      })}>
+      {children}
+    </Pressable>
+  );
+}
+
+/** 信纸：抬头（日期时分 + 标题）+ 正文 / 有句话 + 附件 + 一排操作。 */
+export function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, onSave, onEnterScene, entering, onGotoKeepsakes }: {
   letter: ApiLetter; petName: string;
   saved: boolean; onAck: () => void; acking?: boolean; acked?: boolean;
   onReply: () => void; onSave: () => void;
@@ -178,144 +161,72 @@ function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, on
 }) {
   const [attachSaved, setAttachSaved] = useState(false);
   const theme = useTheme();
-  const sceneInvite = isSceneInvite(letter);
+  const kind = letterKind(letter);
+  const rehearsal = kind === "rehearse" ? rehearsalOf(letter) : null;
   const paras = letter.body.split("\n").filter(p => p.trim());
-  return (
-    <View style={{
-      borderRadius: 24, overflow: "hidden",
-      backgroundColor: "rgba(255,253,247,0.96)", borderWidth: 1, borderColor: "rgba(255,255,255,0.6)",
-    }}>
-      <GrainTexture />
-      {/* 信纸左侧边线 */}
-      <View style={{ position: "absolute", left: 44, top: 0, bottom: 0, width: 1, backgroundColor: "rgba(243,216,199,0.3)" }} />
-      <View style={{ padding: 24 }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
-          <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-            <Text style={{ fontSize: 12, marginBottom: 4, color: paperColors.meta2 }}>{_fmtLetterDate(letter.created_at)}</Text>
-            <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 20, lineHeight: 30, color: paperColors.ink2 }]}>{letter.title}</Text>
-          </View>
-          <View style={{
-            width: 38, height: 38, borderRadius: 8, alignItems: "center", justifyContent: "center",
-            backgroundColor: "rgba(246,231,168,0.6)", borderWidth: 1.5, borderColor: "rgba(196,149,58,0.3)", borderStyle: "dashed",
-          }}>
-            <Text style={{ fontSize: 18 }}>🌿</Text>
-          </View>
-        </View>
-
-        <View style={{ gap: 16 }}>
-          {paras.map((para, i) => (
-            <Text key={i} style={{ fontSize: 15, lineHeight: 25, color: paperColors.body }}>{para}</Text>
-          ))}
-        </View>
-
-        {letter.attachment && sceneInvite && (
-          <SceneInviteCard attachment={letter.attachment as SceneInviteAttachment}
-            onEnter={onEnterScene} entering={entering} />
-        )}
-        {letter.attachment && !sceneInvite && (
-          <LetterAttachment attachment={letter.attachment} saved={attachSaved} onSave={() => setAttachSaved(s => !s)} />
-        )}
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
-          <Text style={{ fontSize: 15, fontStyle: "italic", letterSpacing: 0.5, color: paperColors.meta2 }}>{petName}</Text>
-          <View style={{ width: 28, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(243,216,199,0.45)" }}>
-            <Text style={{ fontSize: 14 }}>✦</Text>
-          </View>
-        </View>
-
-        {/* Actions */}
-        <View style={{ marginTop: 24, gap: 8 }}>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable onPress={onAck} disabled={!!acking || !!acked}
-              style={({ pressed }) => [{
-                flex: 1, paddingVertical: 12, borderRadius: 999, alignItems: "center",
-                backgroundColor: acked ? "rgba(221,237,227,0.55)" : acking ? "rgba(246,231,168,0.4)" : "rgba(246,231,168,0.75)",
-                borderWidth: 1, borderColor: "rgba(255,255,255,0.5)",
-                opacity: acked ? 0.7 : 1,
-                transform: [{ scale: pressed && !acking && !acked ? 0.97 : 1 }],
-              }]}>
-              <Text style={{ fontSize: 14, fontWeight: "500", color: acked ? "#5A8A6A" : paperColors.ink2 }}>
-                {acked ? "✓ 已收到" : acking ? "正在告诉它…" : "收到啦"}
-              </Text>
-            </Pressable>
-            <Pressable onPress={onReply}
-              style={{ flex: 1, paddingVertical: 12, borderRadius: 999, alignItems: "center", backgroundColor: "rgba(255,252,245,0.7)", borderWidth: 1, borderColor: "rgba(255,255,255,0.45)" }}>
-              <Text style={{ fontSize: 14, color: paperColors.body }}>回它一句</Text>
-            </Pressable>
-          </View>
-          <Pressable onPress={onSave}
-            style={{
-              paddingVertical: 12, borderRadius: 999, alignItems: "center",
-              backgroundColor: saved ? "rgba(221,237,227,0.55)" : "rgba(255,252,245,0.6)",
-              borderWidth: 1, borderColor: "rgba(255,255,255,0.4)",
-            }}>
-            <Text style={{ fontSize: 14, color: saved ? "#5A8A6A" : paperColors.meta2 }}>
-              {saved ? "✓ 已经替你收好" : "把这封信留下"}
-            </Text>
-          </Pressable>
-          {!saved && (
-            <Text style={{ textAlign: "center", fontSize: 11, marginTop: 8, lineHeight: 16, color: paperColors.meta2 }}>
-              如果不留下，它会在明天的新信到达时离开。
-            </Text>
-          )}
-          {saved && (
-            <Pressable onPress={onGotoKeepsakes} style={{ alignItems: "center", marginTop: 8 }}>
-              <Text style={{ fontSize: 12, color: paperColors.dim }}>去「我留下的」看看</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/** 今天还没有来信时的等待态。 */
-function WaitingLetterState() {
-  const { C } = useMailboxSurface();
-  return (
-    <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48, gap: 20 }}>
-      <View style={{
-        width: 120, height: 80, borderRadius: 14, alignItems: "center", justifyContent: "center",
-        backgroundColor: "rgba(255,252,245,0.65)", borderWidth: 1, borderColor: "rgba(255,255,255,0.45)",
-      }}>
-        <Text style={{ fontSize: 28 }}>✉️</Text>
-      </View>
-      <View style={{ alignItems: "center" }}>
-        <Text style={{ fontSize: 15, fontWeight: "500", marginBottom: 6, color: C.text }}>今天的信还在路上</Text>
-        <Text style={{ fontSize: 13, lineHeight: 19, color: C.muted }}>有想告诉你的时候，它会送来。</Text>
-      </View>
-    </View>
-  );
-}
-
-/** 来信主视图：按 letterState 在等待/信封/信纸之间切换。letter 为当前展示的信件。 */
-export function DailyLetterView({ letter, petName, letterState, onReply, onOpenLetter, onSaveLetter, onAckLetter, acking, ackedIds, onEnterScene, entering, onGotoKeepsakes }: {
-  letter: ApiLetter | null; petName: string; letterState: LetterState;
-  onReply: () => void; onOpenLetter: () => void; onSaveLetter: () => void; onAckLetter: () => void;
-  acking?: boolean; ackedIds?: Set<number>;
-  onEnterScene?: (letter: ApiLetter) => void; entering?: boolean;
-  onGotoKeepsakes?: () => void;
-}) {
-  const saved = letterState === "saved";
-  const isOpening = letterState === "opening";
-  const showEnvelope = letter != null && (letterState === "sealed" || letterState === "opening");
-  const showLetter = letter != null && (letterState === "opened" || letterState === "saved");
+  const musicAttachment = letter.attachment && kind !== "rehearse" && letter.attachment.title ? letter.attachment : null;
 
   return (
     <View>
-      {(letter == null || letterState === "waiting") && <WaitingLetterState />}
-      {showEnvelope && (
-        <View style={{ alignItems: "center", paddingVertical: 32 }}>
-          <SealedEnvelope letter={letter} onOpen={onOpenLetter} isOpening={isOpening} />
+      <View style={{
+        borderRadius: 22, overflow: "hidden",
+        backgroundColor: "rgba(255,253,247,0.98)", borderWidth: 1, borderColor: "rgba(255,255,255,0.6)",
+      }}>
+        <GrainTexture />
+        <View style={{ padding: 22 }}>
+          <Text style={{ fontSize: 12.5, color: paperColors.meta2 }}>{_fmtLetterDate(letter.created_at)}</Text>
+          <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 22, lineHeight: 32, marginTop: 4, marginBottom: 16, color: paperColors.ink2 }]}>
+            {letter.title}
+          </Text>
+
+          {rehearsal ? <RehearsalBody r={rehearsal} /> : (
+            <View style={{ gap: 14 }}>
+              {paras.map((para, i) => (
+                <Text key={i} style={[theme.typography.textStyles.petVoice, { fontSize: 17, lineHeight: 29, color: paperColors.body }]}>{para}</Text>
+              ))}
+            </View>
+          )}
+
+          {musicAttachment && (
+            <LetterAttachment attachment={musicAttachment} saved={attachSaved} onSave={() => setAttachSaved(s => !s)} />
+          )}
+
+          <Text style={[theme.typography.textStyles.petVoice, { fontSize: 16, textAlign: "right", marginTop: 16, color: paperColors.meta2 }]}>
+            —— {petName}
+          </Text>
         </View>
+      </View>
+
+      {kind === "rehearse" && (
+        <EnterSceneButton onEnter={onEnterScene} entering={entering} counterpart={rehearsal?.counterpart} />
       )}
-      {showLetter && (
-        <LetterPaper letter={letter} petName={petName} saved={saved}
-          onAck={onAckLetter} acking={acking} acked={ackedIds?.has(letter.id) ?? false}
-          onReply={onReply} onSave={onSaveLetter}
-          onEnterScene={onEnterScene ? () => onEnterScene(letter) : undefined}
-          entering={entering} onGotoKeepsakes={onGotoKeepsakes} />
-      )}
+
+      {/* 一排操作：主按钮收到啦 + 回一句 / 留下 */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 18 }}>
+        <Pressable onPress={onAck} disabled={!!acking || !!acked}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flex: 1, height: 46, borderRadius: 23, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            // 有句话的主角是「进去说说看」，收到啦退成浅色，避免两个深色按钮抢
+            backgroundColor: acked || kind === "rehearse" ? theme.colors.accentSoft : theme.colors.accent,
+            opacity: acking ? 0.7 : 1,
+            transform: [{ scale: pressed && !acking && !acked ? 0.98 : 1 }],
+          })}>
+          <Check size={16} color={acked || kind === "rehearse" ? theme.colors.accent : theme.colors.textOnAccent} />
+          <Text style={{ fontSize: 15, fontWeight: "600", color: acked || kind === "rehearse" ? theme.colors.accent : theme.colors.textOnAccent }}>
+            {acked ? `${petName}知道啦` : acking ? "正在告诉它…" : "收到啦"}
+          </Text>
+        </Pressable>
+        <IconAction label="回它一句" onPress={onReply}>
+          <Reply size={18} color={theme.colors.textSecondary} />
+        </IconAction>
+        <IconAction label={saved ? "已经留下" : "把这封信留下"} active={saved} onPress={saved ? onGotoKeepsakes : onSave}>
+          <Bookmark size={18} color={saved ? "#E26140" : theme.colors.textSecondary} fill={saved ? "#E26140" : "transparent"} />
+        </IconAction>
+      </View>
+      <Text style={{ textAlign: "center", fontSize: 12, marginTop: 12, color: theme.colors.textMuted }}>
+        {saved ? "已经替你收好，在「我留下的」里" : "不留下的话，它会安静地待在往期里。"}
+      </Text>
     </View>
   );
 }

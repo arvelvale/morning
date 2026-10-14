@@ -138,6 +138,16 @@ export function parseISO(s: string): Date {
 
 export type LetterState = "waiting" | "sealed" | "opening" | "opened" | "saved";
 
+/** 「有句话」来信的结构化内容（后端 scene_recommend._parse_invite；旧信没有，退回读 body）。 */
+export interface Rehearsal {
+  counterpart: string;
+  quote: string;
+  lead: string;
+  openers: string[];
+  replies: { they: string; you: string }[];
+  closing: string;
+}
+
 /** scene_invite 信件附件（后端 scene_recommend.generate_scene_invite 写入） */
 export interface SceneInviteAttachment {
   kind: "scene_invite";
@@ -146,6 +156,7 @@ export interface SceneInviteAttachment {
   seed: { title?: string; people?: string[]; place?: string; plot?: string; intent?: string };
   confidence?: number;
   scene_id?: number; // 接受后回写
+  rehearsal?: Rehearsal | null;
 }
 
 /** 后端 LetterOut */
@@ -168,32 +179,5 @@ export function isSceneInvite(letter: ApiLetter): boolean {
   return letter.type === "scene_invite" || letter.attachment?.kind === "scene_invite";
 }
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-
-/** 后端时间可能不带时区（SQLite 时代的旧数据），按 UTC 理解，再转成手机本地时间。 */
-function parseLetterTime(iso: string | null | undefined): Date | null {
-  if (!iso) return null;
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
-  const d = new Date(hasZone ? iso : `${iso}Z`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/** ISO → 「M月D日 · 周X HH:mm」（信纸抬头）；解析失败返回空串。 */
-export function _fmtLetterDate(iso: string): string {
-  const d = parseLetterTime(iso);
-  if (!d) return "";
-  const wd = ["日", "一", "二", "三", "四", "五", "六"][d.getDay()];
-  return `${d.getMonth() + 1}月${d.getDate()}日 · 周${wd} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-/** ISO → 列表里的短时间：今天 21:30 / 昨天 21:30 / 10月13日（往期来信行）。 */
-export function letterListTime(iso: string, now = new Date()): string {
-  const d = parseLetterTime(iso);
-  if (!d) return "";
-  const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const diff = Math.round((day(now) - day(d)) / 86400000);
-  if (diff === 0) return `今天 ${hm}`;
-  if (diff === 1) return `昨天 ${hm}`;
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
-}
+// 信件时间、归类与分组都是纯函数，放在 letterGroups.ts（node 测试能直接加载）
+export * from "./letterGroups";

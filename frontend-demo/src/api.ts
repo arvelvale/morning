@@ -288,9 +288,10 @@ export const getLetter = (id: number) => get(`/api/v1/letters/${id}`);
 export const markLetterRead = (id: number) => patch(`/api/v1/letters/${id}`, { read: true });
 export const ackLetter = (id: number) => post<{ message: string }>(`/api/v1/letters/${id}/ack`, {});
 /** 接受场景邀请信：幂等创建场景，返回 { scene_id, render_kind, theater_id, already_accepted }。 */
+// 2026-10-14 起夜里不再预搭场景，点「进去说说看」时才现搭（剧本 + 生成式 3D/图片），要用长超时
 export const acceptSceneInvite = (id: number) =>
   post<{ scene_id: number; render_kind: string; theater_id: string | null; already_accepted: boolean }>(
-    `/api/v1/letters/${id}/accept-scene`
+    `/api/v1/letters/${id}/accept-scene`, undefined, IMAGE_TIMEOUT_MS
   );
 export const listEphemeral = () => get("/api/v1/ephemeral");
 export const keepEphemeral = (id: number) => post(`/api/v1/ephemeral/${id}/keep`);

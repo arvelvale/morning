@@ -45,7 +45,7 @@ export const KIND_WHERE: Record<CaughtKind, string> = {
   todo: "收进待办",
   idea: "收进灵感",
   mood: "听见了，先替你寄存着",
-  frag: "先静静收着，想回看就去片场",
+  frag: "先静静收着，放不下的话我会写信给你",
 };
 
 /** 后端时间可能不带时区（SQLite），按 UTC 理解。 */
