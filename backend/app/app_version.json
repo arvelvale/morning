@@ -1,16 +1,16 @@
 {
-  "latest": "0.3.15",
+  "latest": "0.3.16",
   "min_supported": "0.1.0",
-  "version_code": 18,
-  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.15.apk",
+  "version_code": 19,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.16.apk",
   "apk_sha256": "placeholder-will-be-replaced-by-publish-script",
   "size_bytes": 0,
   "size_mb": 0,
   "mandatory": false,
   "changelog": [
-    "修复部分手机安装时提示「安装包没有签名文件」",
-    "片场里的人物重新建模：更圆润的玩偶质感，眼睛有高光，头发、手、鞋、大衣和校服都有了细节",
-    "片场的背景和道具更好看：天空有云，月亮更柔和，地面有草丛，松树、灌木、岩石、帐篷重新做过",
-    "黄昏和夜里的场景提亮，不再看不清"
+    "信箱改版：信按天整理，提醒和碎碎念叠成「小纸条」，往期可以按类型筛选和搜索",
+    "每封信都显示具体送达时间",
+    "片场不再单独占一个入口：米露发现你有话说不出口时，会写一封「有句话」，想练的话从信里进去说说看",
+    "点米露、波比会有各自的声音"
   ]
 }

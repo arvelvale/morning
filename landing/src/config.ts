@@ -8,8 +8,8 @@ export const DOWNLOADS = {
     sub: 'HarmonyOS NEXT',
   },
   android: {
-    url: 'https://github.com/arvelvale/morning-site/releases/download/v0.3.15/morning-android-0.3.15.apk',
-    version: 'v0.3.15',
+    url: 'https://github.com/arvelvale/morning-site/releases/download/v0.3.16/morning-android-0.3.16.apk',
+    version: 'v0.3.16',
     sub: 'Android 7.0 起，建议 Android 10 及以上',
   },
 } as const;
