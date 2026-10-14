@@ -14,7 +14,6 @@ export const DOWNLOADS = {
   },
 } as const;
 
-export const GITHUB_URL = 'https://github.com/arvelvale/morning-site';
 
 /** 允许带 CSS 自定义属性(--xxx)的 style 对象 */
 export type VarStyle = CSSProperties & Record<`--${string}`, string | number>;

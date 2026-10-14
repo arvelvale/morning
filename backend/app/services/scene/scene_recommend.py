@@ -329,9 +329,9 @@ def run_scene_recommend_all(db: Session) -> list[dict[str, Any]]:
 
     推荐产出后落库 scene_invite 来信（信箱可见），accept 接口见 letters 路由。
     """
-    from app.models.user import User
+    from app.services.infra.engagement import reachable_users
 
-    users = list(db.scalars(select(User).where(User.is_active == True)).all())  # noqa: E712
+    users = reachable_users(db, "scene_recommend")  # 跳过连续多天没打开 App 的用户，见 engagement.py
     results: list[dict[str, Any]] = []
     for user in users:
         try:

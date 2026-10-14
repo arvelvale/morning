@@ -6,13 +6,14 @@
 把之前的 `user_id=1` 占位替换成 `user.id` 即可。
 """
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.security import decode_token
 from app.db import get_db
 from app.models.user import User
+from app.services.infra.engagement import counts_as_open, touch_last_active
 
 _bearer = HTTPBearer(auto_error=True)
 
@@ -36,6 +37,7 @@ def user_id_from_token(token: str | None) -> int | None:
 
 
 def get_current_user(
+    request: Request,
     creds: HTTPAuthorizationCredentials = Depends(_bearer),
     db: Session = Depends(get_db),
 ) -> User:
@@ -55,4 +57,6 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise cred_exc
+    if counts_as_open(request.method, request.url.path):
+        touch_last_active(user)
     return user

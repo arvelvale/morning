@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models.preference import UserPreference
-from app.models.user import User
+from app.services.infra.engagement import reachable_users
 from app.services.signals import fusion
 from app.services.signals.context import now_local
 from app.services.signals.date_context import get_date_context
@@ -117,7 +117,7 @@ def run_tick_all(db: Session) -> dict[str, Any]:
         return {"skipped": "proactive_disabled"}
 
     local = now_local()
-    users = list(db.scalars(select(User).where(User.is_active == True)).all())  # noqa: E712
+    users = reachable_users(db, "signal_tick")  # 跳过连续多天没打开 App 的用户，见 engagement.py
     summary = {
         "users": len(users), "detected": 0, "ingested": 0,
         "allowed": 0, "suppressed": 0, "expired": 0, "local_time": local.isoformat(),

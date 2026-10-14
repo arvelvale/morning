@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     # 能力开关（可回滚）
     dreaming_enabled: bool = True
     proactive_enabled: bool = True
+    # 连续多少个自然日（东八区）没打开 App 就停发自动生成的消息；<=0 关闭此规则
+    dormant_after_days: int = 3
     user_profile_enabled: bool = True
 
     # 鉴权（JWT）—— 生产务必用 .env 覆盖 jwt_secret

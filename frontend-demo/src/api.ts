@@ -234,6 +234,8 @@ export async function logout(): Promise<void> {
   await clearTokens();
 }
 export const getMe = () => get("/api/v1/users/me");
+/** 告诉后端「用户打开了 App」：连续多天没打开的用户，后端会停发自动来信。失败无所谓。 */
+export const markActive = () => post("/api/v1/users/me/active").catch(() => null);
 
 // ─── 陪伴 / 对话 ─────────────────────────────────────────────────────────
 export const getCompanionHome = () => get("/api/v1/companion/home");

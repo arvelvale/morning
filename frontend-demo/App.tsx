@@ -30,7 +30,7 @@ import { AuthScreen } from "./src/screens/Auth";
 import { Scene3DPreview } from "./src/screens/Scene3DPreview";
 import {
   getActivePet, getPreferences, listHandoffs, listPets, listPetPresets,
-  loadTokens, logout, setActivePet, Tokens, updatePreferences,
+  loadTokens, logout, markActive, setActivePet, Tokens, updatePreferences,
 } from "./src/api";
 import { initNotifications, startLetterPolling, stopLetterPolling } from "./src/notifications";
 import { UpdateSheet } from "./src/components/UpdateSheet";
@@ -246,6 +246,11 @@ function MorningApp() {
       return;
     }
     let alive = true;
+    // 「打开过 App」的信号：启动时一次，之后每次回到前台一次（后端据此给久未打开的用户停发来信）。
+    void markActive();
+    const activeSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void markActive();
+    });
     initNotifications().then(() => {
       if (alive) startLetterPolling();
     });
@@ -264,6 +269,7 @@ function MorningApp() {
     });
     return () => {
       alive = false;
+      activeSub.remove();
       stopLetterPolling();
     };
   }, [tokens]);

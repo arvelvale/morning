@@ -164,6 +164,12 @@ def logout(_: User = Depends(get_current_user)):
     return None
 
 
+@router.post("/users/me/active", status_code=status.HTTP_204_NO_CONTENT)
+def mark_active(_: User = Depends(get_current_user)):
+    # App 回到前台时调用；记录动作在 get_current_user 里（带节流），这里只是显式入口。
+    return None
+
+
 @router.get("/users/me", response_model=UserOut)
 def read_me(current: User = Depends(get_current_user)):
     return current

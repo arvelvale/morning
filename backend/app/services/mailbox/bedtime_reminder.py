@@ -97,12 +97,12 @@ def run_due_bedtime_reminders(db: Session) -> list[dict[str, Any]]:
     触发规则：当天东八区当前时刻 >= 用户设定时间，且今日尚未发过。
     （到点即发、晚开机则当日补发一次；幂等保证每天至多一条。）
     """
-    from app.models.user import User
+    from app.services.infra.engagement import reachable_users
 
     now = datetime.now(CST)
     now_minutes = now.hour * 60 + now.minute
 
-    users = list(db.scalars(select(User).where(User.is_active == True)).all())  # noqa: E712
+    users = reachable_users(db, "bedtime_reminder")  # 跳过连续多天没打开 App 的用户，见 engagement.py
     results: list[dict[str, Any]] = []
     for user in users:
         pref = db.scalar(

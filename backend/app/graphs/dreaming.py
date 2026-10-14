@@ -404,9 +404,9 @@ def run_dreaming(db: Session, user_id: int) -> dict[str, Any]:
 
 def run_dreaming_all(db: Session) -> list[dict[str, Any]]:
     """对所有活跃用户执行做梦（定时任务入口）。"""
-    from app.models.user import User
+    from app.services.infra.engagement import reachable_users
 
-    users = list(db.scalars(select(User).where(User.is_active == True)).all())  # noqa: E712
+    users = reachable_users(db, "dreaming")  # 跳过连续多天没打开 App 的用户，见 engagement.py
     results = []
     for user in users:
         try:

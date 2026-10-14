@@ -214,9 +214,9 @@ def _parse_letter(raw: str) -> tuple[str, str]:
 
 def run_evening_letters_all(db: Session) -> list[dict[str, Any]]:
     """对所有活跃用户生成晚间来信（定时任务入口）。"""
-    from app.models.user import User
+    from app.services.infra.engagement import reachable_users
 
-    users = list(db.scalars(select(User).where(User.is_active == True)).all())  # noqa: E712
+    users = reachable_users(db, "evening_letter")  # 跳过连续多天没打开 App 的用户，见 engagement.py
     results: list[dict[str, Any]] = []
     for user in users:
         try:

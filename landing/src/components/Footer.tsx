@@ -1,4 +1,3 @@
-import { GITHUB_URL } from '../config';
 
 /** 极简页脚。 */
 export default function Footer() {
@@ -14,7 +13,6 @@ export default function Footer() {
           <a href="#hero">Product</a>
           <a href="#">Privacy</a>
           <a href="#">Terms</a>
-          <a href={GITHUB_URL}>GitHub</a>
         </div>
         <p className="foot-slogan">Made for the thoughts you don't want to carry alone.</p>
       </div>
