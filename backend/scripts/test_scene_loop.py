@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 import app.models  # noqa: F401  注册全部表
 from app.core.security import hash_password
 from app.db import Base
+from app.models.conversation import Conversation, Message
 from app.models.letter import Letter
 from app.models.memory import MemoryItem
 from app.models.scene import Scene
@@ -33,7 +34,6 @@ from app.routers.scene.scenes import list_scenes
 from app.services.mailbox import evening_letter
 from app.services.memory.memory_store import MemoryStore
 from app.services.scene import scene_recommend, scene_service
-from app.services.scene.invite_stage import INVITED
 
 OPENING = {"title": "那句话", "setting": "傍晚的客厅", "beats": [{"speaker": "旁白", "text": "灯亮着。"}],
            "choices": [{"id": "1", "label": "开口"}]}
@@ -52,13 +52,19 @@ class FakeLLM:
         return SimpleNamespace(content=self.replies.pop(0))
 
 
-def recommend_reply(fragment_id):
+def recommend_reply(fragment_id, quote="和小林吵架那句话，一直放不下"):
     return json.dumps({"worth": True, "fragment_id": fragment_id, "title": "那句话", "people": ["小林"],
                        "place": "客厅", "plot": "想把那句话重新说一遍", "intent": "把没说的话说完",
+                       "quote": quote, "counterpart": "小林",
                        "theater_id": None, "confidence": 0.2}, ensure_ascii=False)
 
 
-INVITE_REPLY = json.dumps({"title": "一张戏票", "body": "昨晚那件事，我搭了个小剧场。"}, ensure_ascii=False)
+INVITE_REPLY = json.dumps({
+    "title": "想跟小林说的那句话", "lead": "你说那次吵架后，那句话一直卡着。",
+    "openers": ["小林，那天我说重了，想跟你说声对不起。", "我们能聊聊那天的事吗？"],
+    "replies": [{"they": "算了，都过去了。", "you": "我知道，但我还是想说出来。"}, {"they": "缺", "you": ""}],
+    "closing": "说出口就已经很勇敢了。",
+}, ensure_ascii=False)
 EVENING_REPLY = json.dumps({"title": "晚安", "body": "演完之后，心里轻一点了吗？"}, ensure_ascii=False)
 
 
@@ -118,18 +124,26 @@ class SceneLoopTests(unittest.TestCase):
         self.assertIsNotNone(letter)
         self.assertEqual(letter.attachment["fragment_id"], surface.id)
         self.assertEqual(letter.ref_memory_id, surface.id)
-        scene = self.db.get(Scene, letter.attachment["scene_id"])
-        self.assertEqual(scene.status, INVITED, "应连夜预搭好")
+        # 「有句话」：结构化内容 + 纯文本正文（旧版 App 只读 body）
+        r = letter.attachment["rehearsal"]
+        self.assertEqual(r["quote"], "和小林吵架那句话，一直放不下")
+        self.assertEqual(r["counterpart"], "小林")
+        self.assertEqual(len(r["openers"]), 2)
+        self.assertEqual(r["replies"], [{"they": "算了，都过去了。", "you": "我知道，但我还是想说出来。"}], "不完整的回应被丢弃")
+        self.assertIn("可以这样开口", letter.body)
+        self.assertIn("小林可能会说：算了，都过去了。", letter.body)
+        # 不再连夜预搭：没人点就不花模型调用
+        self.assertNotIn("scene_id", letter.attachment)
+        self.assertEqual(self.db.scalars(select(Scene)).all(), [], "夜里不建场景")
+        self.assertEqual(len(llm.prompts), 2, "夜里只有判断 + 写信两次调用")
+
+        res = accept_scene_invite(letter.id, user=self.user, db=self.db)
+        self.assertFalse(res["already_accepted"])
+        scene = self.db.get(Scene, res["scene_id"])
+        self.assertEqual(scene.status, "active", "点「进去说说看」时现搭")
         self.assertEqual(scene.render_kind, "generated_3d")
         self.assertEqual(scene.scene_spec, SPEC)
         self.assertEqual(scene.source_fragment_id, surface.id)
-        self.assertEqual(list_scenes(user=self.user, db=self.db), [], "预搭场景接受前不进片场列表")
-
-        res = accept_scene_invite(letter.id, user=self.user, db=self.db)
-        self.assertEqual(res["scene_id"], scene.id)
-        self.assertFalse(res["already_accepted"])
-        self.db.refresh(scene)
-        self.assertEqual(scene.status, "active")
         self.db.refresh(surface)
         self.assertEqual(surface.status, "confirmed", "接受 = 确认片段，离开草稿箱")
         self.assertTrue(accept_scene_invite(letter.id, user=self.user, db=self.db)["already_accepted"])
@@ -183,12 +197,53 @@ class SceneLoopTests(unittest.TestCase):
         ids = {m.id for m in scene_recommend._gather_dump_fragments(self.db, self.user.id)}
         self.assertNotIn(frag.id, ids)
 
-    def test_prestage_failure_falls_back_on_accept(self):
-        frag = self.fragment("预搭会失败的一件事")
-        with patch("app.graphs.theater.generate_manual", side_effect=RuntimeError("模型超时")):
-            self.run_nightly(frag.id)
+    def test_chat_lines_are_material(self):
+        conv = Conversation(user_id=self.user.id, mode="free_chat")
+        self.db.add(conv)
+        self.db.commit()
+        self.db.add_all([Message(conversation_id=conv.id, role="user", content="想跟我妈说实习想去杭州，但开不了口"),
+                         Message(conversation_id=conv.id, role="assistant", content="桌宠的回复不该进素材")])
+        self.db.commit()
+        llm = FakeLLM([recommend_reply(None, quote="想跟我妈说实习想去杭州"), INVITE_REPLY])
+        with patch.object(scene_recommend, "get_chat_model", return_value=llm):
+            scene_recommend.run_scene_recommend_all(self.db)
+        self.assertIn("想跟我妈说实习想去杭州", llm.prompts[0])
+        self.assertNotIn("桌宠的回复不该进素材", llm.prompts[0])
         letter = self.db.scalar(select(Letter).where(Letter.type == "scene_invite"))
-        self.assertIsNotNone(letter, "预搭失败不影响邀请信送达")
+        self.assertEqual(letter.attachment["rehearsal"]["quote"], "想跟我妈说实习想去杭州")
+
+    def test_invented_quote_is_dropped(self):
+        frag = self.fragment("和室友的事")
+        llm = FakeLLM([recommend_reply(frag.id, quote="我真的很讨厌他"), INVITE_REPLY])
+        with patch.object(scene_recommend, "get_chat_model", return_value=llm):
+            scene_recommend.run_scene_recommend_all(self.db)
+        letter = self.db.scalar(select(Letter).where(Letter.type == "scene_invite"))
+        self.assertEqual(letter.attachment["rehearsal"]["quote"], "", "素材里没有的话不能印成「你说过」")
+        self.assertNotIn("你说过", letter.body)
+
+    def test_weekly_cap_skips_model_call(self):
+        for i in range(scene_recommend.WEEKLY_INVITE_CAP):
+            self.db.add(Letter(user_id=self.user.id, type="scene_invite", title="t", body="b",
+                               generation_key=f"old-{i}", created_at=datetime.now(timezone.utc) - timedelta(days=i + 1)))
+        self.db.commit()
+        self.fragment("又一件事")
+        llm = FakeLLM([])
+        with patch.object(scene_recommend, "get_chat_model", return_value=llm):
+            self.assertIsNone(scene_recommend.analyze_for_user(self.db, self.user.id))
+        self.assertEqual(llm.prompts, [], "到上限连判断都不调模型")
+
+    def test_old_invite_format_still_sends(self):
+        title, body, r = scene_recommend._parse_invite('{"title": "一张戏票", "body": "想去看看吗"}', {})
+        self.assertEqual((title, body, r), ("一张戏票", "想去看看吗", None))
+        title, body, r = scene_recommend._parse_invite("不是 JSON", {"title": "那句话", "people": ["小林"]})
+        self.assertIsNone(r)
+        self.assertIn("小林", body)
+
+    def test_accept_without_prestage(self):
+        frag = self.fragment("现搭会失败的一件事")
+        self.run_nightly(frag.id)
+        letter = self.db.scalar(select(Letter).where(Letter.type == "scene_invite"))
+        self.assertIsNotNone(letter)
         self.assertNotIn("scene_id", letter.attachment)
         res = accept_scene_invite(letter.id, user=self.user, db=self.db)
         self.assertEqual(self.db.get(Scene, res["scene_id"]).status, "active")

@@ -60,12 +60,21 @@ MAX_FRAGMENTS = 8
 # 素材回看窗口（滚动 24 小时，见模块说明）
 LOOKBACK = timedelta(hours=24)
 
+# 送进 prompt 的文字聊天（只取用户自己说的话）字数上限
+MAX_CHAT_CHARS = 2000
+
+# 「有句话」来信每 7 天最多几封（2026-10-14 片场改由信箱进入）：
+# 由 agent 自己判断，误判/过于频繁都打扰人；达到上限时连判断这一步的模型调用也跳过。
+WEEKLY_INVITE_CAP = 2
+
 RECOMMEND_SYSTEM_PROMPT = """\
 你是喵灵的场景导演。下面是用户最近一天留下的素材：睡前倾倒里整理出的「片段」
 （每条带编号），以及与桌宠的语音通话转写（可能没有）。
 你的任务：判断其中是否藏着一件用户放不下、值得「演出来」的事（一段有人物、有地点、
 有情绪张力或温情的小事），如果有，把它提炼成一个可演出的场景种子。
+最值得的是「有句话想对某个人说，却说不出口」：想道歉、想拒绝、想坦白、想告别、想提一个请求。
 片段是用户亲口说出、整理后仍放不下的事，优先从片段里选；选中片段时填它的编号。
+素材里还有用户在文字聊天里说的原话（只有用户说的，没有桌宠的回复）。
 
 同时给出与预置舞台的匹配：预置舞台列表（id: 描述）：
 {theaters}
@@ -79,11 +88,14 @@ RECOMMEND_SYSTEM_PROMPT = """\
   "place": "发生地点",
   "plot": "一句话剧情概要",
   "intent": "用户想在场景里获得什么（如：把没说的话说完/重温/预演）",
+  "quote": "从素材里原样摘一句用户自己说的话（最能代表这件事的那句，60字内）；找不到就填空串",
+  "counterpart": "用户想对谁说（如：妈妈、室友小林），不明确填空串",
   "theater_id": "最匹配的预置舞台id，都不匹配填 null",
   "confidence": 0.0               // 对 theater_id 匹配的置信度 0~1
 }}
 
 判定标准：
+- quote 必须逐字摘自素材，不许改写、不许编造；它会原样出现在给用户的信里。
 - 只有闲聊寒暄、任务指令、无具体人事物 → worth=false。
 - 有具体的人、事、情绪（遗憾/期待/思念/紧张）→ worth=true。
 - theater_id 必须严格从预置列表 id 中选，语义不贴合就填 null 且 confidence 给低分。
@@ -169,6 +181,35 @@ def _gather_voice_transcript(db: Session, user_id: int) -> str:
     return text[:MAX_TRANSCRIPT_CHARS]
 
 
+def _gather_chat_lines(db: Session, user_id: int) -> str:
+    """回看窗口内文字聊天里用户自己说的话（不含桌宠回复、不含语音通话，后者另有转写）。
+
+    「有话说不出口」最常出现在随手的聊天里；只取用户的原话，既省 token，也避免把桌宠的话当成用户的事。
+    """
+    rows = db.execute(
+        select(Message.content)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .where(
+            Conversation.user_id == user_id,
+            Conversation.mode != "voice_call",
+            Message.role == "user",
+            Message.created_at >= _since_lookback(),
+        )
+        .order_by(Message.id.asc())
+    ).all()
+    text = "\n".join(f"- {(c or '').strip()}" for (c,) in rows if (c or "").strip())
+    return text[-MAX_CHAT_CHARS:]  # 超长时保留最近的
+
+
+def _recent_invite_count(db: Session, user_id: int, now: datetime | None = None) -> int:
+    since = (now or datetime.now(timezone.utc)) - timedelta(days=7)
+    return len(db.scalars(
+        select(Letter.id).where(
+            Letter.user_id == user_id, Letter.type == "scene_invite", Letter.created_at >= since,
+        )
+    ).all())
+
+
 def _parse_recommend(raw: str, fragment_ids: set[int] | None = None) -> dict[str, Any] | None:
     """解析 LLM 输出为推荐 dict；解析失败或 worth=false 返回 None。
 
@@ -224,6 +265,9 @@ def _parse_recommend(raw: str, fragment_ids: set[int] | None = None) -> dict[str
             "place": str(parsed.get("place") or "").strip(),
             "plot": str(parsed.get("plot") or "").strip(),
             "intent": str(parsed.get("intent") or "").strip(),
+            # 「有句话」信里引用的用户原话、想对谁说；缺了就不引用，不编
+            "quote": str(parsed.get("quote") or "").strip()[:80],
+            "counterpart": str(parsed.get("counterpart") or "").strip()[:12],
         },
     }
 
@@ -234,10 +278,14 @@ def analyze_for_user(db: Session, user_id: int) -> dict[str, Any] | None:
     返回 {render_kind, theater_id, confidence, fragment_id, seed{title,people,place,plot,intent}}；
     无素材 / 不值得 / LLM 失败 → None。
     """
+    if _recent_invite_count(db, user_id) >= WEEKLY_INVITE_CAP:
+        logger.info("[scene-recommend] user %d reached weekly cap (%d), skip", user_id, WEEKLY_INVITE_CAP)
+        return None
     fragments = _gather_dump_fragments(db, user_id)
     transcript = _gather_voice_transcript(db, user_id)
-    if not fragments and not transcript:
-        logger.info("[scene-recommend] user %d no fragments or voice_call in lookback, skip", user_id)
+    chat = _gather_chat_lines(db, user_id)
+    if not fragments and not transcript and not chat:
+        logger.info("[scene-recommend] user %d no fragments, chat or voice_call in lookback, skip", user_id)
         return None
 
     fragment_text = "\n".join(
@@ -252,6 +300,7 @@ def analyze_for_user(db: Session, user_id: int) -> dict[str, Any] | None:
             {"role": "system", "content": RECOMMEND_SYSTEM_PROMPT.format(theaters=theaters_text)},
             {"role": "user", "content": (
                 f"睡前倾倒里的片段：\n{fragment_text}\n\n"
+                f"文字聊天里用户说的话：\n{chat or '（没有）'}\n\n"
                 f"语音通话转写：\n{transcript or '（没有）'}\n\n"
                 f"可纠正的长期理解（仅供消歧）：\n{profile_context}"
             )},
@@ -263,7 +312,18 @@ def analyze_for_user(db: Session, user_id: int) -> dict[str, Any] | None:
     rec = _parse_recommend(resp.content, {m.id for m in fragments})
     if rec is None:
         logger.info("[scene-recommend] user %d nothing worth recommending", user_id)
+        return None
+    # 原话会原样印在信里：素材里找不到就丢掉，绝不让模型替用户「说过」什么
+    material = fragment_text + "\n" + chat + "\n" + transcript
+    if rec["seed"]["quote"] and _norm(rec["seed"]["quote"]) not in _norm(material):
+        logger.info("[scene-recommend] user %d quote not found in material, dropped", user_id)
+        rec["seed"]["quote"] = ""
     return rec
+
+
+def _norm(s: str) -> str:
+    """比对原话时忽略空白、引号和常见标点（模型常把引号、逗号改成全角/半角）。"""
+    return "".join(ch for ch in s if ch.isalnum())
 
 
 # ─── 通话中·单句实时意图识别（方案B-1 / DAY-211）────────────────────────────
@@ -352,19 +412,46 @@ def run_scene_recommend_all(db: Session) -> list[dict[str, Any]]:
 # ─── scene_invite 来信生成（DAY-206）──────────────────────────────────────────
 
 INVITE_SYSTEM_PROMPT = """\
-你是喵灵的桌宠，正在给主人写一封「场景邀请信」。
-你从主人最近说起的事里，发现了一件主人放不下、值得重新走进去的事，
-已经连夜把它搭成了一个小剧场，想邀请主人来演一演。
+你是喵灵的桌宠，正在给主人写一封「有句话」来信。
+你从主人最近说起的事里，发现了一句主人想对某个人说、却还没说出口的话（或一件放不下的事）。
+这封信帮主人把这句话想清楚：可以怎么开口、对方可能怎么回、主人可以怎么接。
+信末主人可以选择「进去说说看」，在一个小场景里和对方练一遍——但信本身就该有用，不练也够。
 
 写信要求：
-- 温柔、不催促、不评判；像老朋友轻轻递来一张戏票。
-- 自然地提到那件事（人物/地点/心情），说明为什么想邀请主人去演这一幕。
-- 不要剧透剧情走向，只描述入口；结尾轻轻邀请（如"想去看看吗"）。
-- 语气口语、简短，全文 50–100 字，最多一个 emoji。
+- 温柔、不催促、不评判；不替主人做决定，只给说法。
+- openers：2 句开口的说法，用主人的口吻、口语，每句 40 字内；两句方向不同（如一句先铺垫、一句直接说）。
+- replies：对方最可能的 1–2 种反应（they，用对方口吻）和主人可以怎么接（you，主人口吻），各 40 字内。
+  只按种子里已有的信息推测，不要编造新的人物关系、事件或细节。
+- lead：开头一句，自然提到那件事，30 字内；closing：结尾一句鼓励，30 字内，最多一个 emoji。
+- 场景种子里的 quote 是主人的原话，你不用复述它。
 
 只输出 JSON，不要额外解释：
-{"title": "不超过10字的信题", "body": "信的正文"}
+{"title": "不超过12字的信题，如：想跟妈妈说的那件事",
+ "lead": "...", "openers": ["...", "..."],
+ "replies": [{"they": "...", "you": "..."}],
+ "closing": "..."}
 """
+
+
+def _clip(v: Any, n: int) -> str:
+    return str(v or "").strip()[:n]
+
+
+def _render_rehearsal_body(r: dict[str, Any], counterpart: str) -> str:
+    """把「有句话」结构渲染成纯文本正文：旧版 App 只认 body，信也要能读。"""
+    parts: list[str] = []
+    if r.get("lead"):
+        parts.append(r["lead"])
+    if r.get("quote"):
+        parts.append(f"你说过：“{r['quote']}”")
+    if r.get("openers"):
+        parts.append("可以这样开口：\n" + "\n".join(f"· {s}" for s in r["openers"]))
+    if r.get("replies"):
+        who = counterpart or "对方"
+        parts.append("\n".join(f"{who}可能会说：{x['they']}\n你可以接：{x['you']}" for x in r["replies"]))
+    if r.get("closing"):
+        parts.append(r["closing"])
+    return "\n\n".join(parts)
 
 
 def _fallback_invite(seed: dict[str, Any]) -> tuple[str, str]:
@@ -385,20 +472,42 @@ def _fallback_invite(seed: dict[str, Any]) -> tuple[str, str]:
     return title, body
 
 
-def _parse_invite(raw: str, seed: dict[str, Any]) -> tuple[str, str]:
+def _parse_invite(raw: str, seed: dict[str, Any]) -> tuple[str, str, dict[str, Any] | None]:
+    """解析「有句话」来信 → (title, body, rehearsal)。
+
+    rehearsal 为结构化内容（App 分段展示）；至少要有一句开口说法才算成功，否则走模板兜底（rehearsal=None）。
+    兼容旧格式 {"title","body"}：有 body 没结构时照常发信。
+    """
     text = (raw or "").strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     try:
         parsed = json.loads(text)
-        if isinstance(parsed, dict):
-            title = str(parsed.get("title") or "").strip()
-            body = str(parsed.get("body") or "").strip()
-            if body:
-                return (title[:20] or "一张戏票"), body
     except (json.JSONDecodeError, ValueError):
-        pass
-    return _fallback_invite(seed)
+        parsed = None
+    if isinstance(parsed, dict):
+        title = _clip(parsed.get("title"), 20)
+        openers = [_clip(s, 60) for s in (parsed.get("openers") or []) if isinstance(s, str) and s.strip()][:2]
+        replies = []
+        for x in (parsed.get("replies") or [])[:2]:
+            if isinstance(x, dict) and _clip(x.get("they"), 60) and _clip(x.get("you"), 60):
+                replies.append({"they": _clip(x["they"], 60), "you": _clip(x["you"], 60)})
+        if openers:
+            rehearsal = {
+                "counterpart": seed.get("counterpart") or "",
+                "quote": seed.get("quote") or "",
+                "lead": _clip(parsed.get("lead"), 60),
+                "openers": openers,
+                "replies": replies,
+                "closing": _clip(parsed.get("closing"), 60),
+            }
+            body = _render_rehearsal_body(rehearsal, rehearsal["counterpart"])
+            return (title or seed.get("title") or "有句话")[:20], body, rehearsal
+        body = str(parsed.get("body") or "").strip()
+        if body:
+            return (title or "一张戏票"), body, None
+    title, body = _fallback_invite(seed)
+    return title, body, None
 
 
 def generate_scene_invite(
@@ -428,10 +537,11 @@ def generate_scene_invite(
             {"role": "system", "content": INVITE_SYSTEM_PROMPT},
             {"role": "user", "content": f"场景种子：\n{seed_text}"},
         ])
-        title, body = _parse_invite(resp.content, seed)
+        title, body, rehearsal = _parse_invite(resp.content, seed)
     except Exception as e:  # noqa: BLE001
         logger.warning("[scene-recommend] invite LLM failed for user %d: %s", user_id, e)
         title, body = _fallback_invite(seed)
+        rehearsal = None
 
     pet = PetStore(db).get_active(user_id)
     letter = store.create_generated(
@@ -450,14 +560,13 @@ def generate_scene_invite(
             "fragment_id": rec.get("fragment_id"),
             "seed": seed,
             "confidence": rec.get("confidence"),
+            "rehearsal": rehearsal,
         },
     )
     if letter is None:
         logger.info("[scene-recommend] user %d lost daily-slot race, skip", user_id)
         return None
     logger.info("[scene-recommend] invite letter id=%d created for user %d", letter.id, user_id)
-
-    # 连夜搭台：用户第二天接受时直接进场；失败不影响信件，接受时会按需现搭
-    from app.services.scene.invite_stage import prestage_invite_scene
-    prestage_invite_scene(db, user_id, letter)
+    # 不再连夜预搭场景（2026-10-14）：信本身就有用，多数人不会进去练；
+    # 用户点「进去说说看」时 accept-scene 现搭，没人点就不花这笔模型调用。
     return letter
