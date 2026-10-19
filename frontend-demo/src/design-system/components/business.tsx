@@ -9,6 +9,7 @@ import {
   ViewStyle,
 } from "react-native";
 
+import { getPetHeadAvatar, PET_STILL_SIZE, type AvatarCrop } from "../../pets/assets";
 import { useTheme } from "../theme";
 
 type CompanionAvatarProps = {
@@ -16,6 +17,8 @@ type CompanionAvatarProps = {
   size?: number;
   /** 优先展示真实形象图；无图时回退 emoji。 */
   source?: ImageSourcePropType;
+  /** 形象图是全身像时，按这个取景把头部居中裁进圆里（见 pets/assets 的 AvatarCrop）。 */
+  crop?: AvatarCrop;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -23,6 +26,7 @@ export function CompanionAvatar({
   emoji = "🌙",
   size = 40,
   source,
+  crop,
   style,
 }: CompanionAvatarProps) {
   const theme = useTheme();
@@ -42,7 +46,21 @@ export function CompanionAvatar({
         style,
       ]}
     >
-      {source ? (
+      {source && crop ? (
+        // 取景：整张图放大 size/span 倍，再平移让 (cx, cy) 落在圆心
+        <Image
+          accessibilityIgnoresInvertColors
+          resizeMode="cover"
+          source={source}
+          style={{
+            position: "absolute",
+            width: (PET_STILL_SIZE * size) / crop.span,
+            height: (PET_STILL_SIZE * size) / crop.span,
+            left: size / 2 - (crop.cx * size) / crop.span,
+            top: size / 2 - (crop.cy * size) / crop.span,
+          }}
+        />
+      ) : source ? (
         <Image
           accessibilityIgnoresInvertColors
           resizeMode="contain"
@@ -54,6 +72,12 @@ export function CompanionAvatar({
       )}
     </View>
   );
+}
+
+/** 桌宠头像：按 presetId 取米露 / 波比的形象图，圆形裁到头部；没有 presetId 时是米露。 */
+export function PetAvatar({ presetId, size = 40, style }: { presetId?: string | null; size?: number; style?: StyleProp<ViewStyle> }) {
+  const { source, crop } = getPetHeadAvatar(presetId);
+  return <CompanionAvatar crop={crop} size={size} source={source} style={style} />;
 }
 
 type StatusDotProps = {
@@ -85,14 +109,15 @@ export function StatusDot({ color, label }: StatusDotProps) {
 type MessageBubbleProps = {
   variant: "agent" | "user";
   text: string;
-  emoji?: string;
+  /** 桌宠 presetId，决定气泡旁的头像；缺省是米露。 */
+  petPresetId?: string | null;
   pending?: boolean;
 };
 
 export function MessageBubble({
   variant,
   text,
-  emoji,
+  petPresetId,
   pending = false,
 }: MessageBubbleProps) {
   const theme = useTheme();
@@ -105,7 +130,7 @@ export function MessageBubble({
         isUser ? styles.messageRowUser : styles.messageRowAgent,
       ]}
     >
-      {!isUser ? <CompanionAvatar emoji={emoji} size={34} /> : null}
+      {!isUser ? <PetAvatar presetId={petPresetId} size={34} /> : null}
       <View
         style={[
           styles.bubble,

@@ -100,16 +100,31 @@ export function stopLetterPolling(): void {
 }
 
 /**
- * 待办的明早提醒：在本机排一条定时通知（不依赖后端推送）。
- * web 没有系统通知，直接跳过；排失败也不影响后端那边已经记下的截止时间。
+ * 设提醒前确认通知权限（第一次点「提醒我」时才会弹系统授权框）。
+ * web 没有系统通知，视为可用（只为了能在浏览器里走通界面）。被拒绝返回 false，由调用方 toast 提示去系统设置打开；
+ * 拒绝后系统不会再弹框，所以这里不会反复打扰用户。
  */
-export async function scheduleTodoReminder(petName: string, text: string, at: Date): Promise<void> {
-  if (Platform.OS === "web" || at.getTime() <= Date.now()) return;
+export async function ensureNotificationPermission(): Promise<boolean> {
+  if (Platform.OS === "web") return true;
   try {
-    await Notifications.scheduleNotificationAsync({
+    return await initNotifications();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 待办提醒：在本机排一条定时通知（不依赖后端推送）。
+ * `at` 是提醒时间（不是事情时间）；`dueClock` 是事情的具体时刻（如 "10:15"），有就写进通知正文。
+ * 返回通知 id（取消时用）；web / 已过点 / 排失败返回 null。
+ */
+export async function scheduleTodoReminder(petName: string, text: string, at: Date, dueClock?: string): Promise<string | null> {
+  if (Platform.OS === "web" || at.getTime() <= Date.now()) return null;
+  try {
+    return await Notifications.scheduleNotificationAsync({
       content: {
         title: `${petName}来叫你啦`,
-        body: `说好今早提醒你：${preview(text)}`,
+        body: dueClock ? `${dueClock}  ${preview(text)}` : `说好提醒你：${preview(text)}`,
         data: { type: "todo_reminder" },
       },
       trigger: {
@@ -120,5 +135,16 @@ export async function scheduleTodoReminder(petName: string, text: string, at: Da
     });
   } catch {
     /* 没有通知权限等：忽略 */
+    return null;
+  }
+}
+
+/** 取消一条已排的待办提醒（待办完成 / 删除 / 关掉提醒时）。 */
+export async function cancelTodoReminder(notifId: string | null | undefined): Promise<void> {
+  if (!notifId || Platform.OS === "web") return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(notifId);
+  } catch {
+    /* 已触发或已不存在：忽略 */
   }
 }

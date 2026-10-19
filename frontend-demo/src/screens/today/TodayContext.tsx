@@ -8,10 +8,11 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { streamBrainDump } from "../../api";
 import { useGuide } from "../../guide/Guide";
 import { measureTarget, type Rect } from "../../guide/targets";
-import { scheduleTodoReminder } from "../../notifications";
 import type { PetMood } from "../../pets/rig/types";
+import { useTodos } from "../todos/TodosContext";
+import { planReminder } from "../todos/todoLogic";
 import {
-  kindFromServer, loadTodayCaught, setTodoReminder, tomorrowMorning, writeCache,
+  kindFromServer, loadTodayCaught, writeCache,
   type CaughtItem,
 } from "./caught";
 
@@ -80,6 +81,7 @@ export function TodayProvider({ children, enabled, petName, onToast, celebrate }
   celebrate?: boolean;
 }) {
   const guide = useGuide();
+  const todosApi = useTodos();
   const [items, setItems] = useState<CaughtItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [catchTick, setCatchTick] = useState(0);
@@ -111,7 +113,8 @@ export function TodayProvider({ children, enabled, petName, onToast, celebrate }
   useEffect(() => { refresh(); }, [refresh]);
 
   // 引导需要知道的几个事实
-  const hasTodo = items.some((x) => x.kind === "todo");
+  // 引导的「设提醒」一步只在有一件还能提醒的待办时出现（时间已过的设不了）
+  const hasTodo = items.some((x) => x.kind === "todo" && !x.done && planReminder(x.dueAt) !== null);
   useEffect(() => {
     guide.setFacts({ dumpOpen, count: items.length, hasTodo });
   }, [guide, dumpOpen, items.length, hasTodo]);
@@ -178,7 +181,7 @@ export function TodayProvider({ children, enabled, petName, onToast, celebrate }
           id: Number(e.data.memory_id),
           kind,
           text: String(e.data.surface_text || e.data.content || "").trim(),
-          remindAt: null,
+          dueAt: null, // 流式回执里没带时间，倾倒结束后会整体刷新一遍（见下方 refresh）
           createdAt: new Date().toISOString(),
         };
         setItems((list) => {
@@ -190,6 +193,9 @@ export function TodayProvider({ children, enabled, petName, onToast, celebrate }
         setPokeKey((k) => k + 1);
       });
       ok = true;
+      // 具体时间（「10点15开会」）后端存进 due_date，回执里没有，倾倒完拉一次才拿得到
+      refresh();
+      void todosApi.refresh();
       setDraft("");
       say(got ? `接住了 ${got} 件` : "原话我先替你收着了", 2200);
       setHappy(true);
@@ -206,28 +212,18 @@ export function TodayProvider({ children, enabled, petName, onToast, celebrate }
         if (ok) guide.emit("caught");
       });
     }
-  }, [draft, dumping, guide, onToast, say]);
+  }, [draft, dumping, guide, onToast, say, refresh, todosApi]);
 
+  /**
+   * 给这件待办设提醒：提醒时间由 planReminder 按事情时间算（提前 15 分钟 / 当天早 8 点 / 明早 8 点），
+   * 只存本机、排本地通知，不改后端的 due_date。
+   */
   const remind = useCallback(async (item: CaughtItem) => {
-    if (item.remindAt) return;
-    const at = tomorrowMorning();
-    const optimistic = { ...item, remindAt: at.toISOString() };
-    setItems((list) => list.map((x) => (x.id === item.id ? optimistic : x)));
+    if (todosApi.reminders[String(item.id)]) return;
     guide.emit("remind");
-    try {
-      const updated = await setTodoReminder(item, at);
-      setItems((list) => {
-        const next = list.map((x) => (x.id === item.id ? updated : x));
-        void writeCache(next);
-        return next;
-      });
-      void scheduleTodoReminder(petName, item.text, at);
-    } catch (err: any) {
-      setItems((list) => list.map((x) => (x.id === item.id ? item : x)));
-      onToast(err?.message || "提醒没设上，待会儿再试试");
-    }
+    await todosApi.remind({ id: item.id, text: item.text, dueAt: item.dueAt });
     if (guide.active) later("closeCaught", 900, () => setCaughtOpen(false));
-  }, [guide, onToast, petName]);
+  }, [guide, todosApi]);
 
   const petMood: PetMood = happy || celebrate ? "happy" : dumping ? "thinking" : dumpOpen ? "listening" : "idle";
 

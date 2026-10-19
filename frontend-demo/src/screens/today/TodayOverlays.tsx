@@ -4,13 +4,15 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from "react-native";
-import { Bell, Check, Mic, Plus, Square, X } from "lucide-react-native";
+import { Bell, Check, ChevronRight, Mic, Plus, Square, X } from "lucide-react-native";
 
 import { Button, IconButton, useReducedMotion, useTheme } from "../../design-system";
 import { useGuide } from "../../guide/Guide";
 import { measureTarget, useTarget, type Rect } from "../../guide/targets";
 import { useVoiceInput } from "../../useVoiceInput";
-import { KIND_LABEL, KIND_WHERE, isTomorrow, type CaughtItem, type CaughtKind } from "./caught";
+import { useTodos } from "../todos/TodosContext";
+import { dueLabel, planReminder, remindButtonText, remindOnText } from "../todos/todoLogic";
+import { KIND_LABEL, KIND_WHERE, type CaughtItem, type CaughtKind } from "./caught";
 import { useToday, type Flight } from "./TodayContext";
 import { kindColors } from "./TodayScreen";
 
@@ -21,7 +23,7 @@ const GUIDE_SAMPLES: { text: string; kind: CaughtKind }[] = [
   { text: "想做个小游戏", kind: "idea" },
 ];
 
-export function TodayOverlays({ visible }: { visible: boolean }) {
+export function TodayOverlays({ visible, onOpenTodos }: { visible: boolean; onOpenTodos: () => void }) {
   const today = useToday();
   const guide = useGuide();
   if (!visible) return null;
@@ -37,7 +39,7 @@ export function TodayOverlays({ visible }: { visible: boolean }) {
         visible={anyOpen}
       />
       <DumpSheet />
-      <CaughtSheet />
+      <CaughtSheet onOpenTodos={onOpenTodos} />
       {today.flights.map((f) => <FlyingNote flight={f} key={f.id} onDone={() => today.landed(f.id)} />)}
     </View>
   );
@@ -203,10 +205,11 @@ function DumpSheet() {
   );
 }
 
-function CaughtSheet() {
+function CaughtSheet({ onOpenTodos }: { onOpenTodos: () => void }) {
   const theme = useTheme();
   const today = useToday();
-  const firstTodoId = today.items.find((x) => x.kind === "todo")?.id;
+  // 引导高亮的「第一个提醒按钮」落在第一件还能提醒的待办上
+  const firstTodoId = today.items.find((x) => x.kind === "todo" && !x.done && planReminder(x.dueAt) !== null)?.id;
   return (
     <Sheet open={today.caughtOpen}>
       <SheetHeader onClose={today.closeCaught} sub={`${today.items.length} 件`} title="今天接住的" />
@@ -215,9 +218,19 @@ function CaughtSheet() {
           <CaughtRow first={item.id === firstTodoId} item={item} key={item.id} />
         ))}
       </ScrollView>
-      <Text style={[theme.typography.textStyles.label, { color: theme.colors.textMuted, fontWeight: "400", textAlign: "center", marginTop: 12 }]}>
-        全部思绪都在信箱的「思绪」里
-      </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => { today.closeCaught(); onOpenTodos(); }}
+        style={({ pressed }) => ({
+          flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 12, paddingVertical: 6,
+          opacity: pressed ? 0.6 : 1,
+        })}
+      >
+        <Text style={[theme.typography.textStyles.label, { color: theme.colors.textMuted, fontWeight: "400" }]}>
+          待办和随手记，都在「待办」里
+        </Text>
+        <ChevronRight color={theme.colors.textMuted} size={14} />
+      </Pressable>
     </Sheet>
   );
 }
@@ -225,9 +238,15 @@ function CaughtSheet() {
 function CaughtRow({ item, first }: { item: CaughtItem; first: boolean }) {
   const theme = useTheme();
   const today = useToday();
+  const todosApi = useTodos();
   const remindRef = useTarget("remind-first");
   const c = kindColors(theme, item.kind);
-  const on = !!item.remindAt;
+  const now = new Date();
+  const set = todosApi.reminders[String(item.id)];
+  const on = !!set;
+  // 没设过：按事情时间算默认提醒时间（提前 15 分钟 / 当天 8 点 / 明早 8 点）；时间已过算不出来就不显示按钮
+  const plan = item.kind === "todo" && !item.done && !on ? planReminder(item.dueAt, now) : null;
+  const showButton = item.kind === "todo" && !item.done && (on || plan !== null);
   return (
     <View style={{ flexDirection: "row", gap: 10, padding: 12, borderRadius: 18, backgroundColor: theme.colors.backgroundSubtle }}>
       <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: c.bg, alignSelf: "flex-start", marginTop: 1 }}>
@@ -235,7 +254,10 @@ function CaughtRow({ item, first }: { item: CaughtItem; first: boolean }) {
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
         <Text style={[theme.typography.textStyles.body, { color: theme.colors.textPrimary }]}>{item.text}</Text>
-        {item.kind === "todo" ? (
+        {item.kind === "todo" && item.dueAt ? (
+          <Text style={[theme.typography.textStyles.caption, { color: theme.colors.textSecondary }]}>{dueLabel(item.dueAt, now)}</Text>
+        ) : null}
+        {showButton ? (
           <View collapsable={false} ref={first ? remindRef : undefined} style={{ alignSelf: "flex-start" }}>
             <Pressable
               accessibilityRole="button"
@@ -250,12 +272,14 @@ function CaughtRow({ item, first }: { item: CaughtItem; first: boolean }) {
             >
               {on ? <Check color={theme.colors.surface} size={14} /> : <Bell color={c.fg} size={14} />}
               <Text style={[theme.typography.textStyles.label, { color: on ? theme.colors.surface : c.fg, fontWeight: "600" }]}>
-                {on ? (isTomorrow(item.remindAt) ? "明早 8:00 叫你" : "已设提醒") : "明早提醒我"}
+                {on ? remindOnText(new Date(set.at), now) : remindButtonText(plan!, now)}
               </Text>
             </Pressable>
           </View>
         ) : (
-          <Text style={[theme.typography.textStyles.label, { color: theme.colors.textMuted, fontWeight: "400" }]}>{KIND_WHERE[item.kind]}</Text>
+          <Text style={[theme.typography.textStyles.label, { color: theme.colors.textMuted, fontWeight: "400" }]}>
+            {item.kind === "todo" ? (item.done ? "已经做完啦" : "这件事的时间过了") : KIND_WHERE[item.kind]}
+          </Text>
         )}
       </View>
     </View>

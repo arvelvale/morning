@@ -14,7 +14,7 @@ import {
 import { ChevronLeft, Mic, Send, Square } from "lucide-react-native";
 
 import {
-  CompanionAvatar,
+  PetAvatar,
   GlassSurface,
   IconButton,
   MessageBubble,
@@ -35,7 +35,7 @@ type CompanionChatProps = {
   letterContext?: string;
   mode?: string;
   onBack: () => void;
-  petEmoji: string;
+  petPresetId?: string | null;
   petName: string;
   seedConversationId?: number | null;
 };
@@ -46,7 +46,7 @@ export function CompanionChat({
   letterContext = "",
   mode = "free_chat",
   onBack,
-  petEmoji,
+  petPresetId = null,
   petName,
   seedConversationId = null,
 }: CompanionChatProps) {
@@ -187,7 +187,7 @@ export function CompanionChat({
             icon={<ChevronLeft color={theme.colors.textSecondary} size={22} />}
             onPress={onBack}
           />
-          <CompanionAvatar emoji={petEmoji} />
+          <PetAvatar presetId={petPresetId} />
           <View style={{ flex: 1 }}>
             <Text
               style={[
@@ -235,7 +235,7 @@ export function CompanionChat({
           ) : null}
           {messages.map((message, index) => (
             <MessageBubble
-              emoji={petEmoji}
+              petPresetId={petPresetId}
               key={`${message.role}-${index}`}
               text={message.text}
               variant={message.role === "agent" ? "agent" : "user"}
@@ -243,7 +243,7 @@ export function CompanionChat({
           ))}
           {thinking ? (
             <MessageBubble
-              emoji={petEmoji}
+              petPresetId={petPresetId}
               pending
               text="•••"
               variant="agent"

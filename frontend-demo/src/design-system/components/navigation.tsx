@@ -8,7 +8,7 @@ import {
   type LayoutChangeEvent,
   type ViewStyle,
 } from "react-native";
-import { Mail, Star, UserRound } from "lucide-react-native";
+import { ListTodo, Mail, Star, UserRound } from "lucide-react-native";
 
 import { useTarget } from "../../guide/targets";
 import { useReducedMotion } from "../accessibility";
@@ -16,7 +16,7 @@ import { useTheme } from "../theme";
 import { iconSizes, spacing, touchTarget, zIndices } from "../tokens";
 
 // 片场不再单独占一个 Tab（2026-10-14）：只从信箱里的「有句话」进去，场景代码保留。
-export type AppTab = "companion" | "mailbox" | "profile";
+export type AppTab = "companion" | "todos" | "mailbox" | "profile";
 
 type NavigationProps = {
   active: AppTab;
@@ -25,6 +25,7 @@ type NavigationProps = {
 
 const items = [
   { id: "companion", label: "今日", icon: Star },
+  { id: "todos", label: "待办", icon: ListTodo },
   { id: "mailbox", label: "信箱", icon: Mail },
   { id: "profile", label: "我的", icon: UserRound },
 ] as const;

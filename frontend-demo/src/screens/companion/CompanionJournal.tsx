@@ -7,7 +7,7 @@ import { ChevronLeft, Trash2 } from "lucide-react-native";
 
 import {
   Button,
-  CompanionAvatar,
+  PetAvatar,
   IconButton,
   ResponsiveOverlay,
   useResponsive,
@@ -19,14 +19,14 @@ import { ConversationSummary, groupByDay, modeLabel, shortTitle, timeLabel } fro
 type CompanionJournalProps = {
   onBack: () => void;
   onOpenConversation: (conversationId: number) => void;
-  petEmoji: string;
+  petPresetId?: string | null;
 };
 
 /** 往日手帐页：历史会话列表。 */
 export function CompanionJournal({
   onBack,
   onOpenConversation,
-  petEmoji,
+  petPresetId = null,
 }: CompanionJournalProps) {
   const theme = useTheme();
   const { isCompact } = useResponsive();
@@ -95,7 +95,7 @@ export function CompanionJournal({
             icon={<ChevronLeft color={theme.colors.textSecondary} size={22} />}
             onPress={onBack}
           />
-          <CompanionAvatar emoji={petEmoji} />
+          <PetAvatar presetId={petPresetId} />
           <View style={{ flex: 1 }}>
             <Text
               style={[

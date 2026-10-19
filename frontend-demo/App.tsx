@@ -15,6 +15,8 @@ import {
 } from "./src/design-system";
 import { HAND_FONT } from "./src/design-system/tokens";
 import { GuideProvider, guideSeen, useGuide } from "./src/guide/Guide";
+import { TodosProvider } from "./src/screens/todos/TodosContext";
+import { TodosScreen } from "./src/screens/todos/TodosScreen";
 import { TodayProvider, useToday } from "./src/screens/today/TodayContext";
 import { TodayOverlays } from "./src/screens/today/TodayOverlays";
 import { TodayScreen } from "./src/screens/today/TodayScreen";
@@ -54,7 +56,7 @@ import { THEATER_SCENE_IDS } from "./src/theater";
 const SCREEN_IDS = [
   "auth",
   "companion", "chat", "journal", "voice-call",
-  "mailbox",
+  "todos", "mailbox",
   "scene", "scene-play", "scene-end",
   "profile", "pet-change", "pet-handoff",
   "memory-list", "memory-review", "user-profile",
@@ -113,7 +115,9 @@ const DEV_GUIDE = typeof window !== "undefined" && !!window.location?.search
 const INITIAL_TAB: AppTab =
   DEV_SCREEN === "mailbox"
     ? "mailbox"
-    : DEV_SCREEN === "scene" || DEV_SCREEN === "scene-play" || DEV_SCREEN === "scene-end"
+    : DEV_SCREEN === "todos"
+      ? "todos"
+      : DEV_SCREEN === "scene" || DEV_SCREEN === "scene-play" || DEV_SCREEN === "scene-end"
       ? "mailbox"
       : DEV_SCREEN === "profile" || DEV_SCREEN === "pet-change" || DEV_SCREEN === "pet-handoff"
           || DEV_SCREEN === "memory-list" || DEV_SCREEN === "memory-review" || DEV_SCREEN === "user-profile"
@@ -510,6 +514,7 @@ function MorningApp() {
   return (
     <NightCtx.Provider value={night}>
     <GuideProvider petName={pet.name} onFinish={() => showToast("就这些啦。剩下的，我们慢慢来。")}>
+    <TodosProvider enabled={Boolean(tokens) && !DEV_BYPASS} onToast={showToast} petName={pet.name}>
     <TodayProvider celebrate={petCelebrating} enabled={Boolean(tokens) && !DEV_BYPASS} onToast={showToast} petName={pet.name}>
       <Bridge guideRef={guideRef} todayRef={todayRef} />
       <StatusBar barStyle={night ? "light-content" : "dark-content"} />
@@ -541,17 +546,19 @@ function MorningApp() {
               <TodayScreen petEmoji={pet.emoji} petPresetId={pet.presetId}
                 night={night} onNightToggle={() => setNight(n => !n)}
                 onVoiceCall={() => go("voice-call")}
+                onOpenChat={() => { setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(""); setChatMode("free_chat"); go("chat"); }}
+                onOpenTodos={() => { setTab("todos"); go("todos"); }}
                 onOpenMailbox={() => { setTab("mailbox"); go("mailbox"); guideRef.current?.emit("tab:mailbox"); }}
                 onModeSheet={() => setShowMode(true)} />
             )}
             {screen === "chat" && (
-              <CompanionChat petName={pet.name} petEmoji={pet.emoji} mode={chatMode}
+              <CompanionChat petName={pet.name} petPresetId={pet.presetId} mode={chatMode}
                 initialText={chatSeedText} letterContext={letterReplyBody}
                 seedConversationId={seedConvId}
                 onBack={() => { setChatSeedText(""); setLetterReplyBody(""); setSeedConvId(null); go("companion"); setTab("companion"); }} />
             )}
             {screen === "journal" && (
-              <CompanionJournal petEmoji={pet.emoji}
+              <CompanionJournal petPresetId={pet.presetId}
                 onBack={() => { go("companion"); setTab("companion"); }}
                 onOpenConversation={(id) => { setChatSeedText(""); setLetterReplyBody(""); setSeedConvId(id); go("chat"); setTab("companion"); }} />
             )}
@@ -570,6 +577,7 @@ function MorningApp() {
                   setTab("companion");
                 }} />
             )}
+            {screen === "todos" && <TodosScreen onToast={showToast} />}
             {screen === "mailbox" && (
               <MailboxScreen
                 petName={pet.name}
@@ -651,7 +659,10 @@ function MorningApp() {
           </>
           )}
       </AppShell>
-      <TodayOverlays visible={Boolean(tokens) && screen === "companion"} />
+      <TodayOverlays
+        onOpenTodos={() => { setTab("todos"); go("todos"); }}
+        visible={Boolean(tokens) && screen === "companion"}
+      />
       {updateInfo && (
         <UpdateSheet
           info={updateInfo}
@@ -664,6 +675,7 @@ function MorningApp() {
         />
       )}
     </TodayProvider>
+    </TodosProvider>
     </GuideProvider>
     </NightCtx.Provider>
   );

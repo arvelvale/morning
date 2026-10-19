@@ -18,6 +18,7 @@ import {
   LoadingState,
   PageContainer,
   PageHeader,
+  PetAvatar,
   useResponsive,
   useTheme,
 } from "../design-system";
@@ -369,7 +370,6 @@ export function PetChange({ pets, activePetId, onBack, onHandoff }: {
         />
         <View style={{ gap: theme.spacing[3] }}>
         {opts.map((p, i) => {
-          const avatar = getPetAvatar(p.presetId ?? String(p.id));
           return (
           <Card key={i} onPress={() => setSel(i)}
             style={{
@@ -378,13 +378,7 @@ export function PetChange({ pets, activePetId, onBack, onHandoff }: {
               borderColor: sel === i ? theme.colors.accent : theme.colors.border,
               backgroundColor: sel === i ? theme.colors.accentSoft : theme.colors.surface,
             }}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.accentSoft }}>
-              {avatar ? (
-                <Image source={avatar} resizeMode="contain" accessibilityIgnoresInvertColors style={{ width: 58, height: 58 }} />
-              ) : (
-                <Text style={{ fontSize: 24 }}>{p.emoji}</Text>
-              )}
-            </View>
+            <PetAvatar presetId={p.presetId ?? String(p.id)} size={64} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: "500", color: C.text }}>{p.name}</Text>
               <Text style={{ fontSize: 13, marginTop: 2, color: C.text2 }}>{p.summary ?? "陪伴伙伴"}</Text>
@@ -409,12 +403,11 @@ export function PetChange({ pets, activePetId, onBack, onHandoff }: {
 export function PetHandoff({ onBack, onDone, oldPet, newPet, handoffContent }: {
   onBack: () => void; onDone: () => void;
   oldPet?: { name: string; emoji: string };
-  newPet?: { name: string; emoji: string };
+  newPet?: { name: string; emoji: string; presetId?: string | null };
   handoffContent?: string | null;
 }) {
   const { theme, C } = useProfileSurface();
   const oldName = oldPet?.name ?? "前任伙伴";
-  const newEmoji = newPet?.emoji ?? "☀️";
   const bodyText = handoffContent && handoffContent.trim()
     ? handoffContent
     : "嗨。\n\n这位朋友最近在处理一些需要时间消化的事情，心情整体还不错，偶尔会有点累。\n\n喜欢睡前说说话。有几件事放在信箱里还没处理完。\n\n好好陪着她。";
@@ -425,7 +418,7 @@ export function PetHandoff({ onBack, onDone, oldPet, newPet, handoffContent }: {
         <View style={{ alignSelf: "flex-start" }}>
           <IconButton accessibilityLabel="返回选择伙伴" icon={<ChevronRight color={theme.colors.textSecondary} size={20} style={{ transform: [{ rotate: "180deg" }] }} />} onPress={onBack} />
         </View>
-        <Text style={{ fontSize: 56 }}>{newEmoji}</Text>
+        <PetAvatar presetId={newPet?.presetId} size={88} />
         <View style={{ alignItems: "center" }}>
           <Text style={{ fontSize: 22, fontWeight: "500", marginBottom: 4, color: C.text }}>来自{oldName}的交接信</Text>
           <Text style={{ fontSize: 14, color: C.text2 }}>给新来的伙伴看的</Text>

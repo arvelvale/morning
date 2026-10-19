@@ -1,7 +1,7 @@
 /**
  * 首页「今日」：第一眼就是「今天接住了 N 件事」。
  *
- * 自上而下：问候 → 米露的夜空主卡（计数 + 四类拆分 + 抱着星星的米露）→ 接下来（明早的提醒、今晚的信）
+ * 自上而下：问候 →（有带时间的待办时）一句「要提醒你吗」→ 米露的夜空主卡（计数 + 四类拆分 + 抱着星星的米露）→ 接下来（最近的一件事、今晚的信）
  * → 唯一的主操作「一股脑倒出来」。猫不是插图：倒出来的话飞进它抱着的星星，星星随接住的数量变亮，
  * 打字时它竖耳朵，引导时它看向被高亮的地方。
  */
@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
-import { Bell, ChevronRight, Mail, Mic, MoonStar, Phone, Plus, Square, Sun } from "lucide-react-native";
+import { Bell, ChevronRight, Mail, MessageCircle, Mic, MoonStar, Phone, Plus, Square, Sun } from "lucide-react-native";
 
 import { getCompanionHome, listLetters } from "../../api";
 import { HomePetArtwork } from "../../components/HomePetArtwork";
@@ -19,7 +19,11 @@ import { useTarget } from "../../guide/targets";
 import { playPetPoke } from "../../petSfx";
 import { useVoiceInput } from "../../useVoiceInput";
 import { ambientCalendar } from "../../utils/lunar";
-import { isTomorrow, KIND_LABEL, KIND_ORDER, parseServerTime, startOfToday, type CaughtKind } from "./caught";
+import { useTodos } from "../todos/TodosContext";
+import { dueLabel, pickNext, pickPrompt } from "../todos/todoLogic";
+import { invitationBubble } from "./bubbleText";
+import { KIND_LABEL, KIND_ORDER, parseServerTime, startOfToday, type CaughtKind } from "./caught";
+import { ReminderPrompt } from "./ReminderPrompt";
 import { useToday } from "./TodayContext";
 
 /** 晚间来信的送达时间（后端 main.py 的定时任务：东八区 21:30）。 */
@@ -59,8 +63,11 @@ type TodayScreenProps = {
   night: boolean;
   onNightToggle: () => void;
   onVoiceCall: () => void;
+  /** 纯文字对话（不带任何开场内容的自由聊天）。 */
+  onOpenChat: () => void;
   onModeSheet: () => void;
   onOpenMailbox: () => void;
+  onOpenTodos: () => void;
   petEmoji: string;
   petPresetId: string | null;
 };
@@ -69,8 +76,10 @@ export function TodayScreen({
   night,
   onNightToggle,
   onVoiceCall,
+  onOpenChat,
   onModeSheet,
   onOpenMailbox,
+  onOpenTodos,
   petEmoji,
   petPresetId,
 }: TodayScreenProps) {
@@ -79,7 +88,14 @@ export function TodayScreen({
   const { isCompact } = useResponsive();
   const today = useToday();
   const guide = useGuide();
+  const todosApi = useTodos();
   const { items, catchTick, petName } = today;
+  // 每分钟推一下：「还没过」的判定（横幅、接下来）要跟着时间走
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const [letterToday, setLetterToday] = useState(false);
 
   const heroPetRef = useTarget("hero-pet");
@@ -95,7 +111,8 @@ export function TodayScreen({
   useEffect(() => {
     getCompanionHome()
       .then((home) => {
-        const text = home?.invitation?.text;
+        // 夜间类内容（睡前提醒的信题）只在夜里冒泡，见 bubbleText.ts
+        const text = invitationBubble(home?.invitation?.text);
         if (text && !guide.active) setTimeout(() => today.say(text, 4200), 900);
       })
       .catch(() => {});
@@ -106,6 +123,7 @@ export function TodayScreen({
       })
       .catch(() => {});
     today.refresh();
+    void todosApi.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -130,7 +148,13 @@ export function TodayScreen({
 
   const voice = useVoiceInput((text) => today.openDump(text));
 
-  const reminder = items.find((x) => x.kind === "todo" && isTomorrow(x.remindAt)) ?? items.find((x) => x.kind === "todo");
+  // 「接下来」按事情时间选：最近一件还没过的；都没有时退回最近记下的、没定时间的一件
+  const reminder = useMemo(() => pickNext(todosApi.todos, new Date()), [todosApi.todos, tick]);
+  // 顶部那句「要提醒你吗」：有具体时刻、还没过、没设提醒、没点过「不用」的最近一件；引导期间不出
+  const prompt = useMemo(
+    () => (guide.active ? null : pickPrompt(todosApi.todos, todosApi.reminders, todosApi.dismissed, new Date())),
+    [guide.active, todosApi.todos, todosApi.reminders, todosApi.dismissed, tick],
+  );
   const letterLate = now.getHours() * 60 + now.getMinutes() >= 21 * 60 + 30;
 
   const onPetPress = () => {
@@ -167,6 +191,7 @@ export function TodayScreen({
             </Text>
           </View>
           <View style={{ flexDirection: "row" }}>
+            <IconButton accessibilityLabel={`和${petName}文字聊聊`} icon={<MessageCircle color={theme.colors.textSecondary} size={20} />} onPress={onOpenChat} />
             <IconButton accessibilityLabel={`和${petName}语音聊聊`} icon={<Phone color={theme.colors.textSecondary} size={20} />} onPress={onVoiceCall} />
             <IconButton
               accessibilityLabel={night ? "切换到日间模式" : "切换到夜间模式"}
@@ -175,6 +200,16 @@ export function TodayScreen({
             />
           </View>
         </View>
+
+        {prompt ? (
+          <ReminderPrompt
+            key={prompt.id}
+            onDismiss={() => todosApi.dismissPrompt(prompt.id)}
+            onRemind={() => todosApi.remind(prompt)}
+            petName={petName}
+            todo={prompt}
+          />
+        ) : null}
 
         {/* 米露的夜空 */}
         <View style={{
@@ -305,9 +340,9 @@ export function TodayScreen({
             body={reminder ? reminder.text : "要做的事，会在这里提醒你"}
             empty={!reminder}
             icon={<Bell color={reminder ? theme.colors.todo : theme.colors.textMuted} size={14} />}
-            onPress={reminder ? today.openCaught : () => today.openDump()}
+            onPress={reminder ? onOpenTodos : () => today.openDump()}
             tint={theme.colors.todo}
-            when={reminder ? (isTomorrow(reminder.remindAt) ? "明早 8:00" : "明天 · 还记着") : "明早"}
+            when={reminder ? dueLabel(reminder.dueAt) : "还没有"}
           />
           <NextCard
             body={letterToday ? "去信箱拆开看看" : n ? `${petName}的信，写进今天的 ${n} 件事` : `${petName}会给你写一封信`}

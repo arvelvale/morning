@@ -39,6 +39,7 @@ export {
 export {
   CompanionAvatar,
   MessageBubble,
+  PetAvatar,
   StatusDot,
 } from "./business";
 

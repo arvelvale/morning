@@ -1,13 +1,16 @@
 /**
  * 「今天接住了几件事」的数据层。
  *
- * 后端没有单独的「今日」接口，这里把四类存储（待办 / 灵感 / 情绪 / 片段）各拉一次，
+ * 后端没有单独的「今日」接口，这里把四类存储（待办 / 灵感 / 情绪 / 瞬间）各拉一次，
  * 按本机时区筛出今天新增的，合起来就是今天接住的事。倾倒刚产出的条目先记进本机缓存，
  * 网络慢或断开时首页数字也不会倒退。
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { listCandidates, listEmotions, listIdeas, listTodos, updateTodo } from "../../api";
+import { listCandidates, listEmotions, listIdeas, listTodos } from "../../api";
+import { parseServerTime, startOfDay } from "../todos/todoLogic";
+
+export { parseServerTime };
 
 export type CaughtKind = "todo" | "idea" | "mood" | "frag";
 
@@ -15,8 +18,10 @@ export type CaughtItem = {
   id: number;
   kind: CaughtKind;
   text: string;
-  /** 待办的提醒时间（ISO）；没设为 null。 */
-  remindAt: string | null;
+  /** 待办的事情时间（后端 due_date，原样的 ISO）；没定时间为 null。提醒时间不在这里，见 todos/todoLogic.ts。 */
+  dueAt: string | null;
+  /** 待办是否已完成（已完成的不再提醒）。 */
+  done?: boolean;
   createdAt: string;
 };
 
@@ -37,7 +42,7 @@ export const KIND_LABEL: Record<CaughtKind, string> = {
   todo: "待办",
   idea: "灵感",
   mood: "情绪",
-  frag: "片段",
+  frag: "瞬间",
 };
 
 /** 每类被放到了哪儿（展开「今天接住的」时的一行说明）。 */
@@ -45,24 +50,11 @@ export const KIND_WHERE: Record<CaughtKind, string> = {
   todo: "收进待办",
   idea: "收进灵感",
   mood: "听见了，先替你寄存着",
-  frag: "先静静收着，放不下的话我会写信给你",
+  frag: "记成了瞬间，在「随手记」里点开看",
 };
 
-/** 后端时间可能不带时区（SQLite），按 UTC 理解。 */
-export function parseServerTime(iso: string | null | undefined): Date | null {
-  if (!iso) return null;
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
-  const d = new Date(hasZone ? iso : `${iso}Z`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
 export function startOfToday(now = new Date()): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
-/** 明早 8 点（本机时区）。 */
-export function tomorrowMorning(now = new Date()): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 8, 0, 0);
+  return startOfDay(now);
 }
 
 function dayKey(now = new Date()): string {
@@ -92,7 +84,8 @@ function toItem(raw: any, kind: CaughtKind): CaughtItem {
     id: Number(raw.id),
     kind,
     text: String(raw.surface_text || raw.content || "").trim(),
-    remindAt: kind === "todo" && raw.due_date ? String(raw.due_date) : null,
+    dueAt: kind === "todo" && raw.due_date ? String(raw.due_date) : null,
+    done: kind === "todo" && raw.status === "done",
     createdAt: String(raw.created_at ?? ""),
   };
 }
@@ -125,22 +118,4 @@ export async function loadTodayCaught(): Promise<CaughtItem[]> {
   merged.sort((a, b) => (parseServerTime(a.createdAt)?.getTime() ?? 0) - (parseServerTime(b.createdAt)?.getTime() ?? 0));
   void writeCache(merged);
   return merged;
-}
-
-/**
- * 让它明早提醒：待办的截止时间设成明早 8 点；本地通知由调用方另行安排。
- * 后端记忆走版本链，改一次会生成新版本、换一个 id，所以返回更新后的条目。
- * 截止时间只能设、不能用 PATCH 清空（后端忽略 null），按钮因此是单向的。
- */
-export async function setTodoReminder(item: CaughtItem, at: Date): Promise<CaughtItem> {
-  const updated = await updateTodo(item.id, { due_date: at.toISOString() });
-  return updated?.id ? { ...toItem(updated, "todo"), createdAt: item.createdAt } : { ...item, remindAt: at.toISOString() };
-}
-
-/** 提醒时间是否落在明天（首页「接下来」只显示明早的提醒）。 */
-export function isTomorrow(iso: string | null, now = new Date()): boolean {
-  const d = parseServerTime(iso);
-  if (!d) return false;
-  const start = startOfToday(now).getTime() + 86_400_000;
-  return d.getTime() >= start && d.getTime() < start + 86_400_000;
 }
