@@ -66,6 +66,13 @@ def build_site() -> None:
                          encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=600)
     if res.returncode != 0:
         sys.exit("官网构建失败:\n" + (res.stdout + res.stderr)[-2000:])
+    # 楷体是自托管切片：文案里出现切片没覆盖的新字就拦下发布，否则那几个字会悄悄回落成系统字体
+    res = subprocess.run([sys.executable, str(LANDING / "scripts" / "wenkai-subset.py"), "--check"],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         stdin=subprocess.DEVNULL, timeout=120)
+    print(res.stdout.strip(), flush=True)
+    if res.returncode != 0:
+        sys.exit("官网字体切片缺字，先跑 landing/scripts/wenkai-subset.py 再发布:\n" + res.stderr[-1000:])
 
 
 def ensure_repo() -> None:
