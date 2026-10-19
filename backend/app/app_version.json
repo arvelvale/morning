@@ -1,16 +1,15 @@
 {
-  "latest": "0.3.17",
+  "latest": "0.3.18",
   "min_supported": "0.1.0",
-  "version_code": 20,
-  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.17.apk",
+  "version_code": 21,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.18.apk",
   "apk_sha256": "placeholder-will-be-replaced-by-publish-script",
   "size_bytes": 0,
   "size_mb": 0,
   "mandatory": false,
   "changelog": [
-    "说了具体时间的待办会按时间提醒你，今日页会先问一句要不要提醒",
-    "新增「待办」页：待办按今天、之后、没定时间分好，灵感和记下的瞬间也在这里",
-    "米露的信不再反复提已经过去的事",
-    "首页右上角可以直接和米露聊天，对话里换上了米露、波比的头像"
+    "信箱里的信可以删掉了：一封一封删，也可以多选或一键清空，「我留下的」不受影响",
+    "可以一键把信全部标为已读",
+    "信箱换上了新图标，顶部更紧凑"
   ]
 }
