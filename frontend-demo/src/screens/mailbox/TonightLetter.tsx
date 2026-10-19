@@ -54,9 +54,11 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
   const late = now.getHours() * 60 + now.getMinutes() >= 21 * 60 + 30;
 
   return (
-    <View style={{ marginTop: 40, marginBottom: 20 }}>
+    // 2026-10 收紧：上下留白原来是 40/20，米露要探出横幅 26px 才不压字。
+    // 现在米露改成大半坐在横幅里（只探出 ~12px），上面一行（今天 N 封 / 整理 / 搜索）与横幅之间 14，横幅与下一段 6。
+    <View style={{ marginTop: 14, marginBottom: 6 }}>
       <View collapsable={false} pointerEvents="none" ref={petRef}
-        style={{ position: "absolute", right: -4, top: -26, width: 84, height: 84, zIndex: 2 }}>
+        style={{ position: "absolute", right: -2, top: -12, width: 76, height: 76, zIndex: 2 }}>
         <HomePetArtwork
           fallbackEmoji={petEmoji}
           halo={false}
@@ -69,7 +71,7 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
       </View>
       {line ? (
         <View pointerEvents="none" style={{
-          position: "absolute", left: 4, top: -48, zIndex: 3, paddingHorizontal: 12, paddingVertical: 6,
+          position: "absolute", left: 4, top: -38, zIndex: 3, paddingHorizontal: 12, paddingVertical: 6,
           borderRadius: 15, borderBottomLeftRadius: 4, backgroundColor: theme.colors.surfaceElevated, ...theme.shadows.soft,
         }}>
           <Text style={[theme.typography.textStyles.petVoice, { fontSize: 15, lineHeight: 21, color: theme.colors.textPrimary }]}>{line}</Text>

@@ -286,7 +286,15 @@ export const getMailbox = () => get("/api/v1/mailbox");
 export const listLetters = (q = "") => get(`/api/v1/letters${q}`);
 export const getLetter = (id: number) => get(`/api/v1/letters/${id}`);
 export const markLetterRead = (id: number) => patch(`/api/v1/letters/${id}`, { read: true });
-export const ackLetter = (id: number) => post<{ message: string }>(`/api/v1/letters/${id}/ack`, {});
+/** 「删除」= 对用户隐藏（后端不物理删除，防重复逻辑还要靠这一行）。 */
+export const hideLetter = (id: number) => del<void>(`/api/v1/letters/${id}`);
+/** 多选清理：只隐藏属于自己的，返回实际隐藏的封数。 */
+export const hideLetters = (ids: number[]) => post<{ hidden: number }>("/api/v1/letters/hide", { ids });
+/** 一键清理：before 为「我看到的最新一封」的时间界，之后才到的信不受影响。 */
+export const hideAllLetters = (before?: string | null) =>
+  post<{ hidden: number }>("/api/v1/letters/hide", before ? { all: true, before } : { all: true });
+export const markAllLettersRead = () => post<{ updated: number }>("/api/v1/letters/read-all", {});
+export const ackLetter =(id: number) => post<{ message: string }>(`/api/v1/letters/${id}/ack`, {});
 /** 接受场景邀请信：幂等创建场景，返回 { scene_id, render_kind, theater_id, already_accepted }。 */
 // 2026-10-14 起夜里不再预搭场景，点「进去说说看」时才现搭（剧本 + 生成式 3D/图片），要用长超时
 export const acceptSceneInvite = (id: number) =>

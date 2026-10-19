@@ -112,3 +112,91 @@ export function letterListTime(iso: string, now = new Date()): string {
   if (diff === 1) return `昨天 ${hm}`;
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
+
+// ─── 整理（多选清理 / 一键清理，2026-10）：纯逻辑，页面只管渲染 ───────────────
+
+/** 往期筛选：全部或某一类。 */
+export type PastFilter = "all" | LetterKind;
+
+/** 往期按筛选后的样子：筛「小纸条」时纸条逐张当信列出；其余筛选下纸条收起。 */
+export function shownDays(days: LetterDay[], filter: PastFilter): LetterDay[] {
+  return days.map((d) => {
+    if (filter === "note") return { ...d, letters: d.notes, notes: [] };
+    if (filter === "all") return d;
+    return { ...d, letters: d.letters.filter((l) => letterKind(l) === filter), notes: [] };
+  }).filter((d) => d.letters.length > 0 || d.notes.length > 0);
+}
+
+/** 一组分天里所有信（含小纸条）的 id。 */
+export function idsOfDays(days: LetterDay[]): number[] {
+  return days.flatMap((d) => [...d.letters, ...d.notes].map((l) => l.id));
+}
+
+/** 点一下勾选圈：在就拿掉，不在就加上（返回新集合，不改原集合）。 */
+export function toggleId(sel: ReadonlySet<number>, id: number): Set<number> {
+  const next = new Set(sel);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  return next;
+}
+
+/** 当前可见的这些 id 是不是都选了（空列表不算全选，避免「全选」按钮在没有信时亮着）。 */
+export function isAllSelected(ids: number[], sel: ReadonlySet<number>): boolean {
+  return ids.length > 0 && ids.every((id) => sel.has(id));
+}
+
+/** 「全选 / 取消全选」：都选了就清空，否则选中所有可见的。 */
+export function toggleSelectAll(ids: number[], sel: ReadonlySet<number>): Set<number> {
+  return isAllSelected(ids, sel) ? new Set() : new Set(ids);
+}
+
+/** 列表变了（删了、刷新了）之后，把选中里已经不存在的 id 去掉。 */
+export function pruneSelection(sel: ReadonlySet<number>, letters: ApiLetter[]): Set<number> {
+  const alive = new Set(letters.map((l) => l.id));
+  return new Set([...sel].filter((id) => alive.has(id)));
+}
+
+/** 乐观删除：把这些 id 从列表拿掉。 */
+export function removeLetters(letters: ApiLetter[], ids: ReadonlySet<number>): ApiLetter[] {
+  return letters.filter((l) => !ids.has(l.id));
+}
+
+/** 删除失败回滚：把拿掉的信放回当前列表（去重，保持新的在前——后端按 id 倒序）。 */
+export function restoreLetters(current: ApiLetter[], removed: ApiLetter[]): ApiLetter[] {
+  const have = new Set(current.map((l) => l.id));
+  return [...current, ...removed.filter((l) => !have.has(l.id))].sort((a, b) => b.id - a.id);
+}
+
+/** 一键清理的时间界：只清「我看到的最新一封」及更早的；之后才到的信不会被误清（毫秒加一秒容差）。 */
+export function clearBefore(letters: ApiLetter[]): string | null {
+  let max = -Infinity;
+  for (const l of letters) {
+    const t = letterTime(l)?.getTime();
+    if (t != null && t > max) max = t;
+  }
+  return Number.isFinite(max) ? new Date(max + 1000).toISOString() : null;
+}
+
+export function unreadCountOf(letters: ApiLetter[]): number {
+  return letters.filter((l) => !l.is_read).length;
+}
+
+/** 乐观「全部标为已读」。 */
+export function markAllReadLocal(letters: ApiLetter[]): ApiLetter[] {
+  return letters.map((l) => (l.is_read ? l : { ...l, is_read: true }));
+}
+
+/** 标已读失败回滚：只把原来没读的那些改回没读。 */
+export function revertRead(letters: ApiLetter[], unreadIds: ReadonlySet<number>): ApiLetter[] {
+  return letters.map((l) => (unreadIds.has(l.id) && l.is_read ? { ...l, is_read: false } : l));
+}
+
+/** 批量删除前的确认文案。 */
+export function deleteSelectedConfirm(n: number): { title: string; body: string } {
+  return { title: `删掉这 ${n} 封信？`, body: "删掉后在信箱里就看不到了。「我留下的」不受影响。" };
+}
+
+/** 清空全部的确认文案；loaded 为已加载的封数（满页时可能还有更早的，只说「都」）。 */
+export function clearAllConfirm(loaded: number, pageLimit = 100): { title: string; body: string } {
+  const what = loaded >= pageLimit ? "信箱里的信" : `信箱里的 ${loaded} 封信`;
+  return { title: `把${what}都清掉？`, body: "清掉后在信箱里就看不到了，收不回来。「我留下的」不受影响。" };
+}

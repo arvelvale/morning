@@ -3,7 +3,9 @@
 GET    /api/v1/letters            列表（?type=&unread=）
 GET    /api/v1/letters/{id}       详情
 PATCH  /api/v1/letters/{id}       标记已读 {read:true}
-DELETE /api/v1/letters/{id}       删除
+DELETE /api/v1/letters/{id}       删除（对用户隐藏，不物理删除）
+POST   /api/v1/letters/hide       批量隐藏 {ids:[...]} 或 {all:true, before?}
+POST   /api/v1/letters/read-all   全部标为已读
 POST   /api/v1/letters/{id}/ack   「收到啦」：标记已读 + 桌宠 agent 回一句轻回应
 POST   /api/v1/letters/{id}/reply 「回它一句」：以来信为上下文开一段对话 + 桌宠续写
 
@@ -12,7 +14,7 @@ POST   /api/v1/letters/{id}/reply 「回它一句」：以来信为上下文开�
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -40,6 +42,23 @@ class LetterOut(BaseModel):
 
 class LetterPatch(BaseModel):
     read: bool | None = None
+
+
+class HideIn(BaseModel):
+    """ids 与 all 二选一：ids 非空；或 all=true（可带 before 只清更早的）。"""
+
+    ids: list[int] | None = None
+    all: bool = False
+    before: datetime | None = None
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.all:
+            if self.ids:
+                raise ValueError("ids 与 all 不能同时给")
+        elif not self.ids:
+            raise ValueError("ids 不能为空（或改用 all=true）")
+        return self
 
 
 def _require_letter(db: Session, user: User, letter_id: int):
@@ -92,9 +111,37 @@ def delete_letter(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    letter = _require_letter(db, user, letter_id)
-    LetterStore(db).delete(letter)
+    """删除 = 对用户隐藏（幂等：已隐藏也 204；别人的 / 不存在的 404）。"""
+    store = LetterStore(db)
+    letter = store.get(user.id, letter_id, include_hidden=True)
+    if letter is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "来信不存在")
+    store.hide(letter)
     return None
+
+
+@router.post("/hide")
+def hide_letters(
+    body: HideIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """批量隐藏：ids 只动本人的；all 隐藏本人全部未隐藏的信（可带 before）。"""
+    store = LetterStore(db)
+    if body.all:
+        n = store.hide_all(user.id, before=body.before)
+    else:
+        n = store.hide_many(user.id, body.ids or [])
+    return {"hidden": n}
+
+
+@router.post("/read-all")
+def read_all_letters(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """全部标为已读（只动用户看得见的未读信）。"""
+    return {"updated": LetterStore(db).mark_all_read(user.id)}
 
 
 @router.post("/{letter_id}/ack")

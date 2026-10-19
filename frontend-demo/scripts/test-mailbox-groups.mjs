@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   _fmtLetterDate, dayKey, dayLabel, groupLettersByDay, letterClock, letterKind, letterListTime,
   matchLetter, rehearsalOf,
+  shownDays, idsOfDays, toggleId, isAllSelected, toggleSelectAll, pruneSelection, removeLetters,
+  restoreLetters, clearBefore, unreadCountOf, markAllReadLocal, revertRead, deleteSelectedConfirm, clearAllConfirm,
 } from "../src/screens/mailbox/letterGroups.ts";
 
 process.env.TZ ||= "Asia/Shanghai";
@@ -56,5 +58,59 @@ assert.ok(matchLetter(hit, "  "), "空关键词全部命中");
 assert.equal(rehearsalOf(L(1, "scene_invite", "", { attachment: { rehearsal: { openers: [] } } })), null);
 assert.equal(rehearsalOf(L(1, "scene_invite", "")), null);
 assert.ok(rehearsalOf(L(1, "scene_invite", "", { attachment: { rehearsal: { openers: ["妈"], replies: [] } } })));
+
+// 6. 整理：筛选后的可见集合、勾选、全选、乐观删除与回滚
+const mixed = [
+  L(11, "greeting", "2026-10-13T13:30:00Z", { is_read: false }),
+  L(12, "weekly", "2026-10-13T14:30:00Z"),
+  L(13, "reminder", "2026-10-13T15:30:00Z", { is_read: false }),
+  L(14, "scene_invite", "2026-10-12T01:30:00Z", { is_read: false }),
+];
+const mDays = groupLettersByDay(mixed);
+assert.deepEqual(idsOfDays(shownDays(mDays, "all")).sort(), [11, 12, 13, 14]);
+assert.deepEqual(idsOfDays(shownDays(mDays, "weekly")), [12], "按类筛选后只剩这一类");
+assert.deepEqual(idsOfDays(shownDays(mDays, "note")), [13], "筛小纸条时纸条逐张列出");
+assert.deepEqual(shownDays(mDays, "other"), [], "没有的类别不留空分组");
+
+let sel = new Set();
+sel = toggleId(sel, 11);
+assert.deepEqual([...sel], [11]);
+assert.deepEqual([...toggleId(sel, 11)], [], "再点一次取消");
+assert.deepEqual([...sel], [11], "toggleId 不改原集合");
+const vis = idsOfDays(shownDays(mDays, "all"));
+assert.equal(isAllSelected(vis, sel), false);
+assert.equal(isAllSelected([], new Set()), false, "空列表不算全选");
+sel = toggleSelectAll(vis, sel);
+assert.equal(sel.size, 4);
+assert.equal(isAllSelected(vis, sel), true);
+assert.equal(toggleSelectAll(vis, sel).size, 0, "全选后再点 = 取消全选");
+assert.deepEqual([...pruneSelection(new Set([11, 99]), mixed)], [11], "已不存在的 id 从选中里去掉");
+
+const gone = new Set([11, 13]);
+const left = removeLetters(mixed, gone);
+assert.deepEqual(left.map((l) => l.id), [12, 14]);
+const back = restoreLetters(left, mixed.filter((l) => gone.has(l.id)));
+assert.deepEqual(back.map((l) => l.id), [14, 13, 12, 11], "回滚后恢复，新的（id 大的）在前");
+assert.deepEqual(restoreLetters(mixed, mixed).map((l) => l.id), [14, 13, 12, 11], "重复放回不产生重复");
+
+// 一键清理的时间界：最新一封之后 1 秒；没有信、坏时间都返回 null
+assert.equal(clearBefore(mixed), "2026-10-13T15:30:01.000Z");
+assert.equal(clearBefore([]), null);
+assert.equal(clearBefore([L(1, "greeting", "坏时间")]), null);
+
+// 全部已读：乐观更新与回滚只动原本没读的
+assert.equal(unreadCountOf(mixed), 3);
+const readAll = markAllReadLocal(mixed);
+assert.equal(unreadCountOf(readAll), 0);
+assert.equal(unreadCountOf(mixed), 3, "不改原数组");
+assert.equal(readAll[1], mixed[1], "本来就读过的不重建对象");
+assert.deepEqual(revertRead(readAll, new Set([11, 14])).filter((l) => !l.is_read).map((l) => l.id), [11, 14]);
+
+// 确认文案：写清数量与后果
+assert.match(deleteSelectedConfirm(3).title, /3 封/);
+assert.match(deleteSelectedConfirm(3).body, /我留下的/);
+assert.match(clearAllConfirm(43).title, /43 封/);
+assert.match(clearAllConfirm(43).body, /我留下的.*不受影响/);
+assert.doesNotMatch(clearAllConfirm(100).title, /100/, "满页时不报具体数字");
 
 console.log("mailbox groups: all assertions passed");

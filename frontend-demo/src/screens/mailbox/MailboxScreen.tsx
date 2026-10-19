@@ -10,23 +10,30 @@ import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ChevronLeft } from "lucide-react-native";
 import {
+  Button,
   Card,
   PageContainer,
   PageHeader,
 } from "../../design-system";
 import {
   acceptSceneInvite, ackLetter, createTreasure, deleteTreasure,
-  listLetters, listTreasures, markLetterRead,
+  hideAllLetters, hideLetter, hideLetters, listLetters, listTreasures, markAllLettersRead, markLetterRead,
 } from "../../api";
 import {
   ApiLetter, Keepsake,
-  dayKey, letterKind, letterTime, mapTreasure, useMailboxSurface,
+  clearAllConfirm, clearBefore, dayKey, deleteSelectedConfirm, letterKind, letterTime, mapTreasure,
+  markAllReadLocal, pruneSelection, removeLetters, restoreLetters, revertRead, toggleId, toggleSelectAll,
+  useMailboxSurface,
 } from "./shared";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { KeepsakeAlbum, KeepsakeDetail } from "./Keepsakes";
 import { LetterPaper } from "./Letters";
 import { LetterList } from "./LetterList";
 import { TonightLetter } from "./TonightLetter";
 import { useGuide } from "../../guide/Guide";
+
+/** 底部导航栏（BottomNavigation，绝对定位压在内容上）的高度；选择模式的「删除所选」条要坐在它上面，不然被盖住。 */
+const NAV_BAR_HEIGHT = 78;
 
 export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "你的伙伴", petPresetId = null, petEmoji = "✨" }: {
   onReplyLetter: (letter: { title: string; body: string } | null) => void;
@@ -54,9 +61,73 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
 
   const activeLetter = letters.find(l => l.id === readingId) ?? null;
 
+  // ─── 整理：多选清理 / 一键清理 / 全部已读 ───
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [confirming, setConfirming] = useState<"one" | "selected" | "all" | null>(null);
+  // 列表变了（删了、刷新了）就把选中里已经不在的去掉
+  useEffect(() => {
+    setSelected(s => {
+      if (s.size === 0) return s;
+      const pruned = pruneSelection(s, letters);
+      return pruned.size === s.size ? s : pruned;
+    });
+  }, [letters]);
+
+  const exitSelect = () => { setSelecting(false); setSelected(new Set()); };
+
+  /**
+   * 乐观删除：先从列表拿掉，后端「隐藏」失败再放回来并提示。
+   * （后端是对用户隐藏、不物理删除，所以「失败放回」是安全的。）
+   */
+  const hideWithRollback = (ids: Set<number>, call: () => Promise<unknown>, doneMsg: string) => {
+    const removed = letters.filter(l => ids.has(l.id));
+    setLetters(ls => removeLetters(ls, ids));
+    call().then(() => onToast?.(doneMsg)).catch(() => {
+      setLetters(ls => restoreLetters(ls, removed));
+      onToast?.("没删成，信还在，待会儿再试试");
+    });
+  };
+
+  const confirmDelete = () => {
+    const kind = confirming;
+    setConfirming(null);
+    if (kind === "one" && activeLetter) {
+      const id = activeLetter.id;
+      setReadingId(null);
+      hideWithRollback(new Set([id]), () => hideLetter(id), "已删掉这封信");
+    } else if (kind === "selected" && selected.size > 0) {
+      const ids = new Set(selected);
+      exitSelect();
+      hideWithRollback(ids, () => hideLetters([...ids]), `已删掉 ${ids.size} 封`);
+    } else if (kind === "all" && letters.length > 0) {
+      // 只清「我看到的最新一封」及更早的：确认期间新到的信不会被误清
+      const before = clearBefore(letters);
+      const ids = new Set(letters.map(l => l.id));
+      exitSelect();
+      hideWithRollback(ids, () => hideAllLetters(before), "信箱清空了");
+    }
+  };
+
+  const readAll = () => {
+    const unreadIds = new Set(letters.filter(l => !l.is_read).map(l => l.id));
+    if (unreadIds.size === 0) { onToast?.("没有没读的信了"); return; }
+    setLetters(ls => markAllReadLocal(ls));
+    markAllLettersRead()
+      .then(() => onToast?.(`${unreadIds.size} 封都标为已读了`))
+      .catch(() => {
+        setLetters(ls => revertRead(ls, unreadIds));
+        onToast?.("没标上，待会儿再试试");
+      });
+  };
+
+  const confirmText = confirming === "selected" ? deleteSelectedConfirm(selected.size)
+    : confirming === "all" ? clearAllConfirm(letters.length)
+    : { title: "删掉这封信？", body: "删掉后在信箱里就看不到了。" };
+
   const reloadLetters = async () => {
     try {
-      const list = await listLetters("");
+      const list = await listLetters("?limit=100");
       setLetters(Array.isArray(list) ? list : []);
     } catch { /* 网络异常保持当前 */ }
   };
@@ -154,6 +225,7 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
         onAck={handleAckLetter} acking={ackingLetter} acked={ackedLetterIds.has(activeLetter.id)}
         onReply={() => onReplyLetter({ title: activeLetter.title, body: activeLetter.body })}
         onSave={handleSaveLetter}
+        onDelete={() => setConfirming("one")}
         onEnterScene={() => handleEnterScene(activeLetter)} entering={enteringScene}
         onGotoKeepsakes={() => { setReadingId(null); setShowKeepsakes(true); }} />
     </>
@@ -165,6 +237,11 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
   ) : (
     <LetterList letters={letters} petName={petName} keptCount={keepsakes.length}
       onOpen={openLetter} onShowKept={() => setShowKeepsakes(true)}
+      selecting={selecting} selected={selected}
+      onEnterSelect={() => setSelecting(true)} onCancelSelect={exitSelect}
+      onToggle={id => setSelected(s => toggleId(s, id))}
+      onSelectAll={ids => setSelected(s => toggleSelectAll(ids, s))}
+      onReadAll={readAll} onClearAll={() => setConfirming("all")}
       header={!todaysLetter || guide.active ? (
         <TonightLetter arrived={!!todaysLetter} onOpen={openTodaysLetter}
           petEmoji={petEmoji} petName={petName} petPresetId={petPresetId} />
@@ -173,7 +250,7 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: selecting ? NAV_BAR_HEIGHT + 76 : 0 }}>
         <PageContainer maxWidth={760}>
           <PageHeader
             eyebrow="来信"
@@ -185,6 +262,21 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
           </Card>
         </PageContainer>
       </ScrollView>
+
+      {selecting && !activeLetter && (
+        <View style={{
+          position: "absolute", left: 0, right: 0, bottom: NAV_BAR_HEIGHT, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
+          backgroundColor: theme.colors.background, borderTopWidth: 1, borderTopColor: theme.colors.divider,
+        }}>
+          <Button variant="danger" fullWidth disabled={selected.size === 0} onPress={() => setConfirming("selected")}>
+            {selected.size ? `删除所选（${selected.size} 封）` : "删除所选"}
+          </Button>
+        </View>
+      )}
+
+      <ConfirmDialog visible={confirming !== null} title={confirmText.title} body={confirmText.body}
+        confirmLabel={confirming === "all" ? "全部清掉" : "删掉"}
+        onConfirm={confirmDelete} onCancel={() => setConfirming(null)} />
 
       {selectedKeepsake && (
         <KeepsakeDetail item={selectedKeepsake}

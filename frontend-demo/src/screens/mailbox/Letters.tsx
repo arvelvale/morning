@@ -9,7 +9,7 @@
  */
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { Bookmark, Check, DoorOpen, Heart, MessageCircle, Music, Play, Reply } from "lucide-react-native";
+import { Bookmark, Check, DoorOpen, Heart, MessageCircle, Music, Play, Reply, Trash2 } from "lucide-react-native";
 import { GrainTexture, paperColors, useTheme } from "../../design-system";
 import { ApiLetter, Rehearsal, _fmtLetterDate, letterKind, rehearsalOf } from "./shared";
 
@@ -152,10 +152,12 @@ function IconAction({ label, active, onPress, children }: { label: string; activ
 }
 
 /** 信纸：抬头（日期时分 + 标题）+ 正文 / 有句话 + 附件 + 一排操作。 */
-export function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, onSave, onEnterScene, entering, onGotoKeepsakes }: {
+export function LetterPaper({ letter, petName, saved, onAck, acking, acked, onReply, onSave, onDelete, onEnterScene, entering, onGotoKeepsakes }: {
   letter: ApiLetter; petName: string;
   saved: boolean; onAck: () => void; acking?: boolean; acked?: boolean;
   onReply: () => void; onSave: () => void;
+  /** 删掉这封信（调用方负责二次确认） */
+  onDelete?: () => void;
   onEnterScene?: () => void; entering?: boolean;
   onGotoKeepsakes?: () => void;
 }) {
@@ -223,6 +225,11 @@ export function LetterPaper({ letter, petName, saved, onAck, acking, acked, onRe
         <IconAction label={saved ? "已经留下" : "把这封信留下"} active={saved} onPress={saved ? onGotoKeepsakes : onSave}>
           <Bookmark size={18} color={saved ? "#E26140" : theme.colors.textSecondary} fill={saved ? "#E26140" : "transparent"} />
         </IconAction>
+        {onDelete && (
+          <IconAction label="删掉这封信" onPress={onDelete}>
+            <Trash2 size={18} color={theme.colors.textSecondary} />
+          </IconAction>
+        )}
       </View>
       <Text style={{ textAlign: "center", fontSize: 12, marginTop: 12, color: theme.colors.textMuted }}>
         {saved ? "已经替你收好，在「我留下的」里" : "不留下的话，它会安静地待在往期里。"}

@@ -145,16 +145,21 @@ class LetterStore:
             .where(
                 Letter.user_id == user_id,
                 Letter.delivery_date == date_key,
+                Letter.hidden_at.is_(None),  # 只给用户看的视图，隐藏的不出现
             )
             .order_by(Letter.id.desc())
         ).all()
 
     # ─── 读取（user 隔离）─────────────────────────────────────────────────
 
-    def get(self, user_id: int, letter_id: int) -> Letter | None:
-        return self._db.scalar(
-            select(Letter).where(Letter.id == letter_id, Letter.user_id == user_id)
-        )
+    def get(
+        self, user_id: int, letter_id: int, *, include_hidden: bool = False
+    ) -> Letter | None:
+        """面向用户的详情：已隐藏的信当作不存在（include_hidden 仅供隐藏接口幂等用）。"""
+        stmt = select(Letter).where(Letter.id == letter_id, Letter.user_id == user_id)
+        if not include_hidden:
+            stmt = stmt.where(Letter.hidden_at.is_(None))
+        return self._db.scalar(stmt)
 
     def list_for_user(
         self,
@@ -166,7 +171,7 @@ class LetterStore:
         cursor: int | None = None,
     ) -> Sequence[Letter]:
         """按 id 倒序（最新在前）；cursor 为上一页最小 id，取更早的。"""
-        stmt = select(Letter).where(Letter.user_id == user_id)
+        stmt = select(Letter).where(Letter.user_id == user_id, Letter.hidden_at.is_(None))
         if type is not None:
             stmt = stmt.where(Letter.type == type)
         if unread:
@@ -177,10 +182,12 @@ class LetterStore:
         return self._db.scalars(stmt).all()
 
     def unread_count(self, user_id: int) -> int:
-        stmt = select(Letter).where(
-            Letter.user_id == user_id, Letter.is_read == False  # noqa: E712
+        stmt = select(func.count()).select_from(Letter).where(
+            Letter.user_id == user_id,
+            Letter.is_read == False,  # noqa: E712
+            Letter.hidden_at.is_(None),
         )
-        return len(self._db.scalars(stmt).all())
+        return int(self._db.scalar(stmt) or 0)
 
     # ─── 已读 / 删除 ─────────────────────────────────────────────────────
 
@@ -190,6 +197,53 @@ class LetterStore:
         self._db.refresh(letter)
         return letter
 
-    def delete(self, letter: Letter) -> None:
-        self._db.delete(letter)
+    def hide(self, letter: Letter) -> None:
+        """对用户隐藏一封信（幂等）。不物理删除：防重复逻辑还要靠这一行。"""
+        if letter.hidden_at is None:
+            letter.hidden_at = datetime.now(timezone.utc)
+            self._db.commit()
+
+    def hide_many(self, user_id: int, ids: Sequence[int]) -> int:
+        """批量隐藏：只动属于该用户、尚未隐藏的信；返回实际隐藏的数量。"""
+        if not ids:
+            return 0
+        rows = self._db.scalars(
+            select(Letter).where(
+                Letter.user_id == user_id,
+                Letter.id.in_(list(ids)),
+                Letter.hidden_at.is_(None),
+            )
+        ).all()
+        return self._hide_rows(rows)
+
+    def hide_all(self, user_id: int, before: datetime | None = None) -> int:
+        """一键清理：隐藏该用户全部未隐藏的信；给 before 则只隐藏更早的。"""
+        stmt = select(Letter).where(Letter.user_id == user_id, Letter.hidden_at.is_(None))
+        if before is not None:
+            if before.tzinfo is None:
+                before = before.replace(tzinfo=timezone.utc)
+            else:
+                before = before.astimezone(timezone.utc)  # SQLite 按墙上时间比，统一成 UTC
+            stmt = stmt.where(Letter.created_at < before)
+        return self._hide_rows(self._db.scalars(stmt).all())
+
+    def _hide_rows(self, rows: Sequence[Letter]) -> int:
+        now = datetime.now(timezone.utc)
+        for r in rows:
+            r.hidden_at = now
         self._db.commit()
+        return len(rows)
+
+    def mark_all_read(self, user_id: int) -> int:
+        """全部标为已读（只动用户看得见的未读信）；返回数量。"""
+        rows = self._db.scalars(
+            select(Letter).where(
+                Letter.user_id == user_id,
+                Letter.is_read == False,  # noqa: E712
+                Letter.hidden_at.is_(None),
+            )
+        ).all()
+        for r in rows:
+            r.is_read = True
+        self._db.commit()
+        return len(rows)

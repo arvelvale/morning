@@ -5,7 +5,7 @@
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -45,7 +45,18 @@ class Letter(Base):
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
 
+    # 「对用户隐藏」而非物理删除：用户在信箱里删信 = 写入 hidden_at。
+    # 为什么不真删、也暂不做定期物理清理：很多防重复逻辑靠信件行本身——
+    # 睡前提醒的「今天发过没」、generation_key / delivery_date 当日幂等、
+    # 晚间信的 material_ids / afterglow 防复读、「有句话」每 7 天最多 2 封。
+    # 行没了这些都会失效（删掉今晚的提醒，下一分钟又来一封）。
+    # 所以：面向用户的读取一律过滤 hidden_at IS NULL，内部防重复逻辑一律不过滤。
+    hidden_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     __table_args__ = (
+        Index("ix_letters_user_hidden", "user_id", "hidden_at"),
         UniqueConstraint(
             "user_id", "generation_key", name="uq_letters_user_generation_key"
         ),
