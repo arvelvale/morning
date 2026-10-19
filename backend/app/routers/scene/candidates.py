@@ -6,7 +6,7 @@
 确认后生成正式片场场景：供给包（stage.supply，用户确认即显式授权深层记忆入剧本）
 + LLM 开场（theater）；生成成功后才置 confirmed，失败保持待确认可重试。
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -17,12 +17,13 @@ from sqlalchemy.orm import Session
 from app.db import SessionLocal, get_db
 from app.deps import get_current_user
 from app.graphs import theater
-from app.models.memory import MemoryItem
+from app.models.memory import HistoryEvent, MemoryHistory, MemoryItem
 from app.models.scene import Scene
 from app.models.user import User
 from app.routers.system._common import sse as _sse
 from app.services.scene import stage
 from app.services.memory.memory_store import MemoryStore
+from app.services.memory.temporal import has_specific_time
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["candidates"])
 
@@ -36,8 +37,45 @@ class CandidateOut(BaseModel):
     surface_text: str
     status: str | None
     created_at: datetime
+    # 用户当时说的原话：优先抽取时留下的原话片段；老数据取不到时退回整段倾诉原文（截断）；
+    # 用户选了「原文即焚」或原文已焚则为 None
+    evidence: str | None = None
+    due_date: datetime | None = None
+    has_time: bool = False
 
     model_config = {"from_attributes": True}
+
+
+def _aware(dt: datetime | None) -> datetime | None:
+    # SQLite 取回的时间不带时区，补成 UTC，前端解析才不会偏
+    return dt.replace(tzinfo=timezone.utc) if dt is not None and dt.tzinfo is None else dt
+
+
+def _evidence_of(db: Session, item: MemoryItem) -> str | None:
+    """只读：从 ADD 历史的 meta 取原话片段；没有则退回来源倾诉的整段原文（≤300 字）。"""
+    hist = db.scalar(
+        select(MemoryHistory).where(
+            MemoryHistory.memory_id == item.id,
+            MemoryHistory.event == HistoryEvent.ADD.value,
+        ).order_by(MemoryHistory.id)
+    )
+    if hist is not None and isinstance(hist.meta, dict) and hist.meta.get("evidence"):
+        return str(hist.meta["evidence"])
+    prov = item.provenance if isinstance(item.provenance, list) else []
+    if prov and isinstance(prov[0], int):
+        root = db.get(MemoryItem, prov[0])
+        if root is not None and root.user_id == item.user_id and root.raw_ref:
+            return root.raw_ref[:300]
+    return None
+
+
+def _out(db: Session, item: MemoryItem) -> CandidateOut:
+    due = _aware(item.due_date)
+    return CandidateOut(
+        id=item.id, content=item.content, surface_text=item.surface_text, status=item.status,
+        created_at=_aware(item.created_at), evidence=_evidence_of(db, item),
+        due_date=due, has_time=due is not None and has_specific_time(due),
+    )
 
 
 def _pending_stmt(user_id: int):
@@ -61,7 +99,8 @@ def _get_owned(db: Session, user_id: int, candidate_id: int) -> MemoryItem:
 @router.get("", response_model=list[CandidateOut])
 def list_candidates(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """待确认候选（草稿箱）。"""
-    return list(db.scalars(_pending_stmt(user.id).order_by(MemoryItem.created_at.desc())).all())
+    items = db.scalars(_pending_stmt(user.id).order_by(MemoryItem.created_at.desc())).all()
+    return [_out(db, it) for it in items]
 
 
 @router.get("/{candidate_id}", response_model=CandidateOut)
@@ -71,7 +110,7 @@ def get_candidate(
     db: Session = Depends(get_db),
 ):
     """单个候选片段详情。"""
-    return _get_owned(db, user.id, candidate_id)
+    return _out(db, _get_owned(db, user.id, candidate_id))
 
 
 @router.post("/{candidate_id}/confirm")

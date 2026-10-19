@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.services.memory.memory_store import MemoryStore
 from app.services.memory.privacy import filter_for_cloud_prompt
+from app.services.memory.temporal import cn_date, has_specific_time, now_context_text, to_cst
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +35,29 @@ DEFAULT_BUDGETS: dict[str, tuple[int, int]] = {
 }
 
 
+def _due_note(m) -> str:
+    """待办的截止提示。已过期且还没完成的待办标「已过期」而不是丢掉：
+    用户可能正问「那个材料交了吗」，丢掉会答非所问；标注后模型知道它是过去的事，
+    不会再说成「明天」。
+    """
+    due = getattr(m, "due_date", None)
+    if due is None or m.kind != "待办":
+        return ""
+    aware = due if due.tzinfo is not None else due.replace(tzinfo=timezone.utc)
+    when = cn_date(aware) + (to_cst(aware).strftime(" %H:%M") if has_specific_time(aware) else "")
+    if (m.status or "pending") == "pending" and aware < datetime.now(timezone.utc):
+        return f"（已过期，原定{when}，不要当作还没到的事）"
+    return f"（截止{when}）"
+
+
 def _render(items, budget: tuple[int, int]) -> list[str]:
-    """按预算裁剪一组记忆为文本行。"""
+    """按预算裁剪一组记忆为文本行。每条标上记下的日期（东八区），避免旧事被当成「刚说的」。"""
     max_items, max_chars = budget
     lines: list[str] = []
     used = 0
     for m in items[:max_items]:
-        line = f"- [{m.kind}] {m.surface_text or m.content}"
+        noted = f" · {cn_date(m.created_at)}记下" if getattr(m, "created_at", None) else ""
+        line = f"- [{m.kind}{noted}] {m.surface_text or m.content}{_due_note(m)}"
         if used + len(line) > max_chars:
             break
         lines.append(line)
@@ -128,4 +146,7 @@ def build(
             logger.warning("context query section failed: %s", e)
 
     body = "\n".join(sections)
+    if sections:
+        # 告诉模型「今天」，记忆里的相对说法（明天/下周）才能对着记下日期推算
+        body = f"（{now_context_text()}；下列条目标注的是记下的日期，已过去的事不要说成明天）\n{body}"
     return f"{FENCE_OPEN}\n{body}\n{FENCE_CLOSE}"

@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 from app.llm import get_chat_model
 from app.models.letter import Letter
 from app.models.memory import MemoryItem
+from app.services.memory.context_builder import _due_note
+from app.services.memory.temporal import cn_date, cn_date_weekday
 from app.services.mailbox.letter_store import (
     LetterStore,
     daily_generation_key,
@@ -45,7 +47,10 @@ EVENING_SYSTEM_PROMPT = """\
 
 要求：
 - 结合下面「今天的碎片」自然地提一两件事，像顺口关心，不要罗列清单。
-- 如果没有碎片（第一次见面或今天没记什么），就写一封轻轻的问候，欢迎主人、说说夜晚，不要提"没有记录"这类话。
+- 每条碎片前面标着主人记下它的日期，用户消息里写明了今天是几月几日周几。已经过去的事绝不能说成「明天」「待会」；
+  碎片里写的具体日期若早于今天，就按已经发生/已过期来对待，宁可不提。
+- 如果没有碎片（第一次见面或今天没记什么），就写一封轻轻的问候，说说夜晚、让主人放松，不要提"没有记录"这类话，
+  也不要凭空提到任何具体的旧事、待办或截止日期。
 - 语气口语、简短，全文 40–80 字，最多一个 emoji。
 - 绝不催促主人做事、不评价对错、不给建议清单。
 - 如果有「刚在片场演完的一幕」，那是主人放不下的一件事，刚刚在片场里走了一遍：
@@ -67,11 +72,24 @@ def _start_of_today_cst() -> datetime:
     return start_cst.astimezone(timezone.utc)
 
 
-def _gather_material(db: Session, user_id: int) -> list[str]:
-    """收集晚间来信素材：只取 depth=surface。
+def _used_material_ids(db: Session, user_id: int) -> set[int]:
+    """近两周自动来信里已经提过的记忆 id（attachment.material_ids）。同一条记忆最多提一次。"""
+    since = datetime.now(timezone.utc) - timedelta(days=14)
+    used: set[int] = set()
+    for letter in db.scalars(
+        select(Letter).where(Letter.user_id == user_id, Letter.created_at >= since)
+    ).all():
+        ids = (letter.attachment or {}).get("material_ids")
+        if isinstance(ids, list):
+            used.update(i for i in ids if isinstance(i, int))
+    return used
 
-    优先当天记忆；当天没有则回落到全部表层记忆（最近 MAX_MATERIAL 条）。
-    返回 content 文本列表（可能为空 = 首次/无素材）。
+
+def _material_items(db: Session, user_id: int) -> list[MemoryItem]:
+    """收集晚间来信素材（记忆条目）：只取 depth=surface、东八区今天记下、且没被之前的来信提过的。
+
+    当天没有新素材就返回空——**不再回落到全部旧记忆**：旧记忆里只有「明天」这类相对说法，
+    天天复用会让模型每天都把一件旧事说成「明天」（实训材料事件）。
     """
     base = select(MemoryItem).where(
         MemoryItem.user_id == user_id,
@@ -80,20 +98,26 @@ def _gather_material(db: Session, user_id: int) -> list[str]:
         MemoryItem.is_forgotten == False,  # noqa: E712
     )
 
-    # 先试当天（东八区）
+    # 只取当天（东八区）
     start = _start_of_today_cst()
     today_stmt = base.where(MemoryItem.created_at >= start).order_by(
         MemoryItem.created_at.desc()
     )
-    items = list(db.scalars(today_stmt).all())
-
-    # 当天没有 → 回落到全部表层记忆
-    if not items:
-        all_stmt = base.order_by(MemoryItem.created_at.desc()).limit(MAX_MATERIAL)
-        items = list(db.scalars(all_stmt).all())
+    used = _used_material_ids(db, user_id)
+    items = [m for m in db.scalars(today_stmt).all() if m.id not in used]
 
     # 片场余温单独处理（见 _pending_afterglow），不混进普通碎片
-    return [m.content for m in items[:MAX_MATERIAL] if m.content and not _is_afterglow(m)]
+    return [m for m in items if m.content and not _is_afterglow(m)][:MAX_MATERIAL]
+
+
+def _format_material(m: MemoryItem) -> str:
+    """素材一行：前面带记下的日期，待办另带截止/过期标注。"""
+    return f"{cn_date(m.created_at)}记下：{m.content}{_due_note(m)}"
+
+
+def _gather_material(db: Session, user_id: int) -> list[str]:
+    """晚间来信素材文本（每条前带记下日期）；空列表 = 今天没有新素材。"""
+    return [_format_material(m) for m in _material_items(db, user_id)]
 
 
 def _is_afterglow(m: MemoryItem) -> bool:
@@ -146,9 +170,9 @@ def generate_evening_letter(db: Session, user_id: int) -> Letter | None:
         logger.info("[evening] user %d reached daily mailbox limit, skip", user_id)
         return None
 
-    material = _gather_material(db, user_id)
-    if material:
-        material_text = "\n".join(f"- {m}" for m in material)
+    material_items = _material_items(db, user_id)
+    if material_items:
+        material_text = "\n".join(f"- {_format_material(m)}" for m in material_items)
     else:
         material_text = "（今天没有碎片）"
     afterglow = _pending_afterglow(db, user_id)
@@ -162,7 +186,9 @@ def generate_evening_letter(db: Session, user_id: int) -> Letter | None:
         llm = get_chat_model()
         resp = llm.invoke([
             {"role": "system", "content": EVENING_SYSTEM_PROMPT},
-            {"role": "user", "content": f"今天的碎片：\n{material_text}"},
+            {"role": "user", "content": (
+                f"今天是{cn_date_weekday(datetime.now(CST))}（东八区）。\n今天的碎片：\n{material_text}"
+            )},
         ])
     except Exception as e:
         # LLM 调用失败时不发
@@ -180,14 +206,23 @@ def generate_evening_letter(db: Session, user_id: int) -> Letter | None:
         title=title,
         body=body,
         pet_id=pet.id if pet is not None else None,
-        # 记下这封信提过哪几条余温，之后不再重复提
-        attachment={"afterglow_ids": [m.id for m in afterglow[:2]]} if afterglow else None,
+        # 记下这封信提过哪几条余温 / 普通素材，之后不再重复提（整体新建 dict，JSON 列无需脏检查）
+        attachment=_letter_attachment(afterglow[:2], material_items),
     )
     if letter is None:
         logger.info("[evening] user %d lost daily-slot race, skip", user_id)
         return None
     logger.info("[evening] letter id=%d created for user %d", letter.id, user_id)
     return letter
+
+
+def _letter_attachment(afterglow: list[MemoryItem], material: list[MemoryItem]) -> dict[str, Any] | None:
+    att: dict[str, Any] = {}
+    if afterglow:
+        att["afterglow_ids"] = [m.id for m in afterglow]
+    if material:
+        att["material_ids"] = [m.id for m in material]
+    return att or None
 
 
 def _parse_letter(raw: str) -> tuple[str, str]:

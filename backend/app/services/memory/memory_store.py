@@ -36,7 +36,7 @@ class MemoryStore:
                expires_at: datetime | None = None,
                status: str | None = None, due_date: datetime | None = None,
                relation_type: str | None = None, relation_to_id: int | None = None,
-               actor: str = "system") -> MemoryItem:
+               actor: str = "system", history_meta: dict | None = None) -> MemoryItem:
         """创建一条记忆，同步写 ADD 历史。自动按 depth 填充默认门控/隐私。"""
         defaults = DEPTH_DEFAULTS.get(Depth(depth), {})
         item = MemoryItem(
@@ -69,7 +69,7 @@ class MemoryStore:
 
         # 写历史
         self._write_history(item.id, HistoryEvent.ADD, actor=actor,
-                            new_content=content)
+                            new_content=content, meta=history_meta)
         self._db.commit()
         self._db.refresh(item)
         return item

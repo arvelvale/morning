@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field, field_validator
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -21,6 +21,7 @@ from app.deps import get_current_user
 from app.models.memory import Kind, MemoryItem
 from app.models.user import User
 from app.services.memory.memory_store import MemoryStore
+from app.services.memory.temporal import has_specific_time
 
 
 # ─── 共用输出 ────────────────────────────────────────────────────────────────
@@ -41,6 +42,20 @@ class StoreItemOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("due_date", "created_at", "updated_at", mode="after")
+    @classmethod
+    def _utc_if_naive(cls, v: datetime | None):
+        # SQLite 取回的时间不带时区；统一补成 UTC，前端 new Date() 才不会按本地时区误读
+        if v is not None and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def has_time(self) -> bool:
+        """due_date 是否带具体时刻。约定：东八区本地恰为 00:00 视为「只有日期」。"""
+        return self.due_date is not None and has_specific_time(self.due_date)
 
 
 def _out(item: MemoryItem) -> StoreItemOut:
@@ -66,10 +81,23 @@ def _list_kind(store: MemoryStore, user_id: int, kind: str) -> list[MemoryItem]:
 todos_router = APIRouter(prefix="/api/v1/todos", tags=["todos"])
 
 
+def _due_to_utc(v: datetime | None) -> datetime | None:
+    """入库前统一成 UTC：带时区的按其时区换算（10:15+08:00 → 02:15Z），不带时区的按 UTC。
+    SQLite 会直接丢掉时区只存钟点，不先换算就会把 10:15+08:00 存成 10:15、读回当 10:15Z（差 8 小时）。"""
+    if v is None:
+        return None
+    return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
+
+
 class TodoCreate(BaseModel):
     content: str
     surface_text: str = ""
     due_date: datetime | None = None
+
+    @field_validator("due_date", mode="after")
+    @classmethod
+    def _due_utc(cls, v: datetime | None):
+        return _due_to_utc(v)
 
 
 class TodoPatch(BaseModel):
@@ -77,6 +105,11 @@ class TodoPatch(BaseModel):
     surface_text: str | None = None
     due_date: datetime | None = None
     status: str | None = None  # pending / done / canceled
+
+    @field_validator("due_date", mode="after")
+    @classmethod
+    def _due_utc(cls, v: datetime | None):
+        return _due_to_utc(v)
 
 
 def _is_today(dt: datetime | None) -> bool:

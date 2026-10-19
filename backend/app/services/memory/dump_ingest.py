@@ -18,6 +18,7 @@ from app.models.preference import UserPreference
 from app.services.memory import privacy
 from app.services.memory.memory_store import MemoryStore
 from app.services.memory.context_builder import build as build_memory_context
+from app.services.memory.temporal import parse_due_at
 from app.services.infra.preferences import ttl_days_for
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,8 @@ def ingest_dump(db: Session, *, user_id: int, dump_text: str,
     items: list[ReceiptItem] = []
     kind_counts: dict[str, int] = {}
 
+    # 用户选了「原文即焚」时，逐字原话片段也不留（evidence 是原文摘录）
+    keep_raw = _should_keep_raw(db, user_id)
     for fact in facts:
         # 情绪 / 未确认片段入寄存并落 TTL（按用户偏好天数，到期由 inbox.expire_ephemeral 真删）
         ttl = (
@@ -121,6 +124,11 @@ def ingest_dump(db: Session, *, user_id: int, dump_text: str,
             if fact["kind"] in EPHEMERAL_KINDS
             else None
         )
+        # 截止时间：模型给的 due_at（东八区 ISO）→ UTC 入库。
+        # 设计值 → 代码换算：「今天10点15」→ 2026-10-19T10:15+08:00 → 存 2026-10-19T02:15Z；
+        # 只有日期（has_time=false）→ 当天东八区 00:00（= 前一天 16:00Z）。
+        # 非法/解析失败 → due_date=None，只丢截止时间，绝不丢这条记忆。
+        due_date = _safe_due_date(fact)
         mem = store.create(
             user_id=user_id,
             layer=fact["layer"],
@@ -134,7 +142,10 @@ def ingest_dump(db: Session, *, user_id: int, dump_text: str,
             provenance=[dump_id],
             raw_ref=None,  # 子条目不重复存 raw
             expires_at=ttl,
+            due_date=due_date,
             actor="extractor",
+            # 抽取到的原话片段随 ADD 历史留存（候选/片段详情可读；不改表）
+            history_meta=_history_meta(fact, keep_evidence=keep_raw),
         )
         ri = ReceiptItem(kind=fact["kind"], content=fact["content"], memory_id=mem.id)
         items.append(ri)
@@ -174,6 +185,26 @@ def ingest_dump(db: Session, *, user_id: int, dump_text: str,
     yield {"event": "receipt", "data": _receipt_dict(receipt)}
     yield {"event": "done", "data": {}}
     return receipt
+
+
+def _safe_due_date(fact: dict[str, Any]) -> datetime | None:
+    """解析 fact 的 due_at；任何异常都当没有截止时间。"""
+    try:
+        return parse_due_at(fact.get("due_at"), fact.get("has_time", True))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("due_at 解析失败，忽略截止时间: %r (%s)", fact.get("due_at"), e)
+        return None
+
+
+def _history_meta(fact: dict[str, Any], *, keep_evidence: bool = True) -> dict[str, Any] | None:
+    """抽取元信息，写进 ADD 历史：evidence=原话片段，due_at=模型原始截止串。"""
+    meta = {}
+    if keep_evidence and fact.get("evidence"):
+        meta["evidence"] = str(fact["evidence"])[:500]
+    if fact.get("due_at"):
+        meta["due_at"] = fact["due_at"]
+        meta["has_time"] = bool(fact.get("has_time", True))
+    return meta or None
 
 
 def _receipt_dict(r: DumpReceipt) -> dict:

@@ -22,6 +22,7 @@ from app.models.preference import UserPreference
 from app.models.signal import DeviceUsageSignal, MotionSample
 from app.services.signals.date_context import DateContext, get_date_context
 from app.services.memory.context_builder import build as build_memory_context
+from app.services.memory.temporal import cn_date
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,11 @@ def _surface_material(db: Session, user_id: int) -> list[str]:
             .limit(MAX_SURFACE_MATERIAL)
         ).all()
     )
-    return [(m.surface_text or m.content or "").strip() for m in items if (m.surface_text or m.content)]
+    # 每条前带记下的日期：记忆里只有「明天」之类相对说法，不标日期模型会把旧事说成明天
+    return [
+        f"{cn_date(m.created_at)}记下：{(m.surface_text or m.content or '').strip()}"
+        for m in items if (m.surface_text or m.content)
+    ]
 
 
 def build_decision_context(

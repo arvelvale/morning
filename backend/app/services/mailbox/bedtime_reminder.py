@@ -26,6 +26,7 @@ from app.services.mailbox.letter_store import (
     daily_generation_key,
     local_delivery_date,
 )
+from app.services.memory.temporal import now_context_text
 from app.services.pet.pet_store import PetStore
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,10 @@ REMINDER_TRIGGER = (
     "准备休息了。一两句就好，别说教也别列清单，可以顺口关心我一句。"
 )
 DEFAULT_TITLE = "该歇一歇了 🌙"
+
+# 睡前提醒不读记忆（run_companion 没传 memory_context），只给「现在」并堵住编造旧事：
+# 曾出现过每晚把一件旧待办说成「明天要交」，这里明确禁止提具体待办/截止日期。
+ENV_CONTEXT_TEMPLATE = "{now}。你手上没有可靠的待办信息，不要提起或编造任何具体的待办、截止日期、明天的安排。"
 
 
 def _already_sent_today(db: Session, user_id: int) -> bool:
@@ -70,6 +75,7 @@ def generate_bedtime_reminder(db: Session, user_id: int) -> Letter | None:
         "free_chat",
         [{"role": "user", "content": REMINDER_TRIGGER}],
         pet_prompt=pet_prompt,
+        env_context=ENV_CONTEXT_TEMPLATE.format(now=now_context_text()),
     )
     if not body or not body.strip():
         return None
