@@ -14,6 +14,7 @@
 | `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，发布到 GitHub Pages：https://arvelvale.github.io/morning-site/ ，用 `deploy/publish_site.py`；yingjiapp.com 已于 2026-10-08 还给映记 / 栖光，`deploy/sync_landing_site.py` 停用）。官网「更新日志」的内容在 `landing/src/changelog.ts`：**发新版（公开发布后）先在数组最前面加一条用户看得懂的更新说明，再跑 `publish_site.py`**，只写已公开发布的版本 |
 | `morning-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
 | `frontend-demo/` | React Native / Expo 移植版（`npm run web` 浏览器预览 / `npm run android`），详见 `frontend-demo/README.md` |
+| `frontend-demo/src/local/` | **本地优先运行时**（手机里的“虚拟服务器”：SQLite + 直连模型服务商，设计见 `docs/specs/2026-11-11-local-first-runtime.md`）。`api.ts` 在本地模式下把接口调用交给它，没实现的接口明确报“本地模式暂不支持”，**不得回退到服务器**。`src/local/generated/` 与 `scripts/fixtures/*.json` 由 `backend/scripts/export_local_fixtures.py` 生成：**改了后端提示词（graphs/companion.py、pet_prompts.py、pet_presets.py）或 llm.py 的换路规则，要重跑它再跑 `npm run test:local`**；记忆/待办这一块同理，对应 `backend/scripts/export_local_memory_fixtures.py`（改了 extractor.py、temporal.py、memory_store.py、privacy.py、context_builder.py、dump_ingest.py、chat_todos.py 就要重跑）。后端新增/改动的接口按 spec 的阶段表移植 |
 | `frontend-demo/src/pets/rig/` | 米露/波比角色运行时 `pet-rig.js`（程序化骨骼动画，App、官网、鸿蒙共用一份源码）；改完在 frontend-demo 下 `npm run rig:build` 同步各处副本，不要手改副本。状态演示见 `design-demos/pet-motion/pet.html` |
 | `harmony/` | HarmonyOS NEXT 原生客户端（ArkTS + ArkUI），详见 `harmony/README.md`；计划与里程碑见 `docs/2026-08-27-harmonyos-next-development-plan.md` |
 | `docs/progress/` | 开发日志：每天一个 `YYYY-MM-DD.md`，双层结构（产品语义优先、实现细节其次），规则与索引见 `docs/progress/_开发日志规范.md` |
