@@ -2,6 +2,11 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- 悬浮米露：显示在其他应用上层（用户在系统设置里手动授权） -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <!-- 开机 / 更新后拉起常驻陪伴；无头 JS 任务运行期间需要的唤醒锁 -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
 
   <application>
     <service
@@ -12,5 +17,19 @@
         android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
         android:value="companion_presence" />
     </service>
+
+    <!-- 后台拉信：由 CompanionForegroundService 定时拉起的短无头 JS 任务 -->
+    <service
+      android:name="com.morning.companion.LetterPollTaskService"
+      android:exported="false" />
+
+    <receiver
+      android:name="com.morning.companion.BootReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

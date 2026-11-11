@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET"/>
+  <!-- 聊天里「拍照」用（expo-image-picker 的相机入口，点了才会向用户申请） -->
+  <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
