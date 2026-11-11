@@ -11,7 +11,7 @@
 | `backend/app/routers/`、`backend/app/services/` | 按业务域分子包（routers：`ai/ scene/ mailbox/ companion/ memory/ system/`；services：`scene/ mailbox/ pet/ memory/ companion/ signals/ infra/`），新模块归入对应域；导入用绝对路径 `app.services.<域>.X`，子包 `__init__.py` 只写职责说明、不做万能 re-export |
 | `backend/docs/api-design.md` | REST 接口契约（各节标注 ✅ 已实现 / 未实现） |
 | `.kiro/specs/memory-system/` | 双轴记忆系统 spec（requirements/design/tasks），Phase 0–6 已全部实现 |
-| `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，发布到 GitHub Pages：https://arvelvale.github.io/morning-site/ ，用 `deploy/publish_site.py`；yingjiapp.com 已于 2026-10-08 还给映记 / 栖光，`deploy/sync_landing_site.py` 停用） |
+| `landing/` | 喵灵官网落地页（Vite + React + TS；`npm run build` 产出 `dist/`，发布到 GitHub Pages：https://arvelvale.github.io/morning-site/ ，用 `deploy/publish_site.py`；yingjiapp.com 已于 2026-10-08 还给映记 / 栖光，`deploy/sync_landing_site.py` 停用）。官网「更新日志」的内容在 `landing/src/changelog.ts`：**发新版（公开发布后）先在数组最前面加一条用户看得懂的更新说明，再跑 `publish_site.py`**，只写已公开发布的版本 |
 | `morning-proto/` | 前端 HTML 原型（4-Tab IA，Vite 原型；`npm run dev`） |
 | `frontend-demo/` | React Native / Expo 移植版（`npm run web` 浏览器预览 / `npm run android`），详见 `frontend-demo/README.md` |
 | `frontend-demo/src/pets/rig/` | 米露/波比角色运行时 `pet-rig.js`（程序化骨骼动画，App、官网、鸿蒙共用一份源码）；改完在 frontend-demo 下 `npm run rig:build` 同步各处副本，不要手改副本。状态演示见 `design-demos/pet-motion/pet.html` |
@@ -36,12 +36,18 @@ cd backend && uv run alembic upgrade head             # prod 迁移
 
 ## 硬约定（新人必读）
 
+Android release 构建用 PowerShell 与 **Java 17（`D:/jdk`）**，沿用现有签名和 `arm64-v8a` 发布架构。不要直接改用 Java 21：本地 Expo 模块未单独固定 Kotlin 目标，会造成 Java 17 / Kotlin 21 不一致。构建缓存与临时目录使用现有非系统盘路径，环境覆盖结束后恢复原值；不默认 clean。发布/回滚证据见 `docs/releases/`。
+
 1. **dev 库 `backend/morning.db` 由 create_all 建**，不加列；改列手动 ALTER 或删库。
    模型/字段变更必须同步写 `backend/alembic/versions/` 迁移（revision id ≤ 32 字符）。
 2. 新模型注册 `backend/app/models/__init__.py`；新 router / service 放进 `routers/` `services/` 对应业务域子包（无合适域再新建），新 router 还需在 `backend/app/main.py` 按域导入并 `include_router`。
 3. 所有业务接口必须 `Depends(get_current_user)` 做用户隔离，URL 不放 userId。
 4. 伦理红线：不诊断、不贴人格标签、不把推测当事实；vulnerable/core 记忆
-   默认 local 不外发（走 `app/services/memory/privacy.py` 判定）。
+   默认 local 不外发（走 `app/services/memory/privacy.py` 判定）；进云端模型 prompt 的口径是
+   「只在用户自己提起时用，米露绝不主动翻出」：用户发起的聊天里，仅当**当前这条消息**与某条
+   vulnerable/core 相关才放入（`privacy.select_user_raised_sensitive`，有条数/字符预算，仅
+   `context_builder.build(user_initiated=True, user_text=…)` 显式打开）；晚间来信、周报、问候/信号、
+   自动推荐片场、做梦等米露主动路径一律不用；burn_after_read 任何路径都不放。
 5. `morning.db*`、`.env` 不入库（见 `.gitignore`）。
 6. 生成式 3D（SceneSpec）的零件/人物字段同步（改动需跨这些位置）：
    `backend/app/services/scene/scene_spec.py`（白名单 + 导演 prompt）、

@@ -1,7 +1,7 @@
 /**
  * 睡前倾倒：把今晚没闭环的事交给喵灵整理（对齐 RN 端 Dump 三屏）。
  *
- * 输入「今晚的念头」→ 处理中（SSE 逐条接住）→ 回执「已替你接住 N 个念头」。
+ * 输入「今晚的念头」→ 处理中（SSE 逐条记下）→ 回执「已记下 N 个念头」。
  * 即使分类失败，原文也已在服务端安全保留（回执 fallback 时提示「先替你收着」）。
  * 语音输入在 M3 真机阶段补。
  */
@@ -43,7 +43,7 @@ type DumpPhase = 'input' | 'processing' | 'receipt';
 
 /** 回执四卡的固定语义（与 RN 端 KIND_META 一致；灵感合并「小结」）。 */
 const KIND_META: KindMeta[] = [
-  { icon: '📮', kind: '待办', label: '明天要接住', unit: '件事' },
+  { icon: '📮', kind: '待办', label: '明天要做', unit: '件事' },
   { icon: '💡', kind: '灵感', label: '值得留下的想法', unit: '条' },
   { icon: '🫧', kind: '情绪', label: '被听见的感受', unit: '个' },
   { icon: '🌙', kind: '片段', label: '今晚静静收着', unit: '个' }
@@ -247,7 +247,7 @@ export struct Dump {
       this.header('整理中', '')
       Column({ space: spacing.s3 }) {
         LoadingProgress().width(30).height(30).color(this.colors().accent)
-        Text('正在接住你的念头…')
+        Text('正在整理你的想法…')
           .fontSize(fontSizes.body)
           .fontColor(this.colors().textSecondary)
         if (this.fragments.length > 0) {
@@ -305,7 +305,7 @@ export struct Dump {
       Scroll() {
         Column({ space: spacing.s4 }) {
           Text() {
-            Span('已替你接住 ')
+            Span('已记下 ')
             Span(`${this.receipt?.total ?? 0} 个念头`)
               .fontColor(this.colors().accent)
           }
