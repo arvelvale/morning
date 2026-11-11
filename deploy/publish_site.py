@@ -9,6 +9,8 @@
 用法（在 AdventureX 根目录）：
   python deploy/publish_site.py            # 构建 + 推送 + 发 Release + 校验
   python deploy/publish_site.py --skip-build   # 复用已有的 landing/dist（不重新构建）
+  python deploy/publish_site.py --version 0.3.19   # 发指定版本（默认取 frontend-demo/package.json）
+                                                  # 本机构建版本领先于已公开版本时用：下载地址以 landing/src/config.ts 为准
 
 脚本不读取、不打印任何密码或 token。
 """
@@ -204,8 +206,13 @@ def verify(version: str) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-build", action="store_true")
+    ap.add_argument("--version", help="要发布的安装包版本，默认取 frontend-demo/package.json")
     args = ap.parse_args()
-    version = package_version()
+    version = args.version or package_version()
+    # 官网下载地址编译进了 JS 包：版本不一致就会发出一个指向别的安装包的官网，直接拦下
+    cfg = (LANDING / "src" / "config.ts").read_text(encoding="utf-8")
+    if f"morning-android-{version}.apk" not in cfg:
+        sys.exit(f"landing/src/config.ts 里的下载地址不是 {version}，先改好再发布")
     if not args.skip_build:
         build_site()
     if not DIST.exists():

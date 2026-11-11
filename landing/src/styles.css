@@ -264,6 +264,29 @@ section{position:relative;padding:112px 0}
 .dl-scene .dl-btn{color:var(--ink)}
 .version-line{margin-top:22px;font-size:13px;color:#B9AC95}
 
+/* ═══════════ 更新日志 ═══════════ */
+#changelog{padding-top:72px}
+.cl-list{list-style:none;margin:44px 0 0;padding:0;display:flex;flex-direction:column;gap:30px;max-width:860px}
+.cl-entry{display:grid;grid-template-columns:150px minmax(0,1fr);gap:26px;align-items:start}
+.cl-rail{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding-top:18px}
+.cl-ver{font-family:var(--hand);font-size:28px;line-height:1.1;color:var(--ink)}
+.cl-rail time{font-size:13px;color:var(--muted);letter-spacing:.02em}
+.cl-badge{margin-top:6px;padding:1px 10px;font-size:12px;font-weight:600;letter-spacing:.06em;color:#6A4F10;background:var(--gold);border-radius:999px}
+.cl-card{padding:20px 26px 22px}
+.cl-card h3{font-size:23px}
+.cl-card ul{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.cl-card li{position:relative;padding-left:20px;font-size:15px;color:var(--ink-2)}
+.cl-card li::before{content:"";position:absolute;left:3px;top:.72em;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px rgba(169,126,34,.18)}
+.cl-more{max-width:860px;margin-top:30px}
+.cl-more>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:14px;
+  font-size:15px;font-weight:500;color:var(--ink-2);background:var(--card);border:1px solid var(--line);transition:background-color .18s ease,color .18s ease}
+.cl-more>summary::-webkit-details-marker{display:none}
+.cl-more>summary::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s ease}
+.cl-more[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+.cl-more>summary:hover{background:var(--paper-2);color:var(--ink)}
+.cl-more>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.cl-more .cl-list{margin-top:30px}
+
 /* ═══════════ 页脚 ═══════════ */
 footer{padding:36px 0 48px}
 .foot{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px}
@@ -333,6 +356,10 @@ footer{padding:36px 0 48px}
   .desk-pet{width:190px !important;right:6px}
   .reminder-card{left:20px;top:210px;max-width:210px}
   .dl-btn{flex:1 1 100%}
+  .cl-entry{grid-template-columns:1fr;gap:12px}
+  .cl-rail{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding-top:0}
+  .cl-badge{margin-top:0}
+  .cl-card{padding:18px 18px 20px}
   /* 首屏标题第二行不换行（约 8.2 个字宽）：360 以下按视口缩小，320 宽时 34px 正好放进 288px 的正文宽度 */
   .hero-copy h1{font-size:clamp(30px,10.6vw,38px)}
   .stage{aspect-ratio:3/4}

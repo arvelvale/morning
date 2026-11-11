@@ -7,6 +7,7 @@ const LINKS = [
   { id: 'memory', label: '记忆' },
   { id: 'desk', label: '桌宠' },
   { id: 'theater', label: '场景重演' },
+  { id: 'changelog', label: '更新日志' },
 ] as const;
 
 /** 与 styles.css 里折叠导航的断点一致。 */
