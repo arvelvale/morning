@@ -5,8 +5,14 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "morning-companion": ["./modules/morning-companion/src/index.ts"]
-    }
+      "morning-companion": [
+        "./modules/morning-companion/src/index.ts"
+      ]
+    },
+    "allowImportingTsExtensions": true
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ]
 }

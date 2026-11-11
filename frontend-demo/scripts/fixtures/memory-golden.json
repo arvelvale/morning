@@ -1,0 +1,3078 @@
+{
+ "now_utc": "2026-11-11T06:30:00.000Z",
+ "temporal": {
+  "parse_due_at": [
+   {
+    "value": "2026-10-19T10:15:00+08:00",
+    "has_time": true,
+    "out": "2026-10-19T02:15:00.000Z"
+   },
+   {
+    "value": "2026-10-20",
+    "has_time": true,
+    "out": "2026-10-19T16:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20",
+    "has_time": false,
+    "out": "2026-10-19T16:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20T08:00:00",
+    "has_time": true,
+    "out": "2026-10-20T00:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20T08:00:00Z",
+    "has_time": true,
+    "out": "2026-10-20T08:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20T08:00:00z",
+    "has_time": true,
+    "out": "2026-10-20T08:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20T08:00:00+00:00",
+    "has_time": false,
+    "out": "2026-10-19T16:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20 09:30",
+    "has_time": true,
+    "out": "2026-10-20T01:30:00.000Z"
+   },
+   {
+    "value": "2026-10-20T09:30:00.123+08:00",
+    "has_time": true,
+    "out": "2026-10-20T01:30:00.000Z"
+   },
+   {
+    "value": "1999-01-01",
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": "2101-01-01",
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": "not a date",
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": "",
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": "   ",
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": null,
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": 123,
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": "2026-10-20T10:00:00+08:00",
+    "has_time": "false",
+    "out": "2026-10-19T16:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20T10:00:00+08:00",
+    "has_time": "FALSE",
+    "out": "2026-10-19T16:00:00.000Z"
+   },
+   {
+    "value": "2026-10-20T10:00:00+08:00",
+    "has_time": "true",
+    "out": "2026-10-20T02:00:00.000Z"
+   },
+   {
+    "value": "2026-13-01",
+    "has_time": true,
+    "out": null
+   },
+   {
+    "value": "2026-02-30",
+    "has_time": true,
+    "out": null
+   }
+  ],
+  "now_context_text": "现在是 2026-11-11 周三 14:30（东八区）",
+  "now_context_text_given": "现在是 2026-10-19 周一 08:30（东八区）",
+  "cn_date": [
+   {
+    "at": "2026-11-11T06:30:00+00:00",
+    "out": "11月11日",
+    "wd": "11月11日周三"
+   },
+   {
+    "at": "2026-12-31T20:00:00+00:00",
+    "out": "1月1日",
+    "wd": "1月1日周五"
+   },
+   {
+    "at": "2026-01-01T00:00:00+00:00",
+    "out": "1月1日",
+    "wd": "1月1日周四"
+   }
+  ],
+  "has_specific_time": [
+   {
+    "at": "2026-11-11T16:00:00+00:00",
+    "out": false
+   },
+   {
+    "at": "2026-11-11T16:01:00+00:00",
+    "out": true
+   },
+   {
+    "at": "2026-11-11T02:15:00+00:00",
+    "out": true
+   }
+  ]
+ },
+ "extractor": {
+  "prompts": [
+   {
+    "name": "倾倒·无画像",
+    "input": {
+     "dump_text": "今天10点15要开会，明天交材料。",
+     "profile_context": null,
+     "todo_only": false
+    },
+    "messages": [
+     {
+      "role": "system",
+      "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+     },
+     {
+      "role": "user",
+      "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n今天10点15要开会，明天交材料。\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n（无）"
+     }
+    ],
+    "model_kwargs": {
+     "temperature": 0.1
+    },
+    "facts": []
+   },
+   {
+    "name": "倾倒·带画像",
+    "input": {
+     "dump_text": "有点焦虑",
+     "profile_context": "<memory-context>\n- [情绪] 容易紧张\n</memory-context>",
+     "todo_only": false
+    },
+    "messages": [
+     {
+      "role": "system",
+      "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+     },
+     {
+      "role": "user",
+      "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n有点焦虑\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n<memory-context>\n- [情绪] 容易紧张\n</memory-context>"
+     }
+    ],
+    "model_kwargs": {
+     "temperature": 0.1
+    },
+    "facts": []
+   },
+   {
+    "name": "聊天待办",
+    "input": {
+     "dump_text": "我明天上午11点有面试哈",
+     "profile_context": null,
+     "todo_only": true
+    },
+    "messages": [
+     {
+      "role": "system",
+      "content": "你是喵灵的待办识别工具。只看当前用户这句话，最多提取三件待办。\n用户本人明确约定的未来安排（例如「我明天上午11点有面试哈」→「参加面试」），\n以及明确要求记下或提醒的具体事项，可以登记。已发生、已取消、改期、假设、反问、转述他人、\n单纯焦虑、含糊愿望或请求你当下回答/做事，均不登记；明确说「别记」也不登记。\n只输出 JSON 数组，没有待办时输出 []。每项字段：layer 固定 episodic，kind 固定 待办，\ndepth 为 surface、personal 或 vulnerable，content 为简短事项标题（时间单独存，不写进标题），\nconfidence 为 0 到 1 的置信度，evidence 为这句话里的原文片段。\ndue_at 按给定东八区当前时间换算成带 +08:00 的 ISO8601，明确时刻给 has_time:true，\n仅能确定日期用当天 00:00 并给 has_time:false，无明确日期填 null。不得猜测日期或时刻。\n\n现在是 2026-11-11 周三 14:30（东八区）"
+     },
+     {
+      "role": "user",
+      "content": "我明天上午11点有面试哈"
+     }
+    ],
+    "model_kwargs": {
+     "temperature": 0.1,
+     "timeout": 8,
+     "max_retries": 0,
+     "reasoning_effort": "low"
+    },
+    "facts": []
+   }
+  ],
+  "few_shot": "示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n",
+  "parse": [
+   {
+    "name": "正常",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"待办\", \"depth\": \"surface\", \"content\": \"开会\", \"surface_text\": \"你要开会\", \"confidence\": 0.9, \"evidence\": \"要开会\", \"entities\": [\"会\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "代码围栏",
+    "raw": "```json\n[{\"layer\": \"episodic\", \"kind\": \"待办\", \"depth\": \"surface\", \"content\": \"开会\", \"surface_text\": \"你要开会\", \"confidence\": 0.9, \"evidence\": \"要开会\", \"entities\": [\"会\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]\n```",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "core 被丢",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"core\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [],
+     "error": ""
+    }
+   },
+   {
+    "name": "非法 layer",
+    "raw": "[{\"layer\": \"x\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [],
+     "error": ""
+    }
+   },
+   {
+    "name": "非法 kind",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"x\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [],
+     "error": ""
+    }
+   },
+   {
+    "name": "非字典",
+    "raw": "[1, \"a\", null, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "不是数组",
+    "raw": "{\"a\": 1}",
+    "out": {
+     "facts": [],
+     "error": "LLM output is not a JSON array"
+    }
+   },
+   {
+    "name": "坏 JSON",
+    "raw": "[{",
+    "out": {
+     "facts": [],
+     "error": "JSON parse error: Expecting property name enclosed in double quotes: line 1 column 3 (char 2)"
+    }
+   },
+   {
+    "name": "空输出",
+    "raw": "",
+    "out": {
+     "facts": [],
+     "error": ""
+    }
+   },
+   {
+    "name": "置信度越界",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 3, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": -1, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": \"high\", \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": true, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 1.0,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.0,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.8,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 1.0,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "缺省字段",
+    "raw": "[{\"layer\": \"state\", \"kind\": \"\\u7075\\u611f\", \"depth\": \"personal\"}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "state",
+       "kind": "灵感",
+       "depth": "personal",
+       "content": "",
+       "surface_text": "",
+       "confidence": 0.8,
+       "evidence": "",
+       "entities": [],
+       "emotion": null,
+       "due_at": null,
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "due_at 非字符串",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": 5, \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"  \", \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \" 2026-11-12 \", \"has_time\": true}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": null,
+       "has_time": true
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": null,
+       "has_time": true
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "has_time false",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": false}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": null}, {\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": [\"\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": \"false\"}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": false
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      },
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [
+        "会"
+       ],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   },
+   {
+    "name": "entities null",
+    "raw": "[{\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"surface\", \"content\": \"\\u5f00\\u4f1a\", \"surface_text\": \"\\u4f60\\u8981\\u5f00\\u4f1a\", \"confidence\": 0.9, \"evidence\": \"\\u8981\\u5f00\\u4f1a\", \"entities\": null, \"emotion\": null, \"due_at\": \"2026-11-12T10:00:00+08:00\", \"has_time\": true}]",
+    "out": {
+     "facts": [
+      {
+       "layer": "episodic",
+       "kind": "待办",
+       "depth": "surface",
+       "content": "开会",
+       "surface_text": "你要开会",
+       "confidence": 0.9,
+       "evidence": "要开会",
+       "entities": [],
+       "emotion": null,
+       "due_at": "2026-11-12T10:00:00+08:00",
+       "has_time": true
+      }
+     ],
+     "error": ""
+    }
+   }
+  ]
+ },
+ "context": {
+  "items": [
+   {
+    "id": 1,
+    "layer": "profile",
+    "kind": "片段",
+    "depth": "surface",
+    "content": "用户喜欢喝拿铁",
+    "surface_text": "你喜欢喝拿铁",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 1,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "拿铁"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-03T00:00:00.000Z",
+    "updated_at": "2026-11-03T00:00:00.000Z"
+   },
+   {
+    "id": 2,
+    "layer": "profile",
+    "kind": "情绪",
+    "depth": "personal",
+    "content": "容易在周日晚上焦虑",
+    "surface_text": "周日晚上你容易焦虑",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 2,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": null,
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.3,
+    "privacy": "local",
+    "raw_ref": null,
+    "created_at": "2026-11-04T00:00:00.000Z",
+    "updated_at": "2026-11-04T00:00:00.000Z"
+   },
+   {
+    "id": 3,
+    "layer": "profile",
+    "kind": "情绪",
+    "depth": "vulnerable",
+    "content": "担心自己不配现在的职位",
+    "surface_text": "你有时担心自己不够格",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 3,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "职位"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.6,
+    "privacy": "local",
+    "raw_ref": null,
+    "created_at": "2026-11-05T00:00:00.000Z",
+    "updated_at": "2026-11-05T00:00:00.000Z"
+   },
+   {
+    "id": 4,
+    "layer": "profile",
+    "kind": "情绪",
+    "depth": "core",
+    "content": "渴望被认可",
+    "surface_text": "你很想被认可",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 4,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "认可"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.85,
+    "privacy": "local",
+    "raw_ref": null,
+    "created_at": "2026-11-06T00:00:00.000Z",
+    "updated_at": "2026-11-06T00:00:00.000Z"
+   },
+   {
+    "id": 5,
+    "layer": "state",
+    "kind": "灵感",
+    "depth": "surface",
+    "content": "想做睡前语音日记",
+    "surface_text": "你想做睡前语音日记",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 5,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "语音日记"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-07T00:00:00.000Z",
+    "updated_at": "2026-11-07T00:00:00.000Z"
+   },
+   {
+    "id": 6,
+    "layer": "state",
+    "kind": "情绪",
+    "depth": "personal",
+    "content": "最近睡得不好",
+    "surface_text": "你最近睡得不好",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 6,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": null,
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.3,
+    "privacy": "local",
+    "raw_ref": null,
+    "created_at": "2026-11-08T00:00:00.000Z",
+    "updated_at": "2026-11-08T00:00:00.000Z"
+   },
+   {
+    "id": 7,
+    "layer": "episodic",
+    "kind": "待办",
+    "depth": "surface",
+    "content": "周五交实训报告",
+    "surface_text": "你周五要交实训报告",
+    "confidence": 1.0,
+    "status": "pending",
+    "due_date": "2026-11-14T16:00:00.000Z",
+    "version": 1,
+    "parent_id": null,
+    "root_id": 7,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "实训报告"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-09T00:00:00.000Z",
+    "updated_at": "2026-11-09T00:00:00.000Z"
+   },
+   {
+    "id": 8,
+    "layer": "episodic",
+    "kind": "待办",
+    "depth": "surface",
+    "content": "昨天的会议纪要",
+    "surface_text": "整理会议纪要",
+    "confidence": 1.0,
+    "status": "pending",
+    "due_date": "2026-11-10T02:15:00.000Z",
+    "version": 1,
+    "parent_id": null,
+    "root_id": 8,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "会议纪要"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-09T00:00:00.000Z",
+    "updated_at": "2026-11-09T00:00:00.000Z"
+   },
+   {
+    "id": 9,
+    "layer": "episodic",
+    "kind": "待办",
+    "depth": "surface",
+    "content": "已经交掉的作业",
+    "surface_text": "作业",
+    "confidence": 1.0,
+    "status": "done",
+    "due_date": "2026-11-01T16:00:00.000Z",
+    "version": 1,
+    "parent_id": null,
+    "root_id": 9,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "作业"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-02T00:00:00.000Z",
+    "updated_at": "2026-11-02T00:00:00.000Z"
+   },
+   {
+    "id": 10,
+    "layer": "episodic",
+    "kind": "小结",
+    "depth": "surface",
+    "content": "今天和同学聊了毕业设计",
+    "surface_text": "今天和同学聊了毕业设计的选题",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 10,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "毕业设计"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-10T00:00:00.000Z",
+    "updated_at": "2026-11-10T00:00:00.000Z"
+   },
+   {
+    "id": 11,
+    "layer": "episodic",
+    "kind": "片段",
+    "depth": "vulnerable",
+    "content": "和妈妈吵架后一直很难受",
+    "surface_text": "那次和妈妈吵架让你难受",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 11,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "妈妈"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.6,
+    "privacy": "local",
+    "raw_ref": null,
+    "created_at": "2026-11-01T00:00:00.000Z",
+    "updated_at": "2026-11-01T00:00:00.000Z"
+   },
+   {
+    "id": 12,
+    "layer": "episodic",
+    "kind": "片段",
+    "depth": "surface",
+    "content": "即焚内容拿铁",
+    "surface_text": "即焚内容拿铁",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 12,
+    "is_latest": true,
+    "is_forgotten": false,
+    "forget_reason": null,
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "拿铁"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "burn_after_read",
+    "raw_ref": null,
+    "created_at": "2026-11-02T00:00:00.000Z",
+    "updated_at": "2026-11-11T06:30:00.000Z"
+   },
+   {
+    "id": 13,
+    "layer": "episodic",
+    "kind": "片段",
+    "depth": "surface",
+    "content": "已遗忘的拿铁",
+    "surface_text": "已遗忘的拿铁",
+    "confidence": 1.0,
+    "status": null,
+    "due_date": null,
+    "version": 1,
+    "parent_id": null,
+    "root_id": 13,
+    "is_latest": false,
+    "is_forgotten": true,
+    "forget_reason": "x",
+    "expires_at": null,
+    "relation_type": null,
+    "relation_to_id": null,
+    "entities": [
+     "拿铁"
+    ],
+    "emotion": null,
+    "provenance": null,
+    "visibility_gate": 0.0,
+    "privacy": "cloud",
+    "raw_ref": null,
+    "created_at": "2026-11-02T00:00:00.000Z",
+    "updated_at": "2026-11-11T06:30:00.000Z"
+   }
+  ],
+  "cases": [
+   {
+    "name": "profile 模式",
+    "args": {
+     "mode": "profile"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n</memory-context>"
+   },
+   {
+    "name": "full 无 query",
+    "args": {
+     "mode": "full"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n</memory-context>"
+   },
+   {
+    "name": "query 命中实体",
+    "args": {
+     "mode": "query",
+     "query": "今天想喝拿铁"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [小结 · 11月10日记下] 今天和同学聊了毕业设计的选题\n</memory-context>"
+   },
+   {
+    "name": "query bigram 命中",
+    "args": {
+     "mode": "query",
+     "query": "实训报告什么时候交"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [待办 · 11月9日记下] 你周五要交实训报告（截止11月15日）\n</memory-context>"
+   },
+   {
+    "name": "query 无命中",
+    "args": {
+     "mode": "query",
+     "query": "zzzz"
+    },
+    "out": "<memory-context>\n\n</memory-context>"
+   },
+   {
+    "name": "full + query",
+    "args": {
+     "mode": "full",
+     "query": "实训报告和语音日记"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n- [待办 · 11月9日记下] 你周五要交实训报告（截止11月15日）\n</memory-context>"
+   },
+   {
+    "name": "用户提起脆弱记忆·实体命中",
+    "args": {
+     "mode": "full",
+     "query": "我又在想职位的事",
+     "user_initiated": true,
+     "user_text": "我又在想职位的事"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n（以下是用户之前提过的较私密的事。用户刚刚自己提起了相关话题，回应时轻一点：顺着用户愿意说的部分接，不要追问细节，不要延伸到用户没提的部分，不要复述原话，不要下判断）\n- [情绪] 你有时担心自己不够格\n</memory-context>"
+   },
+   {
+    "name": "用户提起·回指",
+    "args": {
+     "mode": "full",
+     "query": "我又想起那件事了",
+     "user_initiated": true,
+     "user_text": "我又想起那件事了"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n（以下是用户之前提过的较私密的事。用户刚刚自己提起了相关话题，回应时轻一点：顺着用户愿意说的部分接，不要追问细节，不要延伸到用户没提的部分，不要复述原话，不要下判断）\n- [片段] 那次和妈妈吵架让你难受\n</memory-context>"
+   },
+   {
+    "name": "用户提起·无关",
+    "args": {
+     "mode": "full",
+     "query": "今天天气不错",
+     "user_initiated": true,
+     "user_text": "今天天气不错"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n- [小结 · 11月10日记下] 今天和同学聊了毕业设计的选题\n</memory-context>"
+   },
+   {
+    "name": "未声明 user_initiated 不放脆弱",
+    "args": {
+     "mode": "full",
+     "query": "我又在想职位的事",
+     "user_text": "我又在想职位的事"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n</memory-context>"
+   },
+   {
+    "name": "过期待办标注",
+    "args": {
+     "mode": "query",
+     "query": "会议纪要"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [待办 · 11月9日记下] 整理会议纪要（已过期，原定11月10日 10:15，不要当作还没到的事）\n</memory-context>"
+   },
+   {
+    "name": "预算裁剪",
+    "args": {
+     "mode": "full",
+     "query": "拿铁 实训报告 语音日记 毕业设计 会议纪要 作业"
+    },
+    "out": "<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢喝拿铁\n- [情绪 · 11月4日记下] 周日晚上你容易焦虑\n- [灵感 · 11月7日记下] 你想做睡前语音日记\n- [情绪 · 11月8日记下] 你最近睡得不好\n- [待办 · 11月9日记下] 你周五要交实训报告（截止11月15日）\n- [待办 · 11月9日记下] 整理会议纪要（已过期，原定11月10日 10:15，不要当作还没到的事）\n- [小结 · 11月10日记下] 今天和同学聊了毕业设计的选题\n- [待办 · 11月2日记下] 作业（截止11月2日）\n</memory-context>"
+   }
+  ]
+ },
+ "dump": [
+  {
+   "name": "全 kind 正常",
+   "llm_output": "[{\"layer\": \"episodic\", \"kind\": \"待办\", \"depth\": \"surface\", \"content\": \"11月12日10:15要参加线上宣讲会\", \"surface_text\": \"你11月12日上午10:15要参加线上宣讲会\", \"confidence\": 0.98, \"evidence\": \"明天10点15要参加线上宣讲会\", \"entities\": [\"线上宣讲会\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:15:00+08:00\", \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"待办\", \"depth\": \"surface\", \"content\": \"11月12日要提交实训材料\", \"surface_text\": \"你11月12日要交实训材料\", \"confidence\": 0.9, \"evidence\": \"明天要交实训材料\", \"entities\": [\"实训材料\"], \"emotion\": {\"label\": \"焦虑\", \"intensity\": 0.6}, \"due_at\": \"2026-11-12T00:00:00+08:00\", \"has_time\": false}, {\"layer\": \"profile\", \"kind\": \"情绪\", \"depth\": \"vulnerable\", \"content\": \"存在自我怀疑\", \"surface_text\": \"你有时担心自己不够格\", \"confidence\": 0.85, \"evidence\": \"觉得自己不配\", \"entities\": [], \"emotion\": {\"label\": \"自我怀疑\", \"intensity\": 0.8}, \"due_at\": null, \"has_time\": false}, {\"layer\": \"state\", \"kind\": \"灵感\", \"depth\": \"personal\", \"content\": \"想法：睡前语音日记\", \"surface_text\": \"你冒出一个点子\", \"confidence\": 0.9, \"evidence\": \"做个睡前语音日记\", \"entities\": [\"语音日记\"], \"emotion\": null, \"due_at\": null, \"has_time\": false}, {\"layer\": \"episodic\", \"kind\": \"片段\", \"depth\": \"surface\", \"content\": \"和朋友在海边看日落\", \"surface_text\": \"那天在海边看日落\", \"confidence\": 0.8, \"evidence\": \"海边看日落\", \"entities\": [\"海边\"], \"emotion\": null, \"due_at\": \"坏日期\", \"has_time\": true}, {\"layer\": \"episodic\", \"kind\": \"小结\", \"depth\": \"surface\", \"content\": \"今天过得还行\", \"surface_text\": \"今天过得还行\", \"confidence\": 0.7, \"evidence\": \"\", \"entities\": [], \"emotion\": null, \"due_at\": null, \"has_time\": false}]",
+   "keep_raw": true,
+   "ttl_days": 7,
+   "raw_ref": null,
+   "text": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+   "messages": [
+    {
+     "role": "system",
+     "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+    },
+    {
+     "role": "user",
+     "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢拿铁\n</memory-context>"
+    }
+   ],
+   "events": [
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 3,
+      "layer": "episodic",
+      "kind": "待办",
+      "depth": "surface",
+      "content": "11月12日10:15要参加线上宣讲会",
+      "surface_text": "你11月12日上午10:15要参加线上宣讲会"
+     }
+    },
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 4,
+      "layer": "episodic",
+      "kind": "待办",
+      "depth": "surface",
+      "content": "11月12日要提交实训材料",
+      "surface_text": "你11月12日要交实训材料"
+     }
+    },
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 5,
+      "layer": "profile",
+      "kind": "情绪",
+      "depth": "vulnerable",
+      "content": "存在自我怀疑",
+      "surface_text": "你有时担心自己不够格"
+     }
+    },
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 6,
+      "layer": "state",
+      "kind": "灵感",
+      "depth": "personal",
+      "content": "想法：睡前语音日记",
+      "surface_text": "你冒出一个点子"
+     }
+    },
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 7,
+      "layer": "episodic",
+      "kind": "片段",
+      "depth": "surface",
+      "content": "和朋友在海边看日落",
+      "surface_text": "那天在海边看日落"
+     }
+    },
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 8,
+      "layer": "episodic",
+      "kind": "小结",
+      "depth": "surface",
+      "content": "今天过得还行",
+      "surface_text": "今天过得还行"
+     }
+    },
+    {
+     "event": "receipt",
+     "data": {
+      "dump_id": 2,
+      "total": 6,
+      "kind_counts": {
+       "待办": 2,
+       "情绪": 1,
+       "灵感": 1,
+       "片段": 1,
+       "小结": 1
+      },
+      "outputs": {
+       "todos": [
+        3,
+        4
+       ],
+       "summary": [
+        8
+       ],
+       "ideas": [
+        6
+       ],
+       "emotions": [
+        5
+       ],
+       "candidates": [
+        7
+       ]
+      },
+      "fallback": false,
+      "error": "",
+      "items": [
+       {
+        "kind": "待办",
+        "content": "11月12日10:15要参加线上宣讲会",
+        "memory_id": 3
+       },
+       {
+        "kind": "待办",
+        "content": "11月12日要提交实训材料",
+        "memory_id": 4
+       },
+       {
+        "kind": "情绪",
+        "content": "存在自我怀疑",
+        "memory_id": 5
+       },
+       {
+        "kind": "灵感",
+        "content": "想法：睡前语音日记",
+        "memory_id": 6
+       },
+       {
+        "kind": "片段",
+        "content": "和朋友在海边看日落",
+        "memory_id": 7
+       },
+       {
+        "kind": "小结",
+        "content": "今天过得还行",
+        "memory_id": 8
+       }
+      ]
+     }
+    },
+    {
+     "event": "done",
+     "data": {}
+    }
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "profile",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "喜欢拿铁",
+     "surface_text": "你喜欢拿铁",
+     "confidence": 1.0,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-03T00:00:00.000Z",
+     "updated_at": "2026-11-03T00:00:00.000Z"
+    },
+    {
+     "id": 2,
+     "layer": "episodic",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "surface_text": "你昨晚的一段倾诉",
+     "confidence": 1.0,
+     "status": "done",
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 2,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 3,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "11月12日10:15要参加线上宣讲会",
+     "surface_text": "你11月12日上午10:15要参加线上宣讲会",
+     "confidence": 0.98,
+     "status": null,
+     "due_date": "2026-11-12T02:15:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 3,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [
+      "线上宣讲会"
+     ],
+     "emotion": null,
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 4,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "11月12日要提交实训材料",
+     "surface_text": "你11月12日要交实训材料",
+     "confidence": 0.9,
+     "status": null,
+     "due_date": "2026-11-11T16:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 4,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [
+      "实训材料"
+     ],
+     "emotion": {
+      "label": "焦虑",
+      "intensity": 0.6
+     },
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 5,
+     "layer": "profile",
+     "kind": "情绪",
+     "depth": "vulnerable",
+     "content": "存在自我怀疑",
+     "surface_text": "你有时担心自己不够格",
+     "confidence": 0.85,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 5,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": "2026-11-18T06:30:00.000Z",
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [],
+     "emotion": {
+      "label": "自我怀疑",
+      "intensity": 0.8
+     },
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.6,
+     "privacy": "local",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 6,
+     "layer": "state",
+     "kind": "灵感",
+     "depth": "personal",
+     "content": "想法：睡前语音日记",
+     "surface_text": "你冒出一个点子",
+     "confidence": 0.9,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 6,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [
+      "语音日记"
+     ],
+     "emotion": null,
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.3,
+     "privacy": "local",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 7,
+     "layer": "episodic",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "和朋友在海边看日落",
+     "surface_text": "那天在海边看日落",
+     "confidence": 0.8,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 7,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": "2026-11-18T06:30:00.000Z",
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [
+      "海边"
+     ],
+     "emotion": null,
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 8,
+     "layer": "episodic",
+     "kind": "小结",
+     "depth": "surface",
+     "content": "今天过得还行",
+     "surface_text": "今天过得还行",
+     "confidence": 0.7,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 8,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [],
+     "emotion": null,
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "system",
+     "old_content": null,
+     "new_content": "喜欢拿铁",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "ADD",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "meta": null
+    },
+    {
+     "memory_id": 3,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "11月12日10:15要参加线上宣讲会",
+     "meta": {
+      "evidence": "明天10点15要参加线上宣讲会",
+      "due_at": "2026-11-12T10:15:00+08:00",
+      "has_time": true
+     }
+    },
+    {
+     "memory_id": 4,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "11月12日要提交实训材料",
+     "meta": {
+      "evidence": "明天要交实训材料",
+      "due_at": "2026-11-12T00:00:00+08:00",
+      "has_time": false
+     }
+    },
+    {
+     "memory_id": 5,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "存在自我怀疑",
+     "meta": {
+      "evidence": "觉得自己不配"
+     }
+    },
+    {
+     "memory_id": 6,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "想法：睡前语音日记",
+     "meta": {
+      "evidence": "做个睡前语音日记"
+     }
+    },
+    {
+     "memory_id": 7,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "和朋友在海边看日落",
+     "meta": {
+      "evidence": "海边看日落",
+      "due_at": "坏日期",
+      "has_time": true
+     }
+    },
+    {
+     "memory_id": 8,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "今天过得还行",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "UPDATE",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": null,
+     "meta": {
+      "field": "status",
+      "old": "processing",
+      "new": "done"
+     }
+    }
+   ]
+  },
+  {
+   "name": "原文即焚",
+   "llm_output": "[{\"layer\": \"episodic\", \"kind\": \"待办\", \"depth\": \"surface\", \"content\": \"11月12日10:15要参加线上宣讲会\", \"surface_text\": \"你11月12日上午10:15要参加线上宣讲会\", \"confidence\": 0.98, \"evidence\": \"明天10点15要参加线上宣讲会\", \"entities\": [\"线上宣讲会\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:15:00+08:00\", \"has_time\": true}, {\"layer\": \"profile\", \"kind\": \"情绪\", \"depth\": \"vulnerable\", \"content\": \"存在自我怀疑\", \"surface_text\": \"你有时担心自己不够格\", \"confidence\": 0.85, \"evidence\": \"觉得自己不配\", \"entities\": [], \"emotion\": {\"label\": \"自我怀疑\", \"intensity\": 0.8}, \"due_at\": null, \"has_time\": false}]",
+   "keep_raw": false,
+   "ttl_days": 3,
+   "raw_ref": "audio://x",
+   "text": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+   "messages": [
+    {
+     "role": "system",
+     "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+    },
+    {
+     "role": "user",
+     "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢拿铁\n</memory-context>"
+    }
+   ],
+   "events": [
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 3,
+      "layer": "episodic",
+      "kind": "待办",
+      "depth": "surface",
+      "content": "11月12日10:15要参加线上宣讲会",
+      "surface_text": "你11月12日上午10:15要参加线上宣讲会"
+     }
+    },
+    {
+     "event": "item.classified",
+     "data": {
+      "memory_id": 4,
+      "layer": "profile",
+      "kind": "情绪",
+      "depth": "vulnerable",
+      "content": "存在自我怀疑",
+      "surface_text": "你有时担心自己不够格"
+     }
+    },
+    {
+     "event": "receipt",
+     "data": {
+      "dump_id": 2,
+      "total": 2,
+      "kind_counts": {
+       "待办": 1,
+       "情绪": 1
+      },
+      "outputs": {
+       "todos": [
+        3
+       ],
+       "summary": [],
+       "ideas": [],
+       "emotions": [
+        4
+       ],
+       "candidates": []
+      },
+      "fallback": false,
+      "error": "",
+      "items": [
+       {
+        "kind": "待办",
+        "content": "11月12日10:15要参加线上宣讲会",
+        "memory_id": 3
+       },
+       {
+        "kind": "情绪",
+        "content": "存在自我怀疑",
+        "memory_id": 4
+       }
+      ]
+     }
+    },
+    {
+     "event": "done",
+     "data": {}
+    }
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "profile",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "喜欢拿铁",
+     "surface_text": "你喜欢拿铁",
+     "confidence": 1.0,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-03T00:00:00.000Z",
+     "updated_at": "2026-11-03T00:00:00.000Z"
+    },
+    {
+     "id": 2,
+     "layer": "episodic",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "surface_text": "你昨晚的一段倾诉",
+     "confidence": 1.0,
+     "status": "done",
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 2,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 3,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "11月12日10:15要参加线上宣讲会",
+     "surface_text": "你11月12日上午10:15要参加线上宣讲会",
+     "confidence": 0.98,
+     "status": null,
+     "due_date": "2026-11-12T02:15:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 3,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [
+      "线上宣讲会"
+     ],
+     "emotion": null,
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 4,
+     "layer": "profile",
+     "kind": "情绪",
+     "depth": "vulnerable",
+     "content": "存在自我怀疑",
+     "surface_text": "你有时担心自己不够格",
+     "confidence": 0.85,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 4,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": "2026-11-14T06:30:00.000Z",
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": [],
+     "emotion": {
+      "label": "自我怀疑",
+      "intensity": 0.8
+     },
+     "provenance": [
+      2
+     ],
+     "visibility_gate": 0.6,
+     "privacy": "local",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "system",
+     "old_content": null,
+     "new_content": "喜欢拿铁",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "ADD",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "meta": null
+    },
+    {
+     "memory_id": 3,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "11月12日10:15要参加线上宣讲会",
+     "meta": {
+      "due_at": "2026-11-12T10:15:00+08:00",
+      "has_time": true
+     }
+    },
+    {
+     "memory_id": 4,
+     "event": "ADD",
+     "actor": "extractor",
+     "old_content": null,
+     "new_content": "存在自我怀疑",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "UPDATE",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": null,
+     "meta": {
+      "field": "status",
+      "old": "processing",
+      "new": "done"
+     }
+    },
+    {
+     "memory_id": 2,
+     "event": "UPDATE",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": null,
+     "meta": {
+      "field": "raw_ref",
+      "action": "burn",
+      "old_len": 9
+     }
+    }
+   ]
+  },
+  {
+   "name": "提取为空 → 兜底",
+   "llm_output": "[]",
+   "keep_raw": true,
+   "ttl_days": 7,
+   "raw_ref": null,
+   "text": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+   "messages": [
+    {
+     "role": "system",
+     "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+    },
+    {
+     "role": "user",
+     "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢拿铁\n</memory-context>"
+    }
+   ],
+   "events": [
+    {
+     "event": "receipt",
+     "data": {
+      "dump_id": 2,
+      "total": 0,
+      "kind_counts": {},
+      "outputs": {
+       "todos": [],
+       "summary": [],
+       "ideas": [],
+       "emotions": [],
+       "candidates": []
+      },
+      "fallback": true,
+      "error": "提取为空或失败，原始倾诉已安全保留",
+      "items": []
+     }
+    },
+    {
+     "event": "done",
+     "data": {}
+    }
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "profile",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "喜欢拿铁",
+     "surface_text": "你喜欢拿铁",
+     "confidence": 1.0,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-03T00:00:00.000Z",
+     "updated_at": "2026-11-03T00:00:00.000Z"
+    },
+    {
+     "id": 2,
+     "layer": "episodic",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "surface_text": "你昨晚的一段倾诉",
+     "confidence": 1.0,
+     "status": "done",
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 2,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "system",
+     "old_content": null,
+     "new_content": "喜欢拿铁",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "ADD",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "UPDATE",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": null,
+     "meta": {
+      "field": "status",
+      "old": "processing",
+      "new": "done"
+     }
+    }
+   ]
+  },
+  {
+   "name": "模型输出坏掉 → 兜底",
+   "llm_output": "not json",
+   "keep_raw": true,
+   "ttl_days": 7,
+   "raw_ref": null,
+   "text": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+   "messages": [
+    {
+     "role": "system",
+     "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+    },
+    {
+     "role": "user",
+     "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢拿铁\n</memory-context>"
+    }
+   ],
+   "events": [
+    {
+     "event": "receipt",
+     "data": {
+      "dump_id": 2,
+      "total": 0,
+      "kind_counts": {},
+      "outputs": {
+       "todos": [],
+       "summary": [],
+       "ideas": [],
+       "emotions": [],
+       "candidates": []
+      },
+      "fallback": true,
+      "error": "提取为空或失败，原始倾诉已安全保留",
+      "items": []
+     }
+    },
+    {
+     "event": "done",
+     "data": {}
+    }
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "profile",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "喜欢拿铁",
+     "surface_text": "你喜欢拿铁",
+     "confidence": 1.0,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-03T00:00:00.000Z",
+     "updated_at": "2026-11-03T00:00:00.000Z"
+    },
+    {
+     "id": 2,
+     "layer": "episodic",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "surface_text": "你昨晚的一段倾诉",
+     "confidence": 1.0,
+     "status": "done",
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 2,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "system",
+     "old_content": null,
+     "new_content": "喜欢拿铁",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "ADD",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "UPDATE",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": null,
+     "meta": {
+      "field": "status",
+      "old": "processing",
+      "new": "done"
+     }
+    }
+   ]
+  },
+  {
+   "name": "全部越界被丢 → 兜底",
+   "llm_output": "[{\"layer\": \"episodic\", \"kind\": \"\\u5f85\\u529e\", \"depth\": \"core\", \"content\": \"11\\u670812\\u65e510:15\\u8981\\u53c2\\u52a0\\u7ebf\\u4e0a\\u5ba3\\u8bb2\\u4f1a\", \"surface_text\": \"\\u4f6011\\u670812\\u65e5\\u4e0a\\u534810:15\\u8981\\u53c2\\u52a0\\u7ebf\\u4e0a\\u5ba3\\u8bb2\\u4f1a\", \"confidence\": 0.98, \"evidence\": \"\\u660e\\u592910\\u70b915\\u8981\\u53c2\\u52a0\\u7ebf\\u4e0a\\u5ba3\\u8bb2\\u4f1a\", \"entities\": [\"\\u7ebf\\u4e0a\\u5ba3\\u8bb2\\u4f1a\"], \"emotion\": null, \"due_at\": \"2026-11-12T10:15:00+08:00\", \"has_time\": true}]",
+   "keep_raw": true,
+   "ttl_days": 7,
+   "raw_ref": null,
+   "text": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+   "messages": [
+    {
+     "role": "system",
+     "content": "你是喵灵的记忆整理助手。用户睡前一股脑倾诉，你要把它拆成一条条独立记忆并打三种标。\n规则：\n1) 先按语义分点，一件事/一种情绪/一个待办各成一条，不要合并。\n2) 每条同时判 layer(episodic|state|profile)、kind(待办|小结|灵感|情绪|片段)、depth(surface|personal|vulnerable)。\n3) depth 绝不输出 core——核心渴望/自我认同不在本步产生。\n4) confidence 是\"这条是否真实存在于原文\"的把握(0-1)，不是重要性；推断成分越多越低。\n5) surface_text 用第一人称、温和口吻改写，供日后向用户复述；content 保留原意事实。\n6) 时间换算：下面会告诉你「现在」的东八区日期、星期和时分。原文里的相对时间（今天/明天/后天/今晚/下周一/周五……）\n   一律按这个「现在」换算成具体日期，并改写进 content 与 surface_text，例如「10月19日10:15要参加线上宣讲会」（日期以「现在」为准推算，此处仅示意格式）；\n   不要在 content/surface_text 里保留「今天/明天」这类会随日子失效的相对说法。原文已经是过去的事（昨天……）也写成具体日期。\n7) due_at（可选）：仅当原文给出能确定到某一天的截止/发生时间才填，ISO8601 且带 +08:00，格式如 \"YYYY-MM-DDT10:15:00+08:00\"；\n   只有日期、没有明确钟点（如「明天交材料」「今晚」「下午」）时，填当天 00:00（如 \"YYYY-MM-DDT00:00:00+08:00\"）并同时给 has_time:false；\n   有明确钟点时 has_time 填 true；推不出具体某天就填 null，不要猜。待办最常用，其它 kind（如片段）有明确时间也可以填。\n8) 只是提到桌宠自己的名字（米露/波比），或没有具体的人、事、情绪的内容，不要单独成为「片段」，直接略过。\n9) 只输出 JSON 数组，无多余文字。字段: layer, kind, depth, content, surface_text, confidence, evidence(原文片段), entities(涉及的人/物/项目), emotion({label,intensity}|null), due_at(string|null), has_time(bool)。\n\n示例（假设现在是 现在是 2026-11-11 周三 14:30（东八区））\n示例输入: \"今天10点15要参加线上宣讲会。明天要交实训材料，还没写完，好烦。其实我一直觉得自己不配现在这个职位。突然想到可以做个睡前语音日记的小功能。\"\n示例输出:\n[\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月11日10:15要参加线上宣讲会\",\"surface_text\":\"你11月11日上午10:15要参加线上宣讲会\",\"confidence\":0.98,\"evidence\":\"今天10点15要参加线上宣讲会\",\"entities\":[\"线上宣讲会\"],\"emotion\":null,\"due_at\":\"2026-11-11T10:15:00+08:00\",\"has_time\":true},\n  {\"layer\":\"episodic\",\"kind\":\"待办\",\"depth\":\"surface\",\"content\":\"11月12日要提交实训材料（尚未写完）\",\"surface_text\":\"你11月12日要交实训材料，还没写完\",\"confidence\":0.97,\"evidence\":\"明天要交实训材料，还没写完\",\"entities\":[\"实训材料\"],\"emotion\":{\"label\":\"焦虑\",\"intensity\":0.6},\"due_at\":\"2026-11-12T00:00:00+08:00\",\"has_time\":false},\n  {\"layer\":\"profile\",\"kind\":\"情绪\",\"depth\":\"vulnerable\",\"content\":\"用户存在冒充者综合征式的自我怀疑\",\"surface_text\":\"你有时会担心自己是不是不够格\",\"confidence\":0.85,\"evidence\":\"觉得自己不配现在这个职位\",\"entities\":[],\"emotion\":{\"label\":\"自我怀疑\",\"intensity\":0.8},\"due_at\":null,\"has_time\":false},\n  {\"layer\":\"state\",\"kind\":\"灵感\",\"depth\":\"personal\",\"content\":\"想法：睡前语音日记功能\",\"surface_text\":\"你冒出一个点子——睡前语音日记\",\"confidence\":0.9,\"evidence\":\"做个睡前语音日记的小功能\",\"entities\":[\"语音日记\"],\"emotion\":null,\"due_at\":null,\"has_time\":false}\n]\n"
+    },
+    {
+     "role": "user",
+     "content": "现在是 2026-11-11 周三 14:30（东八区）。原文里的相对时间都以此为准换算成具体日期。\n\n原始倾诉：\n明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。\n\n下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、不可据此新增事实；冲突时以本次原文为准：\n<memory-context>\n（现在是 2026-11-11 周三 14:30（东八区）；下列条目标注的是记下的日期，已过去的事不要说成明天）\n- [片段 · 11月3日记下] 你喜欢拿铁\n</memory-context>"
+    }
+   ],
+   "events": [
+    {
+     "event": "receipt",
+     "data": {
+      "dump_id": 2,
+      "total": 0,
+      "kind_counts": {},
+      "outputs": {
+       "todos": [],
+       "summary": [],
+       "ideas": [],
+       "emotions": [],
+       "candidates": []
+      },
+      "fallback": true,
+      "error": "提取为空或失败，原始倾诉已安全保留",
+      "items": []
+     }
+    },
+    {
+     "event": "done",
+     "data": {}
+    }
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "profile",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "喜欢拿铁",
+     "surface_text": "你喜欢拿铁",
+     "confidence": 1.0,
+     "status": null,
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-03T00:00:00.000Z",
+     "updated_at": "2026-11-03T00:00:00.000Z"
+    },
+    {
+     "id": 2,
+     "layer": "episodic",
+     "kind": "片段",
+     "depth": "surface",
+     "content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "surface_text": "你昨晚的一段倾诉",
+     "confidence": 1.0,
+     "status": "done",
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 2,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": "明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。",
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "system",
+     "old_content": null,
+     "new_content": "喜欢拿铁",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "ADD",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": "[原始倾倒] 明天10点15要参加线上宣讲会。明天要交实训材料。觉得自己不配。做个睡前语音日记。海边看日落。...",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "UPDATE",
+     "actor": "dump_ingest",
+     "old_content": null,
+     "new_content": null,
+     "meta": {
+      "field": "status",
+      "old": "processing",
+      "new": "done"
+     }
+    }
+   ]
+  }
+ ],
+ "chat_todo": [
+  {
+   "name": "正常记一条",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [
+    "参加面试（11月12日 11:00）"
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": "2026-11-12T03:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "参加面试",
+     "meta": null
+    }
+   ]
+  },
+  {
+   "name": "没有线索词不调模型",
+   "message": "今天心情不错呀",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "回信引用不记",
+   "message": "（我在回复你刚写给我的信：xxx）明天要考试",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": false,
+   "model_kwargs": null,
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "置信度不够",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.8,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "证据不在原文里",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "瞎编的证据",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "证据为空",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "  ",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "kind 不是待办",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "state",
+     "kind": "灵感",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "日期早于今天",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-10T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "今天但已过去的时刻",
+   "message": "我今天上午9点有面试",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我今天上午9点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-11T09:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "今天只有日期（可记）",
+   "message": "今天要交报告",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "交报告",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "今天要交报告",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-11T00:00:00+08:00",
+     "has_time": false
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [
+    "交报告（11月11日）"
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "交报告",
+     "surface_text": "交报告",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": "2026-11-10T16:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "交报告",
+     "meta": null
+    }
+   ]
+  },
+  {
+   "name": "due_at 非法被跳过",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "明天上午",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "没有日期也可记",
+   "message": "记得买牛奶",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "买牛奶",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "记得买牛奶",
+     "entities": [],
+     "emotion": null,
+     "due_at": null,
+     "has_time": false
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [
+    "买牛奶"
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "买牛奶",
+     "surface_text": "买牛奶",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": null,
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "买牛奶",
+     "meta": null
+    }
+   ]
+  },
+  {
+   "name": "标题过长",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很很",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  },
+  {
+   "name": "标题空白整理",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "  参加  面试。 ",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [
+    "参加 面试（11月12日 11:00）"
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加 面试",
+     "surface_text": "参加 面试",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": "2026-11-12T03:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "参加 面试",
+     "meta": null
+    }
+   ]
+  },
+  {
+   "name": "重复的待办不再记",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "我明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    }
+   ],
+   "raw": null,
+   "preexisting": true,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [
+    "参加面试（11月12日 11:00）"
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "参加面试",
+     "surface_text": "参加面试",
+     "confidence": 1.0,
+     "status": "pending",
+     "due_date": "2026-11-12T03:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "system",
+     "old_content": null,
+     "new_content": "参加面试",
+     "meta": null
+    }
+   ]
+  },
+  {
+   "name": "一次最多三条",
+   "message": "明天上午11点有面试，后天要交报告，周五约了牙医，下周要去旅行",
+   "llm_output": [
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "面试",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "明天上午11点有面试",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-12T11:00:00+08:00",
+     "has_time": true
+    },
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "交报告",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "后天要交报告",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-13T00:00:00+08:00",
+     "has_time": false
+    },
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "看牙医",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "周五约了牙医",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-13T15:00:00+08:00",
+     "has_time": true
+    },
+    {
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "旅行",
+     "surface_text": "参加面试",
+     "confidence": 0.95,
+     "evidence": "下周要去旅行",
+     "entities": [],
+     "emotion": null,
+     "due_at": "2026-11-16T00:00:00+08:00",
+     "has_time": false
+    }
+   ],
+   "raw": null,
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [
+    "面试（11月12日 11:00）",
+    "交报告（11月13日）",
+    "看牙医（11月13日 15:00）"
+   ],
+   "rows": [
+    {
+     "id": 1,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "面试",
+     "surface_text": "面试",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": "2026-11-12T03:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 1,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 2,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "交报告",
+     "surface_text": "交报告",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": "2026-11-12T16:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 2,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    },
+    {
+     "id": 3,
+     "layer": "episodic",
+     "kind": "待办",
+     "depth": "surface",
+     "content": "看牙医",
+     "surface_text": "看牙医",
+     "confidence": 0.95,
+     "status": "pending",
+     "due_date": "2026-11-13T07:00:00.000Z",
+     "version": 1,
+     "parent_id": null,
+     "root_id": 3,
+     "is_latest": true,
+     "is_forgotten": false,
+     "forget_reason": null,
+     "expires_at": null,
+     "relation_type": null,
+     "relation_to_id": null,
+     "entities": null,
+     "emotion": null,
+     "provenance": null,
+     "visibility_gate": 0.0,
+     "privacy": "cloud",
+     "raw_ref": null,
+     "created_at": "2026-11-11T06:30:00.000Z",
+     "updated_at": "2026-11-11T06:30:00.000Z"
+    }
+   ],
+   "history": [
+    {
+     "memory_id": 1,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "面试",
+     "meta": null
+    },
+    {
+     "memory_id": 2,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "交报告",
+     "meta": null
+    },
+    {
+     "memory_id": 3,
+     "event": "ADD",
+     "actor": "chat_todo",
+     "old_content": null,
+     "new_content": "看牙医",
+     "meta": null
+    }
+   ]
+  },
+  {
+   "name": "模型输出坏掉",
+   "message": "我明天上午11点有面试哈",
+   "llm_output": null,
+   "raw": "not json",
+   "preexisting": false,
+   "model_called": true,
+   "model_kwargs": {
+    "temperature": 0.1,
+    "timeout": 8,
+    "max_retries": 0,
+    "reasoning_effort": "low"
+   },
+   "labels": [],
+   "rows": [],
+   "history": []
+  }
+ ]
+}

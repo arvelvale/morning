@@ -1,0 +1,99 @@
+{
+ "fallback_status": [
+  401,
+  402,
+  403,
+  404,
+  408,
+  409,
+  429
+ ],
+ "cases": [
+  {
+   "kind": "status",
+   "status": 200,
+   "fallback": false
+  },
+  {
+   "kind": "status",
+   "status": 400,
+   "fallback": false
+  },
+  {
+   "kind": "status",
+   "status": 401,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 402,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 403,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 404,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 408,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 409,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 422,
+   "fallback": false
+  },
+  {
+   "kind": "status",
+   "status": 429,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 500,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 502,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 503,
+   "fallback": true
+  },
+  {
+   "kind": "status",
+   "status": 529,
+   "fallback": true
+  },
+  {
+   "kind": "connection",
+   "fallback": true
+  },
+  {
+   "kind": "timeout",
+   "fallback": true
+  },
+  {
+   "kind": "key_missing",
+   "fallback": true
+  },
+  {
+   "kind": "other",
+   "fallback": false
+  }
+ ]
+}

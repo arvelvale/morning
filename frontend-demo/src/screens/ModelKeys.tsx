@@ -7,10 +7,11 @@
  */
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
-import { ArrowLeft, KeyRound, LockKeyhole, ShieldAlert } from "lucide-react-native";
+import { ArrowLeft, KeyRound, LockKeyhole, ShieldAlert, Smartphone } from "lucide-react-native";
 
 import { Button, Card, IconButton, PageContainer, TextField, useTheme } from "../design-system";
 import { API_BASE, getKeyPolicy, setOwnKeyFlag, testModelKeys, type KeyPolicy } from "../api";
+import { isLocalMode, localModeSupported, setLocalMode } from "../localMode";
 import {
   clearModelKeys, currentModelKeys, keysAllowedOn, loadModelKeys, modelKeysSupported, saveModelKeys,
 } from "../modelKeys";
@@ -28,7 +29,9 @@ export function ModelKeysScreen({ onBack, onToast, onChanged }: {
   onChanged?: (active: boolean) => void;
 }) {
   const theme = useTheme();
-  const allowed = modelKeysSupported && keysAllowedOn(API_BASE);
+  // 本地模式下密钥只发给模型服务商（https），不经过喵灵服务器，所以不受“服务器连接要加密”的限制
+  const [local, setLocal] = useState(isLocalMode());
+  const allowed = modelKeysSupported && (isLocalMode() || keysAllowedOn(API_BASE));
   const [saved, setSaved] = useState<ModelKeys>(currentModelKeys());
   const [stepfun, setStepfun] = useState("");
   const [deepseek, setDeepseek] = useState("");
@@ -105,6 +108,31 @@ export function ModelKeysScreen({ onBack, onToast, onChanged }: {
       },
     ],
   );
+
+  const toggleLocal = () => {
+    const next = !local;
+    const onMessage =
+      "对话和设置会存在这台手机里，模型由手机用你的密钥直接连接，不再经过喵灵服务器。\n\n" +
+      "这是实验功能。目前能用：聊天（含发图）、记忆、待办、睡前倾倒、小结/灵感/情绪、寄存与珍藏、选桌宠、偏好设置。信箱和来信、场景、语音通话、“了解你”暂时不能用。\n\n" +
+      "打开后请重新打开喵灵，再到这里填密钥。";
+    const offMessage =
+      "关闭后恢复使用喵灵服务器上的账号和数据。手机里的本地数据会保留，下次打开本地模式还在。\n\n关闭后请重新打开喵灵。";
+    Alert.alert(next ? "打开本地模式？" : "关闭本地模式？", next ? onMessage : offMessage, [
+      { text: "先不", style: "cancel" },
+      {
+        text: next ? "打开" : "关闭",
+        onPress: async () => {
+          try {
+            await setLocalMode(next);
+            setLocal(next);
+            Alert.alert("已切换", "请把喵灵完全关掉再重新打开，设置才会生效。");
+          } catch (error: any) {
+            onToast(error?.message || "没切换成，待会儿再试试");
+          }
+        },
+      },
+    ]);
+  };
 
   const caption = [theme.typography.textStyles.caption, { color: theme.colors.textSecondary }];
   const strong = [theme.typography.textStyles.bodyStrong, { color: theme.colors.textPrimary }];
@@ -192,6 +220,25 @@ export function ModelKeysScreen({ onBack, onToast, onChanged }: {
           <Button loading={busy} disabled={!canSave} onPress={save}>测试并保存</Button>
           {hasAnyKey(saved) ? <Button variant="ghost" disabled={busy} onPress={clear}>清除密钥</Button> : null}
         </View>
+
+        {localModeSupported ? (
+          <Card style={{ gap: theme.spacing[3], marginBottom: theme.spacing[5] }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing[3] }}>
+              <Smartphone size={20} color={theme.colors.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={strong}>本地模式（实验）</Text>
+                <Text style={caption}>
+                  {local
+                    ? "已打开：对话和设置存在这台手机里，模型由手机直接连接，不经过喵灵服务器。"
+                    : "把对话和设置存在这台手机里，手机用你的密钥直接连模型服务商，不经过喵灵服务器。"}
+                </Text>
+              </View>
+            </View>
+            <Button variant={local ? "ghost" : "primary"} disabled={busy} onPress={toggleLocal}>
+              {local ? "关闭本地模式" : "打开本地模式"}
+            </Button>
+          </Card>
+        ) : null}
 
         <Card style={{ gap: theme.spacing[3] }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing[3] }}>

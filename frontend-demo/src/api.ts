@@ -13,13 +13,32 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { ownKeyHeaders, ownKeysActive } from "./modelKeys";
-import { HEADER_DEEPSEEK, HEADER_STEPFUN, type KeyTestResult, type ModelKeys } from "./modelKeysPolicy";
+import { friendlyDetail } from "./local/index";
+import { isLocalMode, loadLocalMode, localRequest, localStream } from "./localMode";
+import { currentModelKeys, ownKeyHeaders, ownKeysActive } from "./modelKeys";
+import { HEADER_DEEPSEEK, HEADER_STEPFUN, hasAnyKey, type KeyTestResult, type ModelKeys } from "./modelKeysPolicy";
 import { Platform } from "react-native";
 
-import { streamSSE, type SSEEvent } from "./sse";
+import { streamSSE as remoteStreamSSE, type SSEEvent } from "./sse";
 
-export { streamSSE };
+/**
+ * 流式请求。服务器模式走 SSE；本地模式把 URL 还原成接口路径，交给手机里的“虚拟服务器”。
+ * 所有流式接口都从这里经过，所以本地模式下没实现的会明确报“暂不支持”，不会悄悄发到服务器。
+ */
+export async function streamSSE(
+  url: string,
+  body: unknown,
+  onEvent: (e: SSEEvent) => void,
+  opts?: Parameters<typeof remoteStreamSSE>[3],
+): Promise<void> {
+  if (!isLocalMode()) return remoteStreamSSE(url, body, onEvent, opts);
+  const path = url.startsWith(API_BASE) ? url.slice(API_BASE.length) : url;
+  try {
+    await localStream(path, body, (e) => onEvent({ event: e.event, data: e.data } as SSEEvent));
+  } catch (error) {
+    throw new Error(friendlyDetail(error));
+  }
+}
 export type { SSEEvent };
 
 /** 线上后端（223.109.142.152 上的 morning-backend 容器，8000 端口）。 */
@@ -68,7 +87,15 @@ export function currentTokens(): Tokens | null {
 }
 
 /** 启动时调用：从存储恢复登录态。 */
+/** 本地模式恒登录：占位令牌只存在内存里，不写存储，也从不发给任何服务器。 */
+const LOCAL_TOKENS: Tokens = { access_token: "local", refresh_token: "local", token_type: "bearer" };
+
 export async function loadTokens(): Promise<Tokens | null> {
+  await loadLocalMode();
+  if (isLocalMode()) {
+    _tokens = LOCAL_TOKENS;
+    return _tokens;
+  }
   if (_tokens) return _tokens;
   try {
     const raw = await AsyncStorage.getItem(TOKEN_KEY);
@@ -81,6 +108,7 @@ export async function loadTokens(): Promise<Tokens | null> {
 
 export async function saveTokens(t: Tokens): Promise<void> {
   _tokens = t;
+  if (t.access_token === LOCAL_TOKENS.access_token) return; // 本地占位令牌不落盘
   try {
     await AsyncStorage.setItem(TOKEN_KEY, JSON.stringify(t));
   } catch {
@@ -116,6 +144,7 @@ export function wsKeyOptions(): { headers: Record<string, string> } | undefined 
 
 /** 读一张需要登录的图片（聊天图片）：给 <Image source> 用。 */
 export function authedImageSource(path: string): { uri: string; headers: Record<string, string> } {
+  if (path.startsWith("file://")) return { uri: path, headers: {} }; // 本地模式：手机里的文件
   const uri = /^https?:\/\//.test(path) ? path : `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
   return { uri, headers: _tokens ? { Authorization: `Bearer ${_tokens.access_token}` } : {} };
 }
@@ -189,6 +218,14 @@ async function request<T = any>(
   timeoutMs = DEFAULT_TIMEOUT_MS,
   _retried = false
 ): Promise<T> {
+  // 本地模式：除了“查有没有新版本”，所有接口都在手机里处理
+  if (isLocalMode() && !path.startsWith("/api/v1/app/")) {
+    try {
+      return await localRequest<T>(method, path, body);
+    } catch (error) {
+      throw new ApiError(friendlyDetail(error));
+    }
+  }
   let res = await rawFetch(method, path, body, timeoutMs);
 
   if (res.status === 401 && !_retried && _tokens?.refresh_token) {
@@ -554,13 +591,21 @@ export interface KeyPolicy {
 export const getKeyPolicy = () => get<KeyPolicy>("/api/v1/ai/keys/policy");
 
 /** 自带密钥此刻是否在生效（填了，且连接允许发）。 */
-export const usingOwnKeys = () => ownKeysActive(API_BASE);
+export const usingOwnKeys = () => (isLocalMode() ? hasAnyKey(currentModelKeys()) : ownKeysActive(API_BASE));
 
 /**
  * 测试一组「还没保存」的密钥：把它们放在这一次请求的请求头里，后端各探一次。
  * 调用方必须先确认连接允许发密钥（keysAllowedOn），这里不再判断。
  */
 export async function testModelKeys(keys: ModelKeys): Promise<{ stepfun: KeyTestResult; deepseek: KeyTestResult }> {
+  if (isLocalMode()) {
+    // 本地模式：手机直接去问模型服务商，密钥不经过任何服务器
+    try {
+      return await localRequest("POST", "/api/v1/ai/keys/test", { keys });
+    } catch (error) {
+      throw new ApiError(friendlyDetail(error));
+    }
+  }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 40000);
   try {

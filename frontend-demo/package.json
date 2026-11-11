@@ -15,7 +15,8 @@
     "test:notifications": "node scripts/test-notification-routing.mjs",
     "test:byok": "node scripts/test-byok-chat.mjs",
     "test:scene": "node scripts/test-scene-review.mjs",
-    "rig:build": "node scripts/build-pet-rig.mjs"
+    "rig:build": "node scripts/build-pet-rig.mjs",
+    "test:local": "node scripts/test-local-llm.mjs && node scripts/test-local-api.mjs && node scripts/test-local-memory.mjs && node scripts/test-local-memory-api.mjs && node scripts/test-local-guards.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",
@@ -38,6 +39,7 @@
     "expo-notifications": "~0.31.0",
     "expo-secure-store": "~14.2.4",
     "expo-speech": "~13.1.7",
+    "expo-sqlite": "~15.2.14",
     "expo-status-bar": "~2.2.3",
     "lucide-react-native": "^0.544.0",
     "morning-companion": "file:./modules/morning-companion",
