@@ -1,15 +1,15 @@
 {
-  "latest": "0.3.18",
+  "latest": "0.3.19",
   "min_supported": "0.1.0",
-  "version_code": 21,
-  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.18.apk",
+  "version_code": 22,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.19.apk",
   "apk_sha256": "placeholder-will-be-replaced-by-publish-script",
   "size_bytes": 0,
   "size_mb": 0,
   "mandatory": false,
   "changelog": [
-    "信箱里的信可以删掉了：一封一封删，也可以多选或一键清空，「我留下的」不受影响",
-    "可以一键把信全部标为已读",
-    "信箱换上了新图标，顶部更紧凑"
+    "待办可以直接添加了，填写日期与时间后可设置提醒",
+    "每日晚间来信可以关闭，也能调整来信时间；保存失败会明确提示",
+    "理解模型升级为 Step 3.7 Flash，保留熟悉的陪伴方式"
   ]
 }

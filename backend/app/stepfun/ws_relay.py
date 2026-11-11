@@ -104,8 +104,8 @@ async def relay(
     - on_upstream_text: 旁路回调，每收到一条上游文本帧调用一次（同步、
       不得抛出影响转发；内部已兜底捕获）。用于转写落库等观察者场景。
     """
-    s = get_settings()
-    headers = {"Authorization": f"Bearer {s.stepfun_api_key}"}
+    # 用户这次连接带了自己的 key 就用用户的（WebSocket 握手头由 RequestKeysMiddleware 读进上下文）
+    headers = get_settings().auth_header
 
     try:
         async with connect(upstream_url, additional_headers=headers, max_size=None) as up:

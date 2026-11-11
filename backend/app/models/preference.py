@@ -29,6 +29,9 @@ class UserPreference(Base):
     proactive_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="温和")
     # 睡前提醒（HH:MM）
     sleep_reminder_time: Mapped[str] = mapped_column(String(5), nullable=False, default="22:30")
+    # 晚间来信：开关 + 送达时间（HH:MM，东八区）。默认开启、21:30，与上线前全员固定 21:30 一致
+    evening_letter_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    evening_letter_time: Mapped[str] = mapped_column(String(5), nullable=False, default="21:30")
     # 隐私：是否保留原始倾诉（关闭则 raw_ref 即焚）
     keep_raw_dump: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # 用户画像学习开关：关闭后停止新增观察；已有画像仍可查看、纠正和删除。

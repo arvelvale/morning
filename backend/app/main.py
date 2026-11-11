@@ -35,10 +35,9 @@ if settings.jwt_secret == _DEFAULT_JWT_SECRET:
 DREAM_HOUR = 0
 DREAM_MINUTE = 0
 
-# 晚间来信定时触发时间（东八区 21:30，产品面向国内用户固定时区）
+# 东八区（产品面向国内用户，固定时区）。晚间来信的送达时间是每个用户自己的偏好
+# （user_preferences.evening_letter_time，默认 21:30），调度器每分钟 tick 挑人，见 evening_letter.py
 CST = timezone(timedelta(hours=8))
-EVENING_HOUR = 21
-EVENING_MINUTE = 30
 
 # 每周周报触发时间（东八区周日 20:00）。weekday: 周一=0 … 周日=6
 WEEKLY_WEEKDAY = 6
@@ -106,23 +105,25 @@ async def _dream_scheduler():
 
 
 async def _evening_letter_scheduler():
-    """后台协程：每晚 21:30（东八区）由桌宠给每个用户写一封晚间来信。
+    """后台协程：每分钟 tick 一次，给「设定时间到了」的用户写晚间来信。
 
-    独立于 proactive 开关，每晚都发；只有 LLM 调用失败才不发。
+    送达时间是每个用户自己的偏好（evening_letter_time，默认 21:30，可关闭）；
+    挑人规则与错过补发见 run_due_evening_letters。独立于 proactive 开关；只有 LLM 调用失败才不发。
     """
     while True:
-        wait_seconds = _seconds_until(EVENING_HOUR, EVENING_MINUTE, CST)
-        logger.info("[scheduler] next evening letter in %.0f seconds", wait_seconds)
-        await asyncio.sleep(wait_seconds)
+        # 对齐到整分钟：时间匹配按 HH:MM 精确比较，不能让 tick 总落在分钟中间而漂移跳过
+        _now = datetime.now(CST)
+        await asyncio.sleep(60 - (_now.second + _now.microsecond / 1e6))
 
         from app.db import SessionLocal
-        from app.services.mailbox.evening_letter import run_evening_letters_all
+        from app.services.mailbox.evening_letter import run_due_evening_letters
 
         db = SessionLocal()
         try:
-            results = await asyncio.to_thread(run_evening_letters_all, db)
-            sent = sum(1 for r in results if r.get("sent"))
-            logger.info("[scheduler] evening letters: %d sent / %d users", sent, len(results))
+            results = await asyncio.to_thread(run_due_evening_letters, db)
+            if results:
+                sent = sum(1 for r in results if r.get("sent"))
+                logger.info("[scheduler] evening letters: %d sent / %d due", sent, len(results))
         except Exception as e:
             logger.error("[scheduler] evening letter failed: %s", e)
         finally:
@@ -189,6 +190,9 @@ def _ensure_preference_location_columns() -> None:
             "driving_mode_active": "BOOLEAN NOT NULL DEFAULT 0",
             "last_motion_signal_at": "DATETIME",
             "profile_learning_enabled": "BOOLEAN NOT NULL DEFAULT 1",
+            # 晚间来信开关与时间（默认开启、21:30，老用户行为不变）
+            "evening_letter_enabled": "BOOLEAN NOT NULL DEFAULT 1",
+            "evening_letter_time": "VARCHAR(5) NOT NULL DEFAULT '21:30'",
         }
         with engine.begin() as conn:
             for name, typ in adds.items():
@@ -275,7 +279,7 @@ async def lifespan(app: FastAPI):
     # 启动时确保表存在（开发期；生产走 Alembic）
     Base.metadata.create_all(bind=engine)
     _ensure_preference_location_columns()
-    # 启动定时调度：做梦（0:00 UTC）+ 晚间来信（21:30 东八区）+ 周报（周日 20:00 东八区）
+    # 启动定时调度：做梦（0:00 UTC）+ 晚间来信（每分钟按用户设定时间挑人，默认 21:30 东八区）+ 周报（周日 20:00 东八区）
     # + 主动信号扫描（每 5 分钟）+ 速度样本/TTS 音频清理（每天）
     # ⚠️ 这些调度器假设单 worker 单副本（uvicorn 默认）；多 worker 会重复发信。
     dream_task = asyncio.create_task(_dream_scheduler())
@@ -312,6 +316,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 用户自带的模型密钥：从请求头读进这次请求的上下文，不落库、不写日志（见 app/llm_keys.py）
+from fastapi.responses import JSONResponse  # noqa: E402
+
+from app.llm_keys import LLMKeyMissing, RequestKeysMiddleware  # noqa: E402
+
+app.add_middleware(RequestKeysMiddleware)
+
+
+@app.exception_handler(LLMKeyMissing)
+async def _llm_key_missing(_request, exc: LLMKeyMissing):
+    # 428：这次操作需要模型密钥，而请求没带、服务端也不提供。客户端据此引导用户去填 key。
+    return JSONResponse(
+        status_code=428,
+        content={"detail": "需要先在「我的 → 模型与密钥」里填好密钥", "code": "llm_key_missing", "provider": exc.provider},
+    )
 
 # AI 网关
 app.include_router(chat.router)
@@ -380,6 +400,11 @@ app.include_router(weather.router)
 # 系统：应用版本信息（公开，App 启动检查更新）
 app.include_router(app_version.router)
 
+# 自带密钥：口径查询 / 测试 key / 标记自带 / 手机触发定时活
+from app.routers.system import byok  # noqa: E402
+
+app.include_router(byok.router)
+
 
 @app.get("/health")
 async def health():
@@ -388,6 +413,8 @@ async def health():
     return {
         "status": "ok",
         "stepfun_key_loaded": bool(s.stepfun_api_key),
+        "deepseek_fallback_loaded": bool(s.deepseek_api_key),
+        "byok_required": bool(s.byok_required),
         "text_model": s.step_text_model,
         "asr_stream_model": s.step_asr_stream_model,
         "realtime_model": s.step_realtime_model,

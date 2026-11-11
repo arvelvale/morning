@@ -45,6 +45,8 @@ class PreferenceOut(BaseModel):
     proactive_enabled: bool
     proactive_frequency: str
     sleep_reminder_time: str
+    evening_letter_enabled: bool
+    evening_letter_time: str
     keep_raw_dump: bool
     profile_learning_enabled: bool
     ephemeral_ttl_days: int
@@ -74,6 +76,8 @@ class PreferencePatch(BaseModel):
     proactive_enabled: bool | None = None
     proactive_frequency: str | None = Field(default=None)
     sleep_reminder_time: str | None = None
+    evening_letter_enabled: bool | None = None
+    evening_letter_time: str | None = None
     keep_raw_dump: bool | None = None
     profile_learning_enabled: bool | None = None
     ephemeral_ttl_days: int | None = None
@@ -120,6 +124,9 @@ def patch_preferences(
     if "sleep_reminder_time" in patch:
         if not _TIME_RE.match(patch["sleep_reminder_time"]):
             raise HTTPException(422, "时间格式须为 HH:MM")
+    if "evening_letter_time" in patch:
+        if not _TIME_RE.match(patch["evening_letter_time"]):
+            raise HTTPException(422, "来信时间格式须为 HH:MM（00:00–23:59）")
     if "ephemeral_ttl_days" in patch:
         if not 1 <= patch["ephemeral_ttl_days"] <= 30:
             raise HTTPException(422, "寄存天数须在 1–30 天之间")

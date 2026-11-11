@@ -55,6 +55,7 @@ PASSTHROUGH_KEYS = [
     "STEP_ASR_FILE_MODEL", "STEP_ASR_STREAM_MODEL",
     "STEP_REALTIME_MODEL", "STEP_REALTIME_VOICE", "STEP_REALTIME_INSTRUCTIONS",
     "STEP_TTS_MODEL", "STEP_TTS_VOICE",
+    "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL", "BYOK_REQUIRED",
     "CAIYUN_APP_KEY", "CAIYUN_APP_SECRET", "CAIYUN_CACHE_MINUTES",
     "DREAMING_ENABLED", "PROACTIVE_ENABLED",
 ]
@@ -278,6 +279,8 @@ def step_sync(client: paramiko.SSHClient) -> None:
         *([f"MORNING_PG_PASSWORD={remote_env['MORNING_PG_PASSWORD']}"] if remote_env.get('MORNING_PG_PASSWORD') else []),
         f"JWT_SECRET={jwt_secret}",
         "CORS_ORIGINS=*",
+        # 聊天图片放进持久卷（/data 即 morning-data），重建容器不丢；不走 /static，不公开
+        "CHAT_IMAGE_DIR=/data/chat_images",
     ]
     missing: list[str] = []
     for key in PASSTHROUGH_KEYS:

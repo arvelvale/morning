@@ -91,10 +91,13 @@
 |---|---|---|
 | POST | `/conversations` ★ | 开启对话，`{petId, mode}`；mode ∈ `free_chat`(自由聊聊) / `brain_dump`(一股脑倒) / `hard_thing`(说件放不下的事) / `review_fragment`(回看片段, 带 fragmentId) |
 | GET | `/conversations` ○ | 历史会话列表 |
+| GET | `/conversations/latest` ★ | 最近有用户发言的自由聊天及其消息，按最后发言选取。没有历史时返回 `null` |
 | GET | `/conversations/{id}` ★ | 会话详情 + 消息 |
 | DELETE | `/conversations/{id}` ○ | 删除当前用户的一段会话及其全部消息 |
 | POST | `/conversations/{id}/messages` ★ | 发消息 → 返回桌宠回应（内部走 LangGraph）。`?stream=true` 走 SSE |
 | GET | `/conversations/{id}/messages` | 消息分页 |
+
+自由聊天会尝试把本轮明确的安排写入待办。写入成功后，流式接口发出 `todo.saved`，随后把保存回执作为回复的一部分发送并持久化。非流式接口直接在 `reply.content` 返回同样的回执。聊天客户端收到 `todo.saved` 后刷新共享待办列表。
 
 ### 用户画像观察层
 
@@ -305,6 +308,9 @@
 基础字段：`proactive_enabled`（同步写 TrustState，信任门控读那边）、`proactive_frequency`
 （安静/温和/活跃）、`sleep_reminder_time`、`keep_raw_dump`、`ephemeral_ttl_days`（1–30）、
 `font_size`、`companion_tone`、`reduce_transparency`。
+
+晚间来信：`evening_letter_enabled`（默认 true，关闭后一封都不生成）、`evening_letter_time`（`HH:MM` 东八区，默认 `21:30`，
+00:00–23:59 以外 422）。调度每分钟 tick，到点生成；错过时间点在设定时间后 60 分钟内补发，之后当晚不补。
 
 主动触发（信号融合引擎）字段：
 

@@ -1,8 +1,14 @@
-"""晚间来信：每晚 21:30（东八区）由桌宠主动写给用户的一封信。
+"""晚间来信：由桌宠按用户设定的时间（东八区，默认 21:30）主动写给用户的一封信。
 
 产品口径：
 - 结合信箱——生成物落库为 Letter（type=greeting），用户在信箱查看。
-- 独立于 proactive 开关，每晚都尝试发。
+- 用户可在设置里关闭晚间来信，或改来信时间（user_preferences.evening_letter_enabled /
+  evening_letter_time）。关闭的用户一封都不生成（也就不花模型调用）；没有偏好行的老用户按默认
+  （开启、21:30）处理，升级后行为不变。
+- 独立于 proactive 开关；开启的用户每晚到点都尝试发。
+- 调度：main.py 每分钟 tick 一次，调 run_due_evening_letters 挑人——设定时间到了、今天还没生成过的
+  可达用户（沉睡用户规则不变，见 engagement.reachable_users）。进程重启错过时间点的，
+  在设定时间之后 CATCHUP_WINDOW_MINUTES 分钟内补发，超过就不补（避免深夜突然来信）。
 - 无素材/首次无记忆也发通用问候；LLM 失败或当日两封额度已满时不发。
 
 隐私底座（Property 9）：送进外部 LLM 的素材只取 depth=surface 记忆，
@@ -21,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.llm import get_chat_model
 from app.models.letter import Letter
 from app.models.memory import MemoryItem
+from app.models.preference import UserPreference
 from app.services.memory.context_builder import _due_note
 from app.services.memory.temporal import cn_date, cn_date_weekday
 from app.services.mailbox.letter_store import (
@@ -247,11 +254,59 @@ def _parse_letter(raw: str) -> tuple[str, str]:
     return "晚安 🌙", (raw or "").strip() or "今晚也辛苦了，早点休息。"
 
 
-def run_evening_letters_all(db: Session) -> list[dict[str, Any]]:
-    """对所有活跃用户生成晚间来信（定时任务入口）。"""
-    from app.services.infra.engagement import reachable_users
+# 设定时间之后多少分钟内还允许补发（进程重启/调度器卡顿错过时间点时）。
+# 设计值：设定时间 T → 可发窗口 [T, T+60] 分钟（含端点）；超出窗口当晚不再补，次日照常。
+CATCHUP_WINDOW_MINUTES = 60
 
-    users = reachable_users(db, "evening_letter")  # 跳过连续多天没打开 App 的用户，见 engagement.py
+# 没有偏好行（老用户/新用户尚未打开设置）时的默认：开启、21:30，与上线前全员固定 21:30 一致
+DEFAULT_EVENING_ENABLED = True
+DEFAULT_EVENING_TIME = "21:30"
+
+
+def _hhmm_to_minutes(value: str | None) -> int | None:
+    """'HH:MM' → 当天第几分钟；格式不对返回 None。"""
+    try:
+        hh, mm = (value or "").split(":")
+        h, m = int(hh), int(mm)
+    except (ValueError, AttributeError):
+        return None
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return None
+    return h * 60 + m
+
+
+def is_evening_due(target_hhmm: str | None, now: datetime, *, until_midnight: bool = False) -> bool:
+    """now（东八区）是否落在 [设定时间, 设定时间+CATCHUP_WINDOW_MINUTES] 内（只在同一天内算，不跨午夜）。
+
+    设定时间非法时按默认 21:30 处理。
+    until_midnight=True：补发窗口放宽到当天结束。给「手机触发」用——手机息屏时系统会限制联网，
+    可能过了一小时才来触发；这时用户正拿着手机，来信不算深夜突然打扰。
+    """
+    target = _hhmm_to_minutes(target_hhmm)
+    if target is None:
+        target = _hhmm_to_minutes(DEFAULT_EVENING_TIME)
+    now_c = now.astimezone(CST)
+    delta = now_c.hour * 60 + now_c.minute - target
+    if until_midnight:
+        return delta >= 0
+    return 0 <= delta <= CATCHUP_WINDOW_MINUTES
+
+
+def _evening_settings(db: Session, user_ids: list[int]) -> dict[int, tuple[bool, str]]:
+    """批量读 user_id → (是否开启, 来信时间)；没有偏好行的不在结果里（调用方按默认处理）。"""
+    if not user_ids:
+        return {}
+    rows = db.execute(
+        select(
+            UserPreference.user_id,
+            UserPreference.evening_letter_enabled,
+            UserPreference.evening_letter_time,
+        ).where(UserPreference.user_id.in_(user_ids))
+    ).all()
+    return {r[0]: (bool(r[1]), r[2]) for r in rows}
+
+
+def _letter_job_results(db: Session, users: list[Any]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for user in users:
         try:
@@ -265,3 +320,48 @@ def run_evening_letters_all(db: Session) -> list[dict[str, Any]]:
             logger.error("[evening] user %d failed entirely: %s", user.id, e)
             results.append({"user_id": user.id, "sent": False, "error": str(e)})
     return results
+
+
+def pick_due_evening_users(db: Session, now: datetime | None = None) -> list[Any]:
+    """挑出此刻该收晚间来信的用户（纯挑人，不生成）。
+
+    条件（全部满足）：
+    1. 可达用户（reachable_users：账号启用、未沉睡）；
+    2. 开启晚间来信（没有偏好行 = 默认开启）；
+    3. now 落在 [来信时间, 来信时间+CATCHUP_WINDOW_MINUTES] 内（没有偏好行 = 21:30）；
+    4. 今天（东八区）还没生成过晚间信（幂等键预检，避免窗口内每分钟重复进入生成流程）。
+    """
+    from app.services.infra.engagement import reachable_users, scoped_user_id
+
+    now = now or datetime.now(timezone.utc)
+    phone_triggered = scoped_user_id() is not None  # 自带密钥的用户由手机触发，补发窗口到当天结束
+    users = reachable_users(db, "evening_letter", now)  # 跳过连续多天没打开 App 的用户，见 engagement.py
+    settings = _evening_settings(db, [u.id for u in users])
+    store = LetterStore(db)
+    key = daily_generation_key("evening_letter", local_delivery_date(now))
+    due = []
+    for user in users:
+        enabled, at = settings.get(user.id, (DEFAULT_EVENING_ENABLED, DEFAULT_EVENING_TIME))
+        if not enabled:
+            continue
+        if not is_evening_due(at, now, until_midnight=phone_triggered):
+            continue
+        if store.get_generated(user.id, key) is not None:
+            continue
+        due.append(user)
+    return due
+
+
+def run_due_evening_letters(db: Session, now: datetime | None = None) -> list[dict[str, Any]]:
+    """定时任务入口（每分钟调用）：给「来信时间到了、今天还没收到」的用户写晚间来信。"""
+    return _letter_job_results(db, pick_due_evening_users(db, now))
+
+
+def run_evening_letters_all(db: Session) -> list[dict[str, Any]]:
+    """手动补跑：忽略来信时间，对所有可达且未关闭晚间来信的用户生成（运维用，调度器不走这里）。"""
+    from app.services.infra.engagement import reachable_users
+
+    users = reachable_users(db, "evening_letter")
+    settings = _evening_settings(db, [u.id for u in users])
+    users = [u for u in users if settings.get(u.id, (DEFAULT_EVENING_ENABLED, ""))[0]]
+    return _letter_job_results(db, users)

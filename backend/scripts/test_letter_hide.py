@@ -290,7 +290,7 @@ old = con.execute("SELECT hidden_at FROM letters").fetchone()
 con.close()
 assert "hidden_at" in cols and "ix_letters_user_hidden" in idx and old == (None,), (cols, idx, old)
 head = subprocess.run(alembic + ["heads"], env=env, check=True, capture_output=True, text=True).stdout
-assert "021_letter_hidden" in head, head
+assert head.count("(head)") == 1, head  # 只有一个 head（不写死版本号，后续迁移不必再改这里）
 ok("迁移 021：从 020 升级成功，列与索引在，旧信 hidden_at 为空")
 
 print(f"\n全部 {PASS} 项通过")

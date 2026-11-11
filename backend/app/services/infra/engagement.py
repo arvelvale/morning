@@ -16,6 +16,8 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import select, update
@@ -37,6 +39,7 @@ BACKGROUND_REQUESTS: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/v1/preferences/location"),   # 启动时 best-effort 上报位置
     ("POST", "/api/v1/signals/motion"),         # 速度样本（后台采集）
     ("POST", "/api/v1/signals/usage"),          # 手机使用统计（后台采集）
+    ("POST", "/api/v1/tick"),                   # 自带密钥的手机定时来触发「该做的定时活」
 })
 
 
@@ -87,19 +90,53 @@ def is_dormant(user: User, now: datetime | None = None, days: int | None = None)
     return _as_utc(user.last_active_at) < dormant_cutoff(now, days)
 
 
+# ─── 定时活为谁做：服务端自己跑 vs 手机带着 key 来触发 ─────────────────────────
+# 自带密钥（users.uses_own_key）的用户，密钥只在手机上，服务端的定时器手里没有他的 key，
+# 也不该用服务端的 key 替他生成。他的定时活改由手机调 POST /api/v1/tick 触发：
+# 那个接口在 user_job_scope(user_id) 里调用同一批任务入口，reachable_users 就只返回这一个人。
+_scope_user: ContextVar[int | None] = ContextVar("morning_job_scope_user", default=None)
+
+
+@contextmanager
+def user_job_scope(user_id: int):
+    """在这个范围里，所有定时任务入口都只为 user_id 这一个人跑（手机触发）。"""
+    token = _scope_user.set(user_id)
+    try:
+        yield
+    finally:
+        _scope_user.reset(token)
+
+
+def scoped_user_id() -> int | None:
+    """当前是不是「手机触发、只为某个人跑」；是则返回那个人的 id。"""
+    return _scope_user.get()
+
+
 def reachable_users(db: Session, job: str, now: datetime | None = None) -> list[User]:
     """定时任务的用户来源：已启用账号里，排除连续多天没打开 App 的人。
 
-    dormant_after_days <= 0 表示关闭这条规则（全部照发）。
+    - 服务端定时器调用：再排除自带密钥的人（他们由手机触发）；BYOK_REQUIRED=true 时服务端的 key
+      不给任何人用，直接返回空。
+    - 手机触发（user_job_scope 里）：只返回那一个人（照样受沉睡规则约束）。
+
+    dormant_after_days <= 0 表示关闭沉睡规则（全部照发）。
     """
-    users = list(db.scalars(select(User).where(User.is_active == True)).all())  # noqa: E712
+    scope = _scope_user.get()
+    stmt = select(User).where(User.is_active == True)  # noqa: E712
+    if scope is not None:
+        stmt = stmt.where(User.id == scope)
+    else:
+        if get_settings().byok_required:
+            return []
+        stmt = stmt.where(User.uses_own_key == False)  # noqa: E712
+    users = list(db.scalars(stmt).all())
     days = get_settings().dormant_after_days
     if days <= 0:
         return users
     cutoff = dormant_cutoff(now, days)
     kept = [u for u in users if u.last_active_at is None or _as_utc(u.last_active_at) >= cutoff]
     skipped = len(users) - len(kept)
-    if skipped:
+    if skipped and scope is None:
         logger.info("[engagement] %s: skip %d dormant users (no open for %d+ days), keep %d",
                     job, skipped, days, len(kept))
     return kept
@@ -107,5 +144,5 @@ def reachable_users(db: Session, job: str, now: datetime | None = None) -> list[
 
 __all__ = [
     "BACKGROUND_REQUESTS", "counts_as_open", "dormant_cutoff", "is_dormant",
-    "reachable_users", "touch_last_active",
+    "reachable_users", "scoped_user_id", "touch_last_active", "user_job_scope",
 ]

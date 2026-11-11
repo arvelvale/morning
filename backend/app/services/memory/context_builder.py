@@ -8,6 +8,12 @@
 各 layer 分设条数/字符预算并去重；输出用 <memory-context> 围栏包裹
 （流式输出中应剔除该围栏段，防止污染 UI）；
 任一检索源异常时该段退化为空，绝不阻断主流程（Property 11）。
+
+隐私口径：默认（米露主动路径）每段都过 filter_for_cloud_prompt，vulnerable/core 与即焚记忆
+一律不进 prompt。只有调用方显式传 user_initiated=True 且带上用户当前消息 user_text 时
+（当前仅聊天路由），才会额外放入与该消息相关的少量 vulnerable/core（见
+privacy.select_user_raised_sensitive），并单列一段、带「用户刚自己提起」的温和标注；
+即焚记忆仍然不放。
 """
 from __future__ import annotations
 
@@ -19,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.services.memory.memory_store import MemoryStore
-from app.services.memory.privacy import filter_for_cloud_prompt
+from app.services.memory.privacy import filter_for_cloud_prompt, select_user_raised_sensitive
 from app.services.memory.temporal import cn_date, has_specific_time, now_context_text, to_cst
 
 logger = logging.getLogger(__name__)
@@ -28,6 +34,12 @@ FENCE_OPEN = "<memory-context>"
 FENCE_CLOSE = "</memory-context>"
 
 # layer → (条数上限, 字符预算)
+# 用户自己提起的脆弱记忆的标注：放在这几行前面，告诉模型怎么接
+USER_RAISED_NOTE = (
+    "（以下是用户之前提过的较私密的事。用户刚刚自己提起了相关话题，回应时轻一点："
+    "顺着用户愿意说的部分接，不要追问细节，不要延伸到用户没提的部分，不要复述原话，不要下判断）"
+)
+
 DEFAULT_BUDGETS: dict[str, tuple[int, int]] = {
     "profile": (5, 600),
     "state": (5, 400),
@@ -104,10 +116,16 @@ def build(
     mode: str = "full",
     query: str | None = None,
     budgets: dict[str, tuple[int, int]] | None = None,
+    user_initiated: bool = False,
+    user_text: str | None = None,
 ) -> str:
     """组装记忆上下文（围栏包裹的字符串）。
 
     mode ∈ profile | query | full。任何一段检索失败都只丢该段。
+
+    user_initiated + user_text：仅「用户发起的对话」显式传入（默认关闭）。两者齐备时，
+    额外放入与 user_text 相关的 vulnerable/core（条数/字符有上限，即焚永不放）。
+    米露主动路径（来信/周报/信号/推荐片场/做梦…）不得传这两个参数。
     """
     if mode in ("profile", "full") and not get_settings().user_profile_enabled:
         # 全局灰度/回滚开关：画像不可用时保持调用方原有行为。
@@ -118,7 +136,8 @@ def build(
     seen_ids: set[int] = set()
 
     def _take(layer: str, items) -> None:
-        # 隐私红线：上下文最终进入外部 LLM prompt，vulnerable/core 与即焚记忆不外发
+        # 隐私红线：默认路径（米露主动）vulnerable/core 与即焚记忆一律不进 prompt；
+        # 用户自己提起时的放行走下面单独的 user_initiated 段，不在这里放宽
         safe = filter_for_cloud_prompt(list(items))
         fresh = [m for m in safe if m.id not in seen_ids]
         seen_ids.update(m.id for m in fresh)
@@ -144,6 +163,20 @@ def build(
             _take("episodic", hits)
         except Exception as e:  # noqa: BLE001
             logger.warning("context query section failed: %s", e)
+
+    # 用户自己提起的脆弱记忆：必须显式 user_initiated + 当前消息，且只放相关的少量几条
+    if user_initiated and user_text and mode in ("query", "full"):
+        try:
+            sensitive = [
+                m for depth in ("vulnerable", "core") for m in store.list_by_depth(user_id, depth)
+            ]
+            raised = [m for m in select_user_raised_sensitive(sensitive, user_text) if m.id not in seen_ids]
+            if raised:
+                seen_ids.update(m.id for m in raised)
+                sections.append(USER_RAISED_NOTE)
+                sections.extend(f"- [{m.kind}] {m.surface_text or m.content}" for m in raised)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("context user-raised section failed: %s", e)
 
     body = "\n".join(sections)
     if sections:

@@ -59,6 +59,18 @@ FEW_SHOT_TEMPLATE = """示例（假设现在是 {现在}）
 ]
 """
 
+CHAT_TODO_PROMPT = """\
+你是喵灵的待办识别工具。只看当前用户这句话，最多提取三件待办。
+用户本人明确约定的未来安排（例如「我明天上午11点有面试哈」→「参加面试」），
+以及明确要求记下或提醒的具体事项，可以登记。已发生、已取消、改期、假设、反问、转述他人、
+单纯焦虑、含糊愿望或请求你当下回答/做事，均不登记；明确说「别记」也不登记。
+只输出 JSON 数组，没有待办时输出 []。每项字段：layer 固定 episodic，kind 固定 待办，
+depth 为 surface、personal 或 vulnerable，content 为简短事项标题（时间单独存，不写进标题），
+confidence 为 0 到 1 的置信度，evidence 为这句话里的原文片段。
+due_at 按给定东八区当前时间换算成带 +08:00 的 ISO8601，明确时刻给 has_time:true，
+仅能确定日期用当天 00:00 并给 has_time:false，无明确日期填 null。不得猜测日期或时刻。
+"""
+
 
 def build_few_shot(now: datetime) -> str:
     """按「现在」生成示例，日期随调用时刻变化，不写死。"""
@@ -80,6 +92,7 @@ class ExtractorState(TypedDict):
     dump_text: str
     profile_context: str
     now: datetime  # 「现在」（东八区），注入提示词；不写死日期
+    todo_only: bool
     llm_output: str
     facts: list[dict[str, Any]]
     error: str
@@ -89,19 +102,27 @@ class ExtractorState(TypedDict):
 
 def call_llm(state: ExtractorState) -> dict:
     """调用 LLM 进行分类提取。"""
-    model = get_chat_model(temperature=0.1)
+    todo_only = state.get("todo_only", False)
     now = state.get("now") or datetime.now(CST)
-    messages = [
-        SystemMessage(content=SYSTEM_PROMPT + "\n" + build_few_shot(now)),
-        HumanMessage(content=(
-            f"{now_context_text(now)}。原文里的相对时间都以此为准换算成具体日期。\n\n"
-            f"原始倾诉：\n{state['dump_text']}\n\n"
-            "下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、"
-            "不可据此新增事实；冲突时以本次原文为准：\n"
-            f"{state.get('profile_context') or '（无）'}"
-        )),
-    ]
+    if todo_only:
+        messages = [
+            SystemMessage(content=CHAT_TODO_PROMPT + "\n" + now_context_text(now)),
+            HumanMessage(content=state["dump_text"]),
+        ]
+    else:
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT + "\n" + build_few_shot(now)),
+            HumanMessage(content=(
+                f"{now_context_text(now)}。原文里的相对时间都以此为准换算成具体日期。\n\n"
+                f"原始倾诉：\n{state['dump_text']}\n\n"
+                "下面的既有理解只用于帮助消歧和沿用用户自己的称呼，不可覆盖原文、"
+                "不可据此新增事实；冲突时以本次原文为准：\n"
+                f"{state.get('profile_context') or '（无）'}"
+            )),
+        ]
     try:
+        options = {"timeout": 8, "max_retries": 0, "reasoning_effort": "low"} if todo_only else {}
+        model = get_chat_model(temperature=0.1, **options)
         resp = model.invoke(messages)
         return {"llm_output": resp.content, "error": ""}
     except Exception as e:
@@ -130,7 +151,7 @@ def parse_output(state: ExtractorState) -> dict:
     try:
         items = json.loads(text)
     except json.JSONDecodeError as e:
-        logger.warning("Extractor JSON parse failed: %s | raw=%s", e, raw[:200])
+        logger.warning("Extractor JSON parse failed: %s", e)
         return {"facts": [], "error": f"JSON parse error: {e}"}
 
     if not isinstance(items, list):
@@ -198,7 +219,7 @@ _extractor_graph = _build_graph()
 # ─── Public API ────────────────────────────────────────────────────────────────
 
 def run_extractor(dump_text: str, profile_context: str | None = None,
-                  now: datetime | None = None) -> list[dict[str, Any]]:
+                  now: datetime | None = None, *, todo_only: bool = False) -> list[dict[str, Any]]:
     """运行提取图，返回结构化事实列表。失败返回空列表。
 
     now：「现在」，缺省取东八区当前时刻；用来把相对时间换算成具体日期。
@@ -207,6 +228,7 @@ def run_extractor(dump_text: str, profile_context: str | None = None,
         "dump_text": dump_text,
         "profile_context": profile_context or "",
         "now": now or datetime.now(CST),
+        "todo_only": todo_only,
         "llm_output": "",
         "facts": [],
         "error": "",

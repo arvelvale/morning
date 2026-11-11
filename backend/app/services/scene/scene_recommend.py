@@ -1,6 +1,6 @@
 """夜间场景推荐引擎（DAY-205；2026-09-26 接入核心闭环）。
 
-产品口径（倒出来 → 被接住 → 明天还在，剧场是「放不下的那件事」的深水区）：
+产品口径（说出来 → 记下来 → 明天还能看，剧场是「放不下的那件事」的深水区）：
 - 分析源：过去 24 小时的睡前倾倒「片段」（优先，用户亲口说的放不下的事）+ 语音通话转写。
   夜间任务在北京时间早上 8 点前后跑，只看「今天 0 点后」会漏掉前一晚的内容，所以用滚动 24 小时。
 - 隐私：vulnerable/core 片段不自动拿去搭剧场（filter_for_cloud_prompt），用户仍可在草稿箱手动确认；
@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import re
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -359,15 +360,32 @@ INTENT_SYSTEM_PROMPT = """\
 """
 
 
-def detect_scene_intent(text: str) -> dict[str, Any] | None:
-    """通话中·单句实时场景意图识别（低延迟、无副作用）。
+# 文字聊天里每句话都调一次模型太贵（账号限速 RPM=10），先用关键词粗筛：
+# 没有「想重来 / 想当面说 / 想演一遍」这类说法的消息直接不判，不花模型调用。
+# 宁可漏：漏了用户还能从「有句话」来信进场景；误判会在聊天里弹出不相干的邀请。
+_CHAT_INTENT_CUE = re.compile(
+    r"重演|重来|再来一[次遍]|再经历|回到那|回到当时|如果当时|要是当时|当时要是|"
+    r"想对[他她它你]|想跟[他她它]|想和[他她它]|当面|没说出口|说不出口|没来得及说|"
+    r"预演|演一遍|演练|排练|练习一下|模拟一下|试着说|进场景|进片场|走进那"
+)
+
+
+def has_chat_intent_cue(text: str) -> bool:
+    return bool(_CHAT_INTENT_CUE.search(text or ""))
+
+
+def detect_scene_intent(text: str, *, gated: bool = False) -> dict[str, Any] | None:
+    """单句实时场景意图识别（低延迟、无副作用）。语音通话与文字聊天共用。
 
     - 空串 / 过短 → 直接 None，不调用 LLM。
+    - gated=True（文字聊天）：先过关键词粗筛，没有线索直接 None，不调用 LLM。
     - 仅当用户明确表达想进入/重演一个具体场景时 worth=true。
     返回 {render_kind, theater_id, confidence, seed{...}}；否则 None。
     """
     clean = (text or "").strip()
     if len(clean) < MIN_INTENT_CHARS:
+        return None
+    if gated and not has_chat_intent_cue(clean):
         return None
 
     theaters_text = "\n".join(f"- {tid}: {desc}" for tid, desc in PRESET_THEATERS.items())

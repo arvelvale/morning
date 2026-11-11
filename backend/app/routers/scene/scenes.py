@@ -4,6 +4,7 @@ MVP：单场景单次体验（Scene 自带当前剧情状态），非流式。�
 结算回写复用 app/services/stage.py 的 settle。均按登录用户隔离。
 """
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -55,7 +56,9 @@ class SettlementIn(BaseModel):
 
 
 class SceneIntentIn(BaseModel):
-    text: str  # 用户在通话中刚说的一句（或最近几句）转写
+    text: str  # 用户刚说的一句（或最近几句）：通话转写，或文字聊天里发的消息
+    # call = 语音通话（每句都判）；chat = 文字聊天（先过关键词粗筛，没有线索不调模型）
+    source: Literal["call", "chat"] = "call"
 
 
 class SceneOut(BaseModel):
@@ -227,12 +230,12 @@ def scene_detect_intent(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """通话中·单句实时场景意图识别（方案B-1）。
+    """单句实时场景意图识别（方案B-1）：语音通话与文字聊天共用。
 
     纯判定：不写库、不发信。命中时返回 {worth:true, seed, render_kind, theater_id, confidence}，
     否则 {worth:false}。供前端在语音通话里逐句调用，触发「场景邀请提示条」。
     """
-    rec = detect_scene_intent(body.text)
+    rec = detect_scene_intent(body.text, gated=body.source == "chat")
     if rec is None:
         return {"worth": False}
     return {

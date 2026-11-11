@@ -11,7 +11,7 @@ FastAPI + SQLAlchemy（SQLite / PostgreSQL）+ LangGraph。分两层：
 
 | 能力 | 模型 | 端点 / 入口 |
 |---|---|---|
-| 文本 | `step-3.5-flash` | `POST /ai/chat`；服务端内部走 `app/llm.py`（对话/倾倒抽取/来信/剧本/场景整理/主动决策/结算摘要） |
+| 文字 / 图片理解模型 | `step-3.7-flash` | `POST /ai/chat`；服务端内部走 `app/llm.py`（对话/倾倒抽取/来信/剧本/场景整理/主动决策/结算摘要）。模型支持图片，但业务聊天上传/存储/历史展示尚未接入 |
 | 语音合成 | `stepaudio-2.5-tts` | `POST /ai/tts` → 转存 `/static/tts_audio/*.mp3` |
 | 语音转写 | `stepaudio-2.5-asr` / `-asr-stream` | `POST /ai/stt`、`WS /ai/stt/stream`（中继） |
 | 实时语音通话 | `stepaudio-2.5-realtime` | `WS /ai/realtime`（中继） |
@@ -19,6 +19,10 @@ FastAPI + SQLAlchemy（SQLite / PostgreSQL）+ LangGraph。分两层：
 | 图生图/改图 | `step-image-edit-2` | `image.edit_and_store`（`/v1/images/edits`，1–2s，剧情推进时按需换图） |
 
 ### ⚠️ Step Plan 与标准 /v1 的模型清单不同
+
+2026-11-03 起默认模型升级为 `step-3.7-flash`（[官方模型说明](https://platform.stepfun.com/docs/zh/guides/models/step-3.7-flash)），语音和生图模型沿用原配置。2026-11-05 起默认使用标准 /v1 和开放平台 API Key，按用量计费，不依赖 Step Plan。`STEP_TEXT_MODEL` 会同时影响文字聊天、记忆提取、来信与片场编排，不仅是前端聊天窗口；已有 `.env` 会覆盖代码默认值，切换后需重启服务。模型支持图片输入不代表 App 已有上传能力。
+
+在 `backend/` 下用项目虚拟环境 Python 运行 `scripts/check_chat_model.py` 检查有效配置；加 `--live` 才用供应商额度测试文字流式、JSON 和合成图片识别，`--model <名称>` 可核验候选模型而不改配置。测试不注册账号、不写业务数据库、不发送用户资料。原始报错与凭据不回显。更换模型应先核验当前账号通道可用性，再回归真实产品链路；不能仅看 `/health`。
 
 `STEPFUN_BASE_URL` 可以指向两处，**可用模型不一样**：
 
@@ -177,7 +181,11 @@ uv run python scripts/test_ephemeral_weekly.py # 到期硬删（行+历史）+ �
 - vulnerable/core 记忆默认 privacy=local，外发（同步/外部 Provider）必须过
   `app/services/privacy.py` 的 `can_send_external`。
 - **检索纯本地、无向量库**：召回 = 结构化分层 + 关键词/实体匹配，
-  做梦聚类 = 纯 entity 交集。私密内容没有任何外发路径。
+  做梦聚类 = 纯 entity 交集。
+- **脆弱记忆进 prompt 的口径**：vulnerable/core 只在用户自己提起时用。用户发起的聊天里，仅当当前这条消息
+  与某条脆弱记忆相关时才放入（`privacy.select_user_raised_sensitive`，相关度≥3、≤2 条/300 字符，
+  带温和标注）；米露主动发起的路径（来信/周报/问候/推荐片场/做梦）一律不用；burn_after_read 永不放。
+  同步/导出口径不变（`can_send_external`）。验证：`scripts/test_user_raised_memory.py`。
 - 来信不设每日数量上限（游戏邮箱口径），但各来源靠 generation_key 幂等，同一来源同天只有一封；每周日 20:00（东八区）投一封周报（`type=weekly`，只取 surface 素材）。
 - 临时思绪保存 30 天（`inbox.EPHEMERAL_TTL_DAYS`）到期**硬删**：物理删记忆行 + 历史行，不留人物/地点/原话/事件
   （`inbox._hard_delete_memory`；Property 4 的受限例外，仅到期思绪）。

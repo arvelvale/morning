@@ -59,7 +59,7 @@ def companion_home(
         n = len(today["actionable"])
         if n > 0:
             invitation = {"type": "todo", "count": n,
-                          "text": f"今天有 {n} 件事等你接住"}
+                          "text": f"今天还有 {n} 件待办"}
 
     return {
         "pet": None if pet is None else {

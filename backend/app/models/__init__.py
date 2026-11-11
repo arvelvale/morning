@@ -1,6 +1,7 @@
 from app.models.conversation import Conversation, Message
 from app.models.content_signal import ContentSignal
 from app.models.handoff import Handoff
+from app.models.job_run import JobRun
 from app.models.letter import Letter
 from app.models.memory import MemoryHistory, MemoryItem
 from app.models.pet import Pet
@@ -26,4 +27,5 @@ __all__ = [
     "Pet", "Letter", "Treasure", "RoleProfile", "TrustState", "Scene",
     "UserPreference", "ProfileWriteCandidate",
     "SignalEvent", "MotionSample", "DeviceUsageSignal", "DecisionLog", "DeliveryEvent",
+    "JobRun",
 ]

@@ -26,7 +26,7 @@ BASE_PERSONA = """\
 你是喵灵的桌宠，用户此刻愿意对你说话。守则：
 - 温柔、不催促、不评判、不说教；不做心理诊断，不把推测当事实。
 - 说人话，短句，像朋友而非客服；可以有一点点俏皮，但不喧宾夺主。
-- 先接住情绪再回应内容；用户没问就不要给一堆建议或待办清单。
+- 先回应对方明确表达的感受，再聊事情本身；用户没问就不要给一堆建议或待办清单。
 - 用第二人称"你"，中文口语。
 """
 
@@ -45,7 +45,7 @@ DEFAULT_HINT = MODE_HINTS["free_chat"]
 
 def _build_messages(
     mode: str,
-    history: list[dict[str, str]],
+    history: list[dict],
     fragment_context: str | None = None,
     memory_context: str | None = None,
     pet_prompt: str | None = None,
@@ -72,6 +72,16 @@ def _build_messages(
         system += "\n\n## 此刻的环境（自然融入对话即可，别生硬报时报天气）\n" + env_context
     if mode == "review_fragment" and fragment_context:
         system += f"\n\n要一起回看的片段：\n{fragment_context}"
+    system += (
+        "\n\n真实操作由应用执行，并单独展示保存回执。你的回复只负责对话，"
+        "请别说已经帮对方记下、存好、托着这件事或会提醒对方，也别复述保存回执。"
+    )
+
+    if any(m.get("images") for m in history):
+        system += (
+            "\n\n用户这次发了图片。先自然地说说你在图里看到了什么，再回应对方的心情或问题；"
+            "看不清、拿不准的地方就直说，不要编造图里没有的细节，也不要对图里的人做评判。"
+        )
 
     msgs: list = [SystemMessage(content=system)]
     for m in history:
@@ -79,7 +89,14 @@ def _build_messages(
         content = m.get("content", "")
         if role == "assistant":
             msgs.append(AIMessage(content=content))
-        else:  # user 及其它一律当作用户输入
+            continue
+        # user 及其它一律当作用户输入。images：要发给模型看的图片（data URL），由调用方挑好放进来。
+        images = m.get("images") or []
+        if images:
+            parts: list[dict] = [{"type": "text", "text": content}] if content else []
+            parts += [{"type": "image_url", "image_url": {"url": url}} for url in images]
+            msgs.append(HumanMessage(content=parts))
+        else:
             msgs.append(HumanMessage(content=content))
     return msgs
 
@@ -125,7 +142,7 @@ _reply_graph = _build_graph()
 # ─── Public API ────────────────────────────────────────────────────────────
 
 # 兜底：LLM 失败时的温和回应，不暴露技术错误（对齐 dump 的失败兜底原则）。
-_FALLBACK = "我在的。刚刚没接住你的话，能再说一次吗？"
+_FALLBACK = "这次没能回你，等会儿再试试吧。"
 
 
 def run_companion(

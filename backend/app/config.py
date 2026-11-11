@@ -12,11 +12,11 @@ class Settings(BaseSettings):
 
     # 阶跃接入
     stepfun_api_key: str = ""
-    stepfun_base_url: str = "https://api.stepfun.com/step_plan/v1"
+    stepfun_base_url: str = "https://api.stepfun.com/v1"
     stepfun_ws_base: str = "wss://api.stepfun.com/v1"
 
     # 模型默认值
-    step_text_model: str = "step-3.5-flash"
+    step_text_model: str = "step-3.7-flash"  # 文字与图片理解共用；图片消息仍需客户端/业务接口接入
     step_image_model: str = "step-image-edit-2"  # 文生图（size 为 height x width）
     step_asr_file_model: str = "stepaudio-2.5-asr"
     step_asr_stream_model: str = "stepaudio-2.5-asr-stream"
@@ -36,6 +36,18 @@ class Settings(BaseSettings):
 
     # 数据库
     database_url: str = "sqlite:///./morning.db"
+
+    # 文字备用路由：阶跃失败（限流 / 5xx / 超时 / key 无效）时退到 DeepSeek。空 = 服务端不提供备用。
+    # 模型名随 DeepSeek 平台更新可能变化，上线前用真实 key 调一次确认。
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"
+    # 用户自带密钥（BYOK）。false（默认）= 用户没带 key 时用服务端的 key，行为与以前一样；
+    # true = 服务端的 key 一律不给用户用：没带 key 的请求调模型会失败，服务端定时任务也不再为任何人生成内容。
+    # 翻成 true 之前要确认客户端已经能填 key，否则所有人都会用不了。
+    byok_required: bool = False
+    # 聊天图片存放目录（不经 /static 公开，读取要登录且只能读自己的）。线上指到持久卷，如 /data/chat_images。
+    chat_image_dir: str = "./data/chat_images"
 
     # 能力开关（可回滚）
     dreaming_enabled: bool = True
@@ -66,8 +78,13 @@ class Settings(BaseSettings):
 
     @property
     def auth_header(self) -> dict[str, str]:
-        """阶跃鉴权头。key 只在服务端使用，绝不下发到前端。"""
-        return {"Authorization": f"Bearer {self.stepfun_api_key}"}
+        """阶跃鉴权头：用户这次请求带了自己的 key 就用用户的，否则用服务端的（见 app/llm_keys.py）。
+
+        key 只在服务端转交给阶跃，绝不下发到前端、不写日志。没有可用的 key 时抛 LLMKeyMissing。
+        """
+        from app.llm_keys import resolve_stepfun_key
+
+        return {"Authorization": f"Bearer {resolve_stepfun_key()}"}
 
 
 @lru_cache

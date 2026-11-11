@@ -9,7 +9,7 @@ Message：会话内的一条消息（user / assistant）。
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -75,6 +75,9 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # 这条消息带的图片：[{"file": "<uuid>.jpg", "mime": "image/jpeg", "bytes": 12345}]；没有图片为 None。
+    # 文件在 settings.chat_image_dir/<user_id>/ 下，不公开，读取见 conversations 路由。
+    attachments: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow

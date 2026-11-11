@@ -41,7 +41,7 @@ def trigger_evening_letter(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """手动触发当前用户的晚间来信（无需等 21:30）。"""
+    """手动触发当前用户的晚间来信（无需等设定的来信时间）。"""
     from app.services.mailbox.evening_letter import generate_evening_letter
 
     letter = generate_evening_letter(db, user.id)
