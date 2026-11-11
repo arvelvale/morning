@@ -1,15 +1,15 @@
 {
-  "latest": "0.3.19",
+  "latest": "0.3.22",
   "min_supported": "0.1.0",
-  "version_code": 22,
-  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.19.apk",
+  "version_code": 25,
+  "apk_url": "http://223.109.142.152:8000/static/download/morning-0.3.22.apk",
   "apk_sha256": "placeholder-will-be-replaced-by-publish-script",
   "size_bytes": 0,
   "size_mb": 0,
   "mandatory": false,
   "changelog": [
-    "待办可以直接添加了，填写日期与时间后可设置提醒",
-    "每日晚间来信可以关闭，也能调整来信时间；保存失败会明确提示",
-    "理解模型升级为 Step 3.7 Flash，保留熟悉的陪伴方式"
+    "聊天里可以发图片或直接拍照给米露看",
+    "聊到明确的安排，米露会顺手记成待办；首页可以接着上次聊",
+    "通知分类提醒，通知上就能标已读、完成待办；可以打开悬浮米露"
   ]
 }
