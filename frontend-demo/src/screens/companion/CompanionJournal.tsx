@@ -32,6 +32,9 @@ export function CompanionJournal({
   const { isCompact } = useResponsive();
   const [convs, setConvs] = useState<ConversationSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ConversationSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -40,7 +43,10 @@ export function CompanionJournal({
     let alive = true;
     listConversations()
       .then((list) => {
-        if (alive) setConvs(Array.isArray(list) ? list : []);
+        if (!alive) return;
+        const page = Array.isArray(list) ? list : [];
+        setConvs(page);
+        setHasMore(page.length === 20);
       })
       .catch(() => {
         if (alive) setFailed(true);
@@ -51,6 +57,22 @@ export function CompanionJournal({
   }, []);
 
   const groups = convs ? groupByDay(convs) : [];
+
+  const loadMore = async () => {
+    const cursor = convs?.[convs.length - 1]?.id;
+    if (cursor == null || loadingMore) return;
+    setLoadingMore(true);
+    setPageError(false);
+    try {
+      const page: ConversationSummary[] = await listConversations(cursor);
+      setConvs((current) => [...(current ?? []), ...page]);
+      setHasMore(page.length === 20);
+    } catch {
+      setPageError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const confirmDelete = async () => {
     if (!pendingDelete || deleting) return;
@@ -275,6 +297,13 @@ export function CompanionJournal({
               ))}
             </View>
           ))}
+          {hasMore && (
+            <View style={{ alignItems: "center", marginTop: theme.spacing[4] }}>
+              <Button variant="secondary" disabled={loadingMore} onPress={loadMore}>
+                {pageError ? "重试加载" : "查看更早的聊天"}
+              </Button>
+            </View>
+          )}
         </ScrollView>
       </View>
       <ResponsiveOverlay

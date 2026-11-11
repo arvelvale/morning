@@ -44,10 +44,13 @@ export function timeLabel(iso: string): string {
 
 export type DayGroup = { label: string; items: ConversationSummary[] };
 
-/** 列表本身按时间倒序，相邻同日合并成一组。 */
+/** 接口按 id 翻页，展示按最近聊天时间分组。 */
 export function groupByDay(list: ConversationSummary[]): DayGroup[] {
+  const byActivity = [...list].sort((a, b) =>
+    Date.parse(b.updated_at || b.created_at) - Date.parse(a.updated_at || a.created_at) || b.id - a.id
+  );
   const groups: DayGroup[] = [];
-  for (const conv of list) {
+  for (const conv of byActivity) {
     const label = dayLabel(conv.updated_at || conv.created_at);
     const last = groups[groups.length - 1];
     if (last && last.label === label) last.items.push(conv);

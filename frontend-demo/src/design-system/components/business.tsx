@@ -130,7 +130,11 @@ export function MessageBubble({
         isUser ? styles.messageRowUser : styles.messageRowAgent,
       ]}
     >
-      {!isUser ? <PetAvatar presetId={petPresetId} size={34} /> : null}
+      {!isUser ? (
+        <View style={{ marginTop: theme.spacing[1] }}>
+          <PetAvatar presetId={petPresetId} size={34} />
+        </View>
+      ) : null}
       <View
         style={[
           styles.bubble,
@@ -190,7 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   messageRow: {
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 9,
     marginBottom: 12,

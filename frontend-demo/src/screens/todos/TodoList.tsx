@@ -37,7 +37,7 @@ export function TodoList() {
       <EmptyState
         icon={<ListTodo color={theme.colors.textMuted} size={24} />}
         title="还没有待办"
-        description="在今日页倒一倒，要做的事会自己排到这里。"
+        description="点「添加待办」直接记一件，也可以在今日页倒一倒。"
       />
     );
   }

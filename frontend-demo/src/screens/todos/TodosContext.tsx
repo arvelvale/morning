@@ -1,13 +1,14 @@
 /**
  * 待办的共享状态：全部待办、本机提醒、「不用」名单。
- * 今日页（横幅 / 接下来 / 今天接住的）和「待办」Tab 读写的是同一份，提醒状态不会两边不一致。
+ * 今日页（横幅 / 接下来 / 今天记下的）和「待办」Tab 读写的是同一份，提醒状态不会两边不一致。
  *
  * 提醒只存本机（见 reminderStore.ts），不会 PATCH 后端的 due_date。
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
-import { deleteTodo, listTodos, updateTodo } from "../../api";
+import { createTodo, deleteTodo, listTodos, updateTodo } from "../../api";
+import { saveManualTodo, todoPayload, type TodoDraft } from "./createTodo";
 import { cancelTodoReminder, ensureNotificationPermission, scheduleTodoReminder } from "../../notifications";
 import { loadDismissed, loadReminders, saveDismissed, saveReminders } from "./reminderStore";
 import {
@@ -19,6 +20,7 @@ type TodosApi = {
   todos: TodoItem[];
   loaded: boolean;
   refresh: () => Promise<void>;
+  create: (draft: TodoDraft) => Promise<void>;
   reminders: ReminderMap;
   dismissed: ReadonlySet<number>;
   /** 按默认规则给这条待办设提醒；成功返回 true（失败 / 无权限时已 toast）。 */
@@ -111,7 +113,7 @@ export function TodosProvider({ children, enabled, petName, onToast }: {
       return false;
     }
     const info = dueInfo(todo.dueAt);
-    const notifId = await scheduleTodoReminder(petName, todo.text, at, info.kind === "time" ? clock(info.at) : undefined);
+    const notifId = await scheduleTodoReminder(petName, todo.text, at, info.kind === "time" ? clock(info.at) : undefined, todo.id);
     if (Platform.OS !== "web" && !notifId) {
       onToast("提醒没设上，待会儿再试试");
       return false;
@@ -128,6 +130,29 @@ export function TodosProvider({ children, enabled, petName, onToast }: {
     commitReminders(next);
     await cancelTodoReminder(cur.notifId);
   }, [commitReminders]);
+
+  const create = useCallback(async (draft: TodoDraft) => {
+    if (!enabled) throw new Error("登录后就能添加待办，预览模式不会保存");
+    if (!ready) throw new Error("正在准备提醒，稍等一下再保存");
+    const payload = todoPayload(draft);
+    const { reminded } = await saveManualTodo(payload, draft.remind, {
+      create: async (body) => {
+        const todo = toTodo(await createTodo(body));
+        if (!todo) throw new Error("返回的待办不完整，请刷新列表确认");
+        return todo;
+      },
+      onSaved: (todo) => {
+        setTodos((list) => [todo, ...list.filter((x) => x.id !== todo.id)]);
+        setLoaded(true);
+      },
+      remind,
+    });
+    onToast(draft.remind
+      ? reminded
+        ? Platform.OS === "web" ? "记下啦。浏览器只预览提醒，请在手机上设置系统通知" : "记下啦，会按约定的时间叫你"
+        : "待办已记下，提醒未设成功；可在列表里重新开启，并检查通知权限或提醒时间"
+      : "记下啦，这件事先不设提醒");
+  }, [enabled, ready, remind, onToast]);
 
   const dismissPrompt = useCallback((id: number) => {
     const next = [...dismissedRef.current.filter((x) => x !== id), id];
@@ -183,9 +208,9 @@ export function TodosProvider({ children, enabled, petName, onToast }: {
 
   const dismissed = useMemo(() => new Set(dismissedList), [dismissedList]);
   const api = useMemo<TodosApi>(() => ({
-    todos: ready ? todos : [], loaded: loaded && ready, refresh, reminders, dismissed,
+    todos: ready ? todos : [], loaded: loaded && ready, refresh, create, reminders, dismissed,
     remind, unremind, dismissPrompt, setDone, remove,
-  }), [todos, ready, loaded, refresh, reminders, dismissed, remind, unremind, dismissPrompt, setDone, remove]);
+  }), [todos, ready, loaded, refresh, create, reminders, dismissed, remind, unremind, dismissPrompt, setDone, remove]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

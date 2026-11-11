@@ -1,5 +1,5 @@
 /**
- * 首页「今日」的共享状态：今天接住的事、倒出来 / 今天接住的 两个抽屉、纸条飞行、首页角色的状态。
+ * 首页「今日」的共享状态：今天记下的事、倒出来 / 今天记下的 两个抽屉、纸条飞行、首页角色的状态。
  *
  * 抽屉和纸条要盖住底栏，所以画在 App 根部（TodayOverlays），首页本身（TodayScreen）只读写这里的状态。
  */
@@ -23,7 +23,7 @@ type TodayApi = {
   items: CaughtItem[];
   loaded: boolean;
   refresh: () => void;
-  /** 每接住一件 +1：数字跳一下、星星亮一下。 */
+  /** 每记下一件 +1：数字跳一下、星星亮一下。 */
   catchTick: number;
 
   dumpOpen: boolean;
@@ -197,13 +197,13 @@ export function TodayProvider({ children, enabled, petName, onToast, celebrate }
       refresh();
       void todosApi.refresh();
       setDraft("");
-      say(got ? `接住了 ${got} 件` : "原话我先替你收着了", 2200);
+      say(got ? `记下了 ${got} 件` : "原话我先替你收着了", 2200);
       setHappy(true);
       later("happy", 2400, () => setHappy(false));
     } catch (err: any) {
       setDraft(text);
-      onToast(err?.message || "刚才没接住，再说一次？");
-      say("刚才没接住，再说一次？", 2400);
+      onToast(err?.message || "刚才没能记下来，等会儿再试试吧。");
+      say("刚才没能记下来，等会儿再试试吧。", 2400);
     } finally {
       setDumping(false);
       // 等最后一张纸条落下再让引导往下走

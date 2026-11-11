@@ -22,7 +22,7 @@ import {
   stopPcmCapture,
 } from "morning-companion";
 
-import { sttOnce, wsAuthUrl } from "./api";
+import { sttOnce, wsAuthUrl, wsKeyOptions } from "./api";
 import {
   createSpeechGate,
   observeSpeech,
@@ -120,7 +120,7 @@ export function useVoiceInput(
 
   const connectStreaming = useCallback(async (currentSessionId: number): Promise<boolean> => {
     latestTranscript.current = "";
-    const ws = new WebSocket(wsAuthUrl("/ai/stt/stream"));
+    const ws = new (WebSocket as any)(wsAuthUrl("/ai/stt/stream"), undefined, wsKeyOptions()) as WebSocket;
     streamSocket.current = ws;
 
     return await new Promise<boolean>((resolve) => {

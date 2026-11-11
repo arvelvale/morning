@@ -14,6 +14,8 @@ import {
   type AppTab,
 } from "./src/design-system";
 import { HAND_FONT } from "./src/design-system/tokens";
+import { planFromPreferences } from "./src/eveningLetter";
+import { saveConfirmedPreferences } from "./src/preferencesSave";
 import { GuideProvider, guideSeen, useGuide } from "./src/guide/Guide";
 import { TodosProvider } from "./src/screens/todos/TodosContext";
 import { TodosScreen } from "./src/screens/todos/TodosScreen";
@@ -32,9 +34,14 @@ import { AuthScreen } from "./src/screens/Auth";
 import { Scene3DPreview } from "./src/screens/Scene3DPreview";
 import {
   getActivePet, getPreferences, listHandoffs, listPets, listPetPresets,
-  loadTokens, logout, markActive, setActivePet, Tokens, updatePreferences,
+  loadTokens, logout, markActive, setActivePet, Tokens, updatePreferences, usingOwnKeys,
 } from "./src/api";
-import { initNotifications, startLetterPolling, stopLetterPolling } from "./src/notifications";
+import {
+  initNotifications, onNotificationOpen, startLetterPolling, stopLetterPolling, takeInitialOpenTarget,
+} from "./src/notifications";
+import { loadModelKeys } from "./src/modelKeys";
+import { ModelKeysScreen } from "./src/screens/ModelKeys";
+import { applyPatch, loadCompanionSettings, saveCompanionSettings, type CompanionSettings, COMPANION_DEFAULTS } from "./src/companionSettings";
 import { UpdateSheet } from "./src/components/UpdateSheet";
 import { checkForUpdate, type AvailableUpdateInfo } from "./src/updateCheck";
 import {
@@ -49,7 +56,10 @@ import {
   type ApkUpdateState,
 } from "./src/apkUpdater";
 import { reportCurrentLocation } from "./src/location";
-import { startCompanion, stopCompanion } from "morning-companion";
+import {
+  consumeLaunchTarget, hasOverlayPermission, isCompanionAvailable, isCompanionPaused,
+  requestOverlayPermission, setOverlayEnabled, startCompanion, stopCompanion,
+} from "morning-companion";
 import type { TheaterSceneId } from "./src/theater";
 import { THEATER_SCENE_IDS } from "./src/theater";
 
@@ -59,7 +69,7 @@ const SCREEN_IDS = [
   "todos", "mailbox",
   "scene", "scene-play", "scene-end",
   "profile", "pet-change", "pet-handoff",
-  "memory-list", "memory-review", "user-profile",
+  "memory-list", "memory-review", "user-profile", "model-keys",
   "design-system", "scene3d-preview",
 ] as const;
 
@@ -121,6 +131,7 @@ const INITIAL_TAB: AppTab =
       ? "mailbox"
       : DEV_SCREEN === "profile" || DEV_SCREEN === "pet-change" || DEV_SCREEN === "pet-handoff"
           || DEV_SCREEN === "memory-list" || DEV_SCREEN === "memory-review" || DEV_SCREEN === "user-profile"
+          || DEV_SCREEN === "model-keys"
         ? "profile"
         : "companion";
 
@@ -132,13 +143,15 @@ const DEV_TOKENS: Tokens = { access_token: "dev", refresh_token: "dev", token_ty
 const FULL_SCREENS: Screen[] = [
   "chat", "journal", "voice-call",
   "scene-play", "scene-end",
-  "pet-change", "pet-handoff", "memory-list", "memory-review", "user-profile", "design-system", "scene3d-preview",
+  "pet-change", "pet-handoff", "memory-list", "memory-review", "user-profile", "model-keys", "design-system", "scene3d-preview",
 ];
 
 const PREFERENCE_DEFAULTS: Preferences = {
   proactive_enabled: true,
   proactive_frequency: "温和",
   sleep_reminder_time: "22:30",
+  evening_letter_enabled: true,
+  evening_letter_time: "21:30",
   keep_raw_dump: false,
   ephemeral_ttl_days: 3,
   font_size: "标准",
@@ -186,6 +199,7 @@ function MorningApp() {
   const [changingPet, setChangingPet] = useState(false); // 防 double-tap / 并发切换
   const [handoffContent, setHandoffContent] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<typeof PREFERENCE_DEFAULTS>(PREFERENCE_DEFAULTS);
+  const preferenceSavingRef = useRef(false);
   const [showMode, setShowMode] = useState(false);
   const [chatMode, setChatMode] = useState("free_chat");
   const [sceneId, setSceneId] = useState<number | null>(null);
@@ -197,6 +211,14 @@ function MorningApp() {
   const [chatSeedText, setChatSeedText] = useState("");
   const [letterReplyBody, setLetterReplyBody] = useState("");  // 「回它一句」带上的来信正文，供宠物基于信回复
   const [seedConvId, setSeedConvId] = useState<number | null>(null);  // 往日会话：进入聊天页时加载该会话历史并续聊
+  const [resumeLatestChat, setResumeLatestChat] = useState(false);
+  // 常驻陪伴 / 悬浮米露：本机开关、用户是否点过「暂停陪伴」、系统是否已允许悬浮窗
+  const [companionSettings, setCompanionSettings] = useState<CompanionSettings>(COMPANION_DEFAULTS);
+  const [companionSettingsLoaded, setCompanionSettingsLoaded] = useState(false);
+  const [companionPaused, setCompanionPaused] = useState(false);
+  const [overlayPermitted, setOverlayPermitted] = useState(false);
+  // 是否在用自己的模型密钥（填了，且连接允许发）
+  const [ownKeys, setOwnKeys] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guideRef = useRef<ReturnType<typeof useGuide> | null>(null);
   const todayRef = useRef<ReturnType<typeof useToday> | null>(null);
@@ -205,6 +227,8 @@ function MorningApp() {
 
   // 启动时从存储恢复登录态（token 持久化，重启免重登）。
   useEffect(() => {
+    // 自带的模型密钥从安全存储读进内存：之后每个请求从内存取
+    void loadModelKeys().then(() => setOwnKeys(usingOwnKeys()));
     if (DEV_BYPASS || DEV_AUTH) return;
     loadTokens().then((t) => {
       if (t) {
@@ -277,12 +301,6 @@ function MorningApp() {
       stopLetterPolling();
     };
   }, [tokens]);
-
-  // 当前桌宠变化时，更新常驻陪伴服务。
-  useEffect(() => {
-    if (!tokens || DEV_BYPASS) return;
-    startCompanion(pet.name);
-  }, [tokens, pet.name]);
 
   const showToast = (msg: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -420,6 +438,111 @@ function MorningApp() {
     });
   };
 
+  // 进入一个搭好的场景（语音通话的邀请条、文字聊天的邀请卡片共用）
+  const enterScene = (nextSceneId: number, theaterId?: string) => {
+    setSceneId(nextSceneId);
+    setSceneTheater(
+      THEATER_SCENE_IDS.includes((theaterId ?? "") as TheaterSceneId)
+        ? (theaterId as TheaterSceneId)
+        : "dining" // 无/非法 theater_id 时用默认剧场兜底
+    );
+    go("scene-play");
+    setTab("companion");
+  };
+
+  // ── 常驻陪伴 / 悬浮米露 ───────────────────────────────────────────────────
+  useEffect(() => {
+    let alive = true;
+    loadCompanionSettings().then((v) => {
+      if (!alive) return;
+      setCompanionSettings(v);
+      setCompanionSettingsLoaded(true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const petKind = pet.presetId ?? "miro";
+
+  // 按设置拉起 / 停掉常驻服务；桌宠换了也会同步名字和外观。用户点过「暂停陪伴」的，这里不会替他再开。
+  useEffect(() => {
+    if (!tokens || DEV_BYPASS || !companionSettingsLoaded) return;
+    if (!companionSettings.companion) {
+      void stopCompanion();
+      return;
+    }
+    void startCompanion(pet.name, petKind).then(() => isCompanionPaused().then(setCompanionPaused));
+  }, [tokens, companionSettingsLoaded, companionSettings.companion, pet.name, petKind]);
+
+  // 悬浮米露：设置开着、且系统已授权才真正打开
+  useEffect(() => {
+    if (!tokens || DEV_BYPASS || !companionSettingsLoaded) return;
+    void setOverlayEnabled(companionSettings.overlay && overlayPermitted);
+  }, [tokens, companionSettingsLoaded, companionSettings.overlay, overlayPermitted]);
+
+  // 回到前台时：重新读系统授权（用户可能刚在系统设置里开了）与暂停状态，并取走「点悬浮米露要去哪」
+  useEffect(() => {
+    if (!tokens || DEV_BYPASS) return;
+    const refreshNative = () => {
+      void hasOverlayPermission().then(setOverlayPermitted);
+      void isCompanionPaused().then(setCompanionPaused);
+      void consumeLaunchTarget().then((target) => {
+        if (target === "mailbox") { setTab("mailbox"); go("mailbox"); }
+      });
+    };
+    refreshNative();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") refreshNative();
+    });
+    return () => sub.remove();
+  }, [tokens]);
+
+  // 点通知本体：去对应页面（热启动走订阅，冷启动在登录后补取一次）
+  useEffect(() => {
+    if (!tokens || DEV_BYPASS) return;
+    const open = (target: "mailbox" | "todos") => { setTab(target); go(target); };
+    void takeInitialOpenTarget().then((target) => { if (target) open(target); });
+    return onNotificationOpen(open);
+  }, [tokens]);
+
+  const updateCompanionSettings = async (patch: Partial<CompanionSettings>) => {
+    const next = applyPatch(companionSettings, patch);
+    await saveCompanionSettings(next);
+    if (patch.companion === true || patch.overlay === true) {
+      // 用户明确要开：清掉「已暂停」，立刻拉起
+      await startCompanion(pet.name, petKind, true);
+      setCompanionPaused(false);
+    }
+    setCompanionSettings(next);
+    return next;
+  };
+
+  const toggleCompanion = () => {
+    if (companionSettings.companion && companionPaused) {
+      void updateCompanionSettings({ companion: true });
+      showToast("米露又回来陪你了");
+      return;
+    }
+    void updateCompanionSettings({ companion: !companionSettings.companion });
+  };
+
+  const toggleOverlay = async () => {
+    if (companionSettings.overlay && overlayPermitted) {
+      await updateCompanionSettings({ overlay: false });
+      return;
+    }
+    await updateCompanionSettings({ overlay: true });
+    if (!overlayPermitted) {
+      showToast("请在系统设置里打开「显示在其他应用上层」，回来就能看到米露啦");
+      void requestOverlayPermission();
+    }
+  };
+
+  const openNotificationSettings = () => {
+    Linking.sendIntent("android.settings.APP_NOTIFICATION_SETTINGS", [
+      { key: "android.provider.extra.APP_PACKAGE", value: "com.morning.app" },
+    ]).catch(() => { void Linking.openSettings(); });
+  };
+
   // 进入换宠屏时：拉取预设（换宠候选＝两位固定伙伴 米露/波比）与当前主宠。
   // 候选用预设而非「我拥有的桌宠」，避免因历史重复实例化导致列表里堆一排同名桌宠。
   useEffect(() => {
@@ -437,14 +560,23 @@ function MorningApp() {
   }, [screen, tokens]);
 
   const handleSetPreference = async (patch: Partial<Preferences>) => {
-    const next = { ...preferences, ...patch };
-    setPreferences(next);
-    if (!tokens || DEV_BYPASS) return;
+    if (!tokens || DEV_BYPASS) {
+      setPreferences((current) => ({ ...current, ...patch }));
+      return;
+    }
+    if (preferenceSavingRef.current) {
+      showToast("设置正在保存，稍等一下");
+      return;
+    }
+    preferenceSavingRef.current = true;
     try {
-      const saved = await updatePreferences(patch);
-      setPreferences({ ...PREFERENCE_DEFAULTS, ...saved });
+      await saveConfirmedPreferences(patch, updatePreferences, (saved) => {
+        setPreferences({ ...PREFERENCE_DEFAULTS, ...saved });
+      });
     } catch (e: any) {
-      showToast(e?.message || "保存失败");
+      showToast(`没保存成功，设置仍按原来的来。${e?.message || "检查网络后再试试"}`);
+    } finally {
+      preferenceSavingRef.current = false;
     }
   };
 
@@ -544,9 +676,10 @@ function MorningApp() {
           <Animated.View style={{ flex: 1, opacity: fade }}>
             {screen === "companion" && (
               <TodayScreen petEmoji={pet.emoji} petPresetId={pet.presetId}
+                eveningLetter={planFromPreferences(preferences)}
                 night={night} onNightToggle={() => setNight(n => !n)}
                 onVoiceCall={() => go("voice-call")}
-                onOpenChat={() => { setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(""); setChatMode("free_chat"); go("chat"); }}
+                onOpenChat={() => { setResumeLatestChat(true); setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(""); setChatMode("free_chat"); go("chat"); }}
                 onOpenTodos={() => { setTab("todos"); go("todos"); }}
                 onOpenMailbox={() => { setTab("mailbox"); go("mailbox"); guideRef.current?.emit("tab:mailbox"); }}
                 onModeSheet={() => setShowMode(true)} />
@@ -555,31 +688,26 @@ function MorningApp() {
               <CompanionChat petName={pet.name} petPresetId={pet.presetId} mode={chatMode}
                 initialText={chatSeedText} letterContext={letterReplyBody}
                 seedConversationId={seedConvId}
-                onBack={() => { setChatSeedText(""); setLetterReplyBody(""); setSeedConvId(null); go("companion"); setTab("companion"); }} />
+                resumeLatest={resumeLatestChat}
+                onEnterScene={enterScene}
+                onOpenHistory={() => { go("journal"); setTab("companion"); }}
+                onBack={() => { go(seedConvId == null ? "companion" : "journal"); setTab("companion"); }} />
             )}
             {screen === "journal" && (
               <CompanionJournal petPresetId={pet.presetId}
                 onBack={() => { go("companion"); setTab("companion"); }}
-                onOpenConversation={(id) => { setChatSeedText(""); setLetterReplyBody(""); setSeedConvId(id); go("chat"); setTab("companion"); }} />
+                onOpenConversation={(id) => { setResumeLatestChat(false); setChatSeedText(""); setLetterReplyBody(""); setSeedConvId(id); go("chat"); setTab("companion"); }} />
             )}
             {screen === "voice-call" && (
               <VoiceCall petName={pet.name} petEmoji={pet.emoji} petPresetId={pet.presetId}
                 onEnd={() => { go("companion"); setTab("companion"); }}
                 onToast={showToast}
-                onEnterScene={(sceneId, theaterId) => {
-                  setSceneId(sceneId);
-                  setSceneTheater(
-                    THEATER_SCENE_IDS.includes((theaterId ?? "") as TheaterSceneId)
-                      ? (theaterId as TheaterSceneId)
-                      : "dining" // 无/非法 theater_id 时用默认剧场兜底
-                  );
-                  go("scene-play");
-                  setTab("companion");
-                }} />
+                onEnterScene={enterScene} />
             )}
             {screen === "todos" && <TodosScreen onToast={showToast} />}
             {screen === "mailbox" && (
               <MailboxScreen
+                eveningLetter={planFromPreferences(preferences)}
                 petName={pet.name}
                 petPresetId={pet.presetId}
                 petEmoji={pet.emoji}
@@ -594,7 +722,7 @@ function MorningApp() {
                   go("scene-play");
                   setTab("mailbox");
                 }}
-                onReplyLetter={(letter) => { setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(letter?.body ?? ""); go("chat"); setTab("companion"); }} />
+                onReplyLetter={(letter) => { setResumeLatestChat(false); setSeedConvId(null); setChatMode("free_chat"); setChatSeedText(""); setLetterReplyBody(letter?.body ?? ""); go("chat"); setTab("companion"); }} />
             )}
 
             {screen === "scene" && <SceneScreen onPlay={(id, theater) => { setSceneId(id); if (theater) setSceneTheater(theater); go("scene-play"); }} />}
@@ -618,9 +746,20 @@ function MorningApp() {
                 onMemory={() => go("memory-list")}
                 onMemoryReview={() => go("memory-review")}
                 onUserProfile={() => go("user-profile")}
+                onModelKeys={() => go("model-keys")}
+                ownKeys={ownKeys}
                 onReplayGuide={replayGuide}
                 preferences={preferences}
                 onSetPreference={handleSetPreference}
+                companion={isCompanionAvailable ? {
+                  companionOn: companionSettings.companion,
+                  paused: companionPaused,
+                  overlayOn: companionSettings.overlay,
+                  overlayNeedsPermission: companionSettings.overlay && !overlayPermitted,
+                  onToggleCompanion: toggleCompanion,
+                  onToggleOverlay: () => { void toggleOverlay(); },
+                  onOpenNotificationSettings: openNotificationSettings,
+                } : undefined}
                 onLogout={async () => {
                   await logout();          // 清本地 token（即使 /logout 401 也会清）
                   setTokens(null);         // → 回到登录页（AuthScreen）
@@ -648,6 +787,10 @@ function MorningApp() {
             {screen === "user-profile" && (
               <UserProfileScreen onBack={() => { go("profile"); setTab("profile"); }} onToast={showToast} />
             )}
+            {screen === "model-keys" && (
+              <ModelKeysScreen onBack={() => { go("profile"); setTab("profile"); }} onToast={showToast}
+                onChanged={() => setOwnKeys(usingOwnKeys())} />
+            )}
             {screen === "design-system" && <DesignSystemPreview />}
             {screen === "scene3d-preview" && <Scene3DPreview />}
           </Animated.View>
@@ -655,7 +798,7 @@ function MorningApp() {
           <ModeSheet visible={showMode} onClose={() => setShowMode(false)}
             onSleepDump={() => { setShowMode(false); todayRef.current?.openDump(); }}
             onJournal={() => { setShowMode(false); go("journal"); }}
-            onChat={(m) => { setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(""); setChatMode(m); setShowMode(false); go("chat"); }} />
+            onChat={(m) => { setResumeLatestChat(false); setSeedConvId(null); setChatSeedText(""); setLetterReplyBody(""); setChatMode(m); setShowMode(false); go("chat"); }} />
           </>
           )}
       </AppShell>

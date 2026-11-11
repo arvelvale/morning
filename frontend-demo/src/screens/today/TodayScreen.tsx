@@ -1,8 +1,8 @@
 /**
- * 首页「今日」：第一眼就是「今天接住了 N 件事」。
+ * 首页「今日」：第一眼就是「今天记下了 N 件事」。
  *
  * 自上而下：问候 →（有带时间的待办时）一句「要提醒你吗」→ 米露的夜空主卡（计数 + 四类拆分 + 抱着星星的米露）→ 接下来（最近的一件事、今晚的信）
- * → 唯一的主操作「一股脑倒出来」。猫不是插图：倒出来的话飞进它抱着的星星，星星随接住的数量变亮，
+ * → 唯一的主操作「一股脑倒出来」。猫不是插图：倒出来的话飞进它抱着的星星，星星随记下的数量变亮，
  * 打字时它竖耳朵，引导时它看向被高亮的地方。
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -25,9 +25,7 @@ import { invitationBubble } from "./bubbleText";
 import { KIND_LABEL, KIND_ORDER, parseServerTime, startOfToday, type CaughtKind } from "./caught";
 import { ReminderPrompt } from "./ReminderPrompt";
 import { useToday } from "./TodayContext";
-
-/** 晚间来信的送达时间（后端 main.py 的定时任务：东八区 21:30）。 */
-const LETTER_TIME = "21:30";
+import { DEFAULT_EVENING_LETTER, letterPhase, letterWhen, type EveningLetterPlan } from "../../eveningLetter";
 
 /** 角色立绘的边长（HomePetArtwork 外框 = size × 1.55）。 */
 const PET_SIZE = 156;
@@ -70,6 +68,8 @@ type TodayScreenProps = {
   onOpenTodos: () => void;
   petEmoji: string;
   petPresetId: string | null;
+  /** 晚间来信的设置（跟随「我的 · 陪伴设置」：可关闭、可改时间）。 */
+  eveningLetter?: EveningLetterPlan;
 };
 
 export function TodayScreen({
@@ -82,6 +82,7 @@ export function TodayScreen({
   onOpenTodos,
   petEmoji,
   petPresetId,
+  eveningLetter = DEFAULT_EVENING_LETTER,
 }: TodayScreenProps) {
   const theme = useTheme();
   const reduced = useReducedMotion();
@@ -127,7 +128,7 @@ export function TodayScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 每接住一件：数字跳一下，星星亮一下
+  // 每记下一件：数字跳一下，星星亮一下
   const bump = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!catchTick || reduced) return;
@@ -155,7 +156,7 @@ export function TodayScreen({
     () => (guide.active ? null : pickPrompt(todosApi.todos, todosApi.reminders, todosApi.dismissed, new Date())),
     [guide.active, todosApi.todos, todosApi.reminders, todosApi.dismissed, tick],
   );
-  const letterLate = now.getHours() * 60 + now.getMinutes() >= 21 * 60 + 30;
+  const letterPhaseNow = letterPhase(eveningLetter, now);
 
   const onPetPress = () => {
     today.poke();
@@ -241,7 +242,7 @@ export function TodayScreen({
           {/* 计数：全页最大的字 */}
           <Pressable
             accessibilityHint="看看每件事被放到了哪儿"
-            accessibilityLabel={n ? `今天接住了 ${n} 件事` : "今天还没接住什么"}
+            accessibilityLabel={n ? `今天记下了 ${n} 件事` : "今天还没记下什么"}
             accessibilityRole="button"
             collapsable={false}
             onPress={today.openCaught}
@@ -251,7 +252,7 @@ export function TodayScreen({
               backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "transparent", zIndex: 3,
             })}
           >
-            <Text style={[theme.typography.textStyles.caption, { color: "rgba(255,255,255,0.68)" }]}>今天接住了</Text>
+            <Text style={[theme.typography.textStyles.caption, { color: "rgba(255,255,255,0.68)" }]}>今天记下了</Text>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
               <Animated.Text style={{
                 fontFamily: theme.typography.fontFamilies.hand,
@@ -345,12 +346,12 @@ export function TodayScreen({
             when={reminder ? dueLabel(reminder.dueAt) : "还没有"}
           />
           <NextCard
-            body={letterToday ? "去信箱拆开看看" : n ? `${petName}的信，写进今天的 ${n} 件事` : `${petName}会给你写一封信`}
+            body={letterToday ? "去信箱拆开看看" : !eveningLetter.enabled ? "想收信的时候，在「我的」里打开就好" : n ? `${petName}的信，写进今天的 ${n} 件事` : `${petName}会给你写一封信`}
             icon={<Mail color={theme.colors.mood} size={14} />}
             onPress={onOpenMailbox}
             soft={theme.colors.moodSoft}
             tint={theme.colors.mood}
-            when={letterToday ? "今天的信到了" : letterLate ? `${petName}还在写` : `今晚 ${LETTER_TIME}`}
+            when={letterToday ? "今天的信到了" : !eveningLetter.enabled ? "已关闭" : letterPhaseNow === "writing" ? `${petName}还在写` : letterWhen(eveningLetter, letterPhaseNow)}
           />
         </View>
 
@@ -443,7 +444,7 @@ function NextCard({ when, body, icon, tint, soft, empty, onPress }: {
   );
 }
 
-/** 星光：亮度随今天接住的数量走，每接住一件闪一下。 */
+/** 星光：亮度随今天记下的数量走，每记下一件闪一下。 */
 function StarGlow({ level, catchTick }: { level: number; catchTick: number }) {
   const reduced = useReducedMotion();
   const pulse = useRef(new Animated.Value(0)).current;

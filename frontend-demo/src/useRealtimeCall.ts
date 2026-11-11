@@ -18,7 +18,7 @@ import {
 } from "morning-companion";
 import type { EventSubscription } from "expo-modules-core";
 
-import { createConversation, detectSceneIntent, getActivePet, streamChatReply, wsAuthUrl } from "./api";
+import { createConversation, detectSceneIntent, getActivePet, streamChatReply, wsAuthUrl, wsKeyOptions } from "./api";
 import type { IntentSeed } from "./api";
 import { speakReply, stopSpeaking } from "./speak";
 import {
@@ -221,7 +221,7 @@ export function useRealtimeCall(voiceReply: boolean): RealtimeCall {
           setTurns((prev) =>
             prev.map((t) =>
               t.id === petId && !t.text
-                ? { ...t, text: e?.message || "刚刚没接住，你再说一遍？" }
+                ? { ...t, text: e?.message || "刚才没能回你，等会儿再试试吧。" }
                 : t
             )
           );
@@ -359,7 +359,7 @@ export function useRealtimeCall(voiceReply: boolean): RealtimeCall {
       if (sessionIdRef.current !== currentSessionId) return;
       convIdRef.current = conv.id;
 
-      const ws = new WebSocket(wsAuthUrl("/ai/stt/stream"));
+      const ws = new (WebSocket as any)(wsAuthUrl("/ai/stt/stream"), undefined, wsKeyOptions()) as WebSocket;
       wsRef.current = ws;
 
       ws.onopen = async () => {

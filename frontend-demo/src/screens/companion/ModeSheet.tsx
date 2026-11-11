@@ -20,7 +20,7 @@ const modes = [
   {
     description: "随便聊点什么，没有主题",
     icon: Cloud,
-    label: "自由聊聊",
+    label: "开始新聊天",
     mode: "free_chat",
   },
   {

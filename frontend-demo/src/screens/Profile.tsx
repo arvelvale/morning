@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import {
-  Archive, Bell, Check, ChevronRight, Clock, Layers, LogOut, Moon, RotateCcw, Shield, Trash2, Type,
+  Archive, Bell, BellRing, Check, ChevronRight, Clock, KeyRound, Layers, LogOut, Mail, Moon, PawPrint, RotateCcw, Shield, Trash2, Type,
 } from "lucide-react-native";
 import {
   Button,
@@ -56,6 +56,9 @@ export type Preferences = {
   proactive_enabled: boolean;
   proactive_frequency: "安静" | "温和" | "活跃" | string;
   sleep_reminder_time: string;
+  /** 晚间来信：是否收、几点来（HH:MM，东八区）。 */
+  evening_letter_enabled: boolean;
+  evening_letter_time: string;
   keep_raw_dump: boolean;
   ephemeral_ttl_days: number;
   font_size: "小" | "标准" | "大" | string;
@@ -104,15 +107,16 @@ function WheelColumn({ data, index, onChange, night }: {
   );
 }
 
-function TimePickerSheet({ visible, initial, night, onCancel, onConfirm }: {
+function TimePickerSheet({ visible, initial, night, onCancel, onConfirm, title = "睡前提醒", hint = "到点了我会轻声提醒你，该歇一歇了", defaultHour = 22 }: {
   visible: boolean; initial: string; night: boolean; onCancel: () => void; onConfirm: (t: string) => void;
+  title?: string; hint?: string; defaultHour?: number;
 }) {
-  const [h, setH] = useState(22);
+  const [h, setH] = useState(defaultHour);
   const [m, setM] = useState(0);
   useEffect(() => {
     if (!visible) return;
-    const [hh, mm] = (initial || "22:00").split(":").map((x) => parseInt(x, 10));
-    setH(Number.isFinite(hh) ? Math.max(0, Math.min(23, hh)) : 22);
+    const [hh, mm] = (initial || `${String(defaultHour).padStart(2, "0")}:00`).split(":").map((x) => parseInt(x, 10));
+    setH(Number.isFinite(hh) ? Math.max(0, Math.min(23, hh)) : defaultHour);
     setM(Number.isFinite(mm) ? (Math.round((mm % 60) / 5) % 12) : 0);
   }, [visible]);
   const bg = night ? "#332B22" : "#FCF8EE";
@@ -123,8 +127,8 @@ function TimePickerSheet({ visible, initial, night, onCancel, onConfirm }: {
       <Pressable style={{ flex: 1, backgroundColor: "rgba(30,22,12,0.35)" }} onPress={onCancel} />
       <View style={{ backgroundColor: bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 34 }}>
         <View style={{ width: 38, height: 4, borderRadius: 999, backgroundColor: "rgba(150,140,130,0.3)", alignSelf: "center", marginBottom: 14 }} />
-        <Text style={{ fontSize: 16, fontWeight: "600", textAlign: "center", color: txt }}>睡前提醒</Text>
-        <Text style={{ fontSize: 12, textAlign: "center", color: sub, marginTop: 3, marginBottom: 14 }}>到点了我会轻声提醒你，该歇一歇了</Text>
+        <Text style={{ fontSize: 16, fontWeight: "600", textAlign: "center", color: txt }}>{title}</Text>
+        <Text style={{ fontSize: 12, textAlign: "center", color: sub, marginTop: 3, marginBottom: 14 }}>{hint}</Text>
         <View style={{ height: WHEEL_ITEM_H * WHEEL_VISIBLE, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
           <View pointerEvents="none" style={{
             position: "absolute", left: 24, right: 24, height: WHEEL_ITEM_H, top: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2,
@@ -151,7 +155,7 @@ function TimePickerSheet({ visible, initial, night, onCancel, onConfirm }: {
 export function ProfileScreen({
   onChangePet, night, onNightToggle, petName, petEmoji, petPresetId, petSummary,
   onMemory, onMemoryReview, preferences, onSetPreference, onLogout,
-  onUserProfile, onReplayGuide,
+  onUserProfile, onReplayGuide, companion, onModelKeys, ownKeys,
 }: {
   onChangePet: () => void; night: boolean; onNightToggle: () => void;
   petName: string; petEmoji: string; petPresetId?: string | null; petSummary?: string;
@@ -162,10 +166,27 @@ export function ProfileScreen({
   preferences: Preferences;
   onSetPreference: (patch: Partial<Preferences>) => void;
   onLogout?: () => void;
+  /** 打开「模型与密钥」页；不传则不显示这一行。 */
+  onModelKeys?: () => void;
+  /** 是否在用自己的模型密钥。 */
+  ownKeys?: boolean;
+  /** 常驻陪伴 / 悬浮米露 / 通知设置（只有原生 Android 才有，其余平台不显示这几行）。 */
+  companion?: {
+    companionOn: boolean;
+    /** 用户在通知上点过「暂停陪伴」。 */
+    paused: boolean;
+    overlayOn: boolean;
+    /** 悬浮米露开着，但系统还没允许「显示在其他应用上层」。 */
+    overlayNeedsPermission: boolean;
+    onToggleCompanion: () => void;
+    onToggleOverlay: () => void;
+    onOpenNotificationSettings: () => void;
+  };
 }) {
   const { theme, C } = useProfileSurface();
   const { isExpanded } = useResponsive();
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showLetterTimePicker, setShowLetterTimePicker] = useState(false);
 
   const confirmLogout = () => {
     if (!onLogout) return;
@@ -191,6 +212,16 @@ export function ProfileScreen({
     { numeral: "壹", title: "陪伴设置", rows: [
       { icon: <Bell size={16} color={C.text2} />, label: "主动陪伴频率", val: preferences.proactive_frequency, act: cycleFrequency },
       { icon: <Clock size={16} color={C.text2} />, label: "睡前提醒", val: preferences.sleep_reminder_time, act: () => setShowTimePicker(true) },
+      { icon: <Mail size={16} color={C.text2} />, label: "晚间来信", val: preferences.evening_letter_enabled ? "开启" : "已关闭", act: () => onSetPreference({ evening_letter_enabled: !preferences.evening_letter_enabled }) },
+      ...(preferences.evening_letter_enabled ? [{ icon: <Clock size={16} color={C.text2} />, label: "来信时间", val: preferences.evening_letter_time, act: () => setShowLetterTimePicker(true) }] : []),
+      ...(companion ? [
+        { icon: <PawPrint size={16} color={C.text2} />, label: "常驻陪伴", val: !companion.companionOn ? "已关闭" : companion.paused ? "已暂停，点一下恢复" : "开启", act: companion.onToggleCompanion },
+        { icon: <PawPrint size={16} color={C.text2} />, label: "悬浮米露", val: !companion.overlayOn ? "已关闭" : companion.overlayNeedsPermission ? "需要授权，点一下去开" : "开启", act: companion.onToggleOverlay },
+        { icon: <BellRing size={16} color={C.text2} />, label: "通知分类", val: "来信 / 有句话 / 待办…", act: companion.onOpenNotificationSettings },
+      ] : []),
+      ...(onModelKeys ? [
+        { icon: <KeyRound size={16} color={C.text2} />, label: "模型与密钥", val: ownKeys ? "用自己的密钥" : "用喵灵的额度", act: onModelKeys },
+      ] : []),
     ]},
     { numeral: "贰", title: "记忆与隐私", rows: [
       { icon: <Shield size={16} color={C.text2} />, label: "喵灵对我的理解", val: "可查看与纠正", act: onUserProfile },
@@ -344,6 +375,16 @@ export function ProfileScreen({
         night={night}
         onCancel={() => setShowTimePicker(false)}
         onConfirm={(t) => { onSetPreference({ sleep_reminder_time: t }); setShowTimePicker(false); }}
+      />
+      <TimePickerSheet
+        visible={showLetterTimePicker}
+        initial={preferences.evening_letter_time}
+        night={night}
+        title="来信时间"
+        hint="到了这个时间，我会给你写一封信"
+        defaultHour={21}
+        onCancel={() => setShowLetterTimePicker(false)}
+        onConfirm={(t) => { onSetPreference({ evening_letter_time: t }); setShowLetterTimePicker(false); }}
       />
     </View>
   );

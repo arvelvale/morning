@@ -6,7 +6,8 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { Card, PageContainer, PageHeader, useTheme } from "../../design-system";
+import { Button, Card, PageContainer, PageHeader, useTheme } from "../../design-system";
+import { AddTodo } from "./AddTodo";
 import { NotesPanel } from "./NotesPanel";
 import { TodoList } from "./TodoList";
 
@@ -15,6 +16,7 @@ const TABS = ["待办", "随手记"] as const;
 export function TodosScreen({ onToast, initialTab = 0 }: { onToast?: (msg: string) => void; initialTab?: 0 | 1 }) {
   const theme = useTheme();
   const [tab, setTab] = useState<number>(initialTab);
+  const [adding, setAdding] = useState(false);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
@@ -25,41 +27,45 @@ export function TodosScreen({ onToast, initialTab = 0 }: { onToast?: (msg: strin
           description="事情替你记着，到点我来叫你。"
         />
         {/* 分段切换：浅底胶囊，选中的一段浮起 */}
-        <View
-          accessibilityRole="tablist"
-          style={{
-            flexDirection: "row", alignSelf: "flex-start", padding: 3, marginBottom: theme.spacing[4],
-            borderRadius: 999, backgroundColor: theme.colors.backgroundSubtle,
-          }}
-        >
-          {TABS.map((label, i) => {
-            const on = tab === i;
-            return (
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                key={label}
-                onPress={() => setTab(i)}
-                style={{
-                  minWidth: 84, minHeight: 34, paddingHorizontal: theme.spacing[4], borderRadius: 999,
-                  alignItems: "center", justifyContent: "center",
-                  backgroundColor: on ? theme.colors.surface : "transparent",
-                  ...(on ? theme.shadows.soft : {}),
-                }}
-              >
-                <Text style={[theme.typography.textStyles.label, {
-                  color: on ? theme.colors.textPrimary : theme.colors.textMuted, fontWeight: on ? "600" : "400",
-                }]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: theme.spacing[3], marginBottom: theme.spacing[4] }}>
+          <View
+            accessibilityRole="tablist"
+            style={{
+              flexDirection: "row", alignSelf: "flex-start", padding: 3,
+              borderRadius: 999, backgroundColor: theme.colors.backgroundSubtle,
+            }}
+          >
+            {TABS.map((label, i) => {
+              const on = tab === i;
+              return (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  key={label}
+                  onPress={() => setTab(i)}
+                  style={{
+                    minWidth: 84, minHeight: 34, paddingHorizontal: theme.spacing[4], borderRadius: 999,
+                    alignItems: "center", justifyContent: "center",
+                    backgroundColor: on ? theme.colors.surface : "transparent",
+                    ...(on ? theme.shadows.soft : {}),
+                  }}
+                >
+                  <Text style={[theme.typography.textStyles.label, {
+                    color: on ? theme.colors.textPrimary : theme.colors.textMuted, fontWeight: on ? "600" : "400",
+                  }]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {tab === 0 ? <Button size="compact" onPress={() => setAdding(true)}>添加待办</Button> : null}
         </View>
         <Card style={{ width: "100%", minWidth: 0 }}>
           {tab === 0 ? <TodoList /> : <NotesPanel onToast={onToast} />}
         </Card>
       </PageContainer>
+      {adding ? <AddTodo onClose={() => setAdding(false)} /> : null}
     </ScrollView>
   );
 }

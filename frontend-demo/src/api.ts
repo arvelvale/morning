@@ -12,6 +12,9 @@
  *   （Android 真机改成那台电脑的 WLAN IPv4，模拟器用 http://10.0.2.2:8000），然后重启 Expo。
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { ownKeyHeaders, ownKeysActive } from "./modelKeys";
+import { HEADER_DEEPSEEK, HEADER_STEPFUN, type KeyTestResult, type ModelKeys } from "./modelKeysPolicy";
 import { Platform } from "react-native";
 
 import { streamSSE, type SSEEvent } from "./sse";
@@ -95,7 +98,26 @@ export async function clearTokens(): Promise<void> {
 }
 
 function authHeaders(): Record<string, string> {
-  return _tokens ? { Authorization: `Bearer ${_tokens.access_token}` } : {};
+  return {
+    ...(_tokens ? { Authorization: `Bearer ${_tokens.access_token}` } : {}),
+    // 用户自带的模型密钥：只在加密连接上才会有（见 modelKeys.ts），后端用完即弃
+    ...ownKeyHeaders(API_BASE),
+  };
+}
+
+/**
+ * 开 WebSocket 时要带的选项：原生端可以在握手时带请求头（自带密钥靠它传给语音转写）。
+ * 没有自带密钥时返回 undefined，行为与以前完全一样。web 的 WebSocket 不支持自定义请求头。
+ */
+export function wsKeyOptions(): { headers: Record<string, string> } | undefined {
+  const headers = ownKeyHeaders(API_BASE);
+  return Object.keys(headers).length ? { headers } : undefined;
+}
+
+/** 读一张需要登录的图片（聊天图片）：给 <Image source> 用。 */
+export function authedImageSource(path: string): { uri: string; headers: Record<string, string> } {
+  const uri = /^https?:\/\//.test(path) ? path : `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+  return { uri, headers: _tokens ? { Authorization: `Bearer ${_tokens.access_token}` } : {} };
 }
 
 // ─── 通用请求 ──────────────────────────────────────────────────────────────
@@ -239,22 +261,28 @@ export const markActive = () => post("/api/v1/users/me/active").catch(() => null
 
 // ─── 陪伴 / 对话 ─────────────────────────────────────────────────────────
 export const getCompanionHome = () => get("/api/v1/companion/home");
-export const listConversations = () => get("/api/v1/conversations");
+export const listConversations = (cursor?: number) =>
+  get(`/api/v1/conversations${cursor == null ? "" : `?cursor=${cursor}`}`);
 export const createConversation = (petId: number | null, mode: string) =>
   post("/api/v1/conversations", { pet_id: petId, mode });
 export const getConversation = (id: number) => get(`/api/v1/conversations/${id}`);
+export const getLatestConversation = () =>
+  get<{ id: number; messages: { role: string; content: string; images?: string[] }[] } | null>("/api/v1/conversations/latest");
 export const deleteConversation = (id: number) => del<void>(`/api/v1/conversations/${id}`);
 /** 发消息并逐字流式接收桌宠回复。onToken 拿增量，返回完整回复。 */
 export async function streamChatReply(
   convId: number,
   text: string,
-  onToken: (delta: string) => void
+  onToken: (delta: string) => void,
+  onTodoSaved?: () => void,
+  images?: { data: string; mime: string }[],
 ): Promise<void> {
   await streamSSE(
     sseUrl(`/api/v1/conversations/${convId}/messages?stream=true`),
-    { text },
+    images?.length ? { text, images } : { text },
     (e: SSEEvent) => {
       if (e.event === "token" && e.data?.delta) onToken(e.data.delta);
+      if (e.event === "todo.saved") onTodoSaved?.();
     },
     { headers: sseHeaders() }
   );
@@ -388,8 +416,8 @@ export interface DetectIntentResult {
   theater_id?: string | null;
   confidence?: number | null;
 }
-export const detectSceneIntent = (text: string) =>
-  post<DetectIntentResult>("/api/v1/scenes/detect-intent", { text });
+export const detectSceneIntent = (text: string, source: "call" | "chat" = "call") =>
+  post<DetectIntentResult>("/api/v1/scenes/detect-intent", { text, source }, LLM_TIMEOUT_MS);
 /** 确认候选并逐字揭幕开场。 */
 export async function streamConfirmCandidate(id: number, onEvent: (e: SSEEvent) => void): Promise<void> {
   await streamSSE(sseUrl(`/api/v1/candidates/${id}/confirm?stream=true`), null, onEvent, {
@@ -513,3 +541,52 @@ export interface AppVersionInfo {
 
 /** 拉取最新版本信息（无需登录）；前端据此与本地包版本比较是否提示更新。 */
 export const getAppVersion = () => get<AppVersionInfo>("/api/v1/app/version");
+
+// ─── 自带模型密钥（BYOK）────────────────────────────────────────────────────
+export interface KeyPolicy {
+  /** true：不填自己的密钥就用不了需要模型的功能。 */
+  byok_required: boolean;
+  /** 用户不带密钥时，服务端还有没有密钥可用。 */
+  server_key_available: boolean;
+  text_model: string;
+  fallback_model: string;
+}
+export const getKeyPolicy = () => get<KeyPolicy>("/api/v1/ai/keys/policy");
+
+/** 自带密钥此刻是否在生效（填了，且连接允许发）。 */
+export const usingOwnKeys = () => ownKeysActive(API_BASE);
+
+/**
+ * 测试一组「还没保存」的密钥：把它们放在这一次请求的请求头里，后端各探一次。
+ * 调用方必须先确认连接允许发密钥（keysAllowedOn），这里不再判断。
+ */
+export async function testModelKeys(keys: ModelKeys): Promise<{ stepfun: KeyTestResult; deepseek: KeyTestResult }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 40000);
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/ai/keys/test`, {
+      method: "POST",
+      headers: {
+        ...(_tokens ? { Authorization: `Bearer ${_tokens.access_token}` } : {}),
+        ...(keys.stepfun ? { [HEADER_STEPFUN]: keys.stepfun } : {}),
+        ...(keys.deepseek ? { [HEADER_DEEPSEEK]: keys.deepseek } : {}),
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new ApiError("这次没测成，待会儿再试试");
+    return await res.json();
+  } catch (e: any) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(e?.name === "AbortError" ? "等太久了，再试一次" : "连接不上服务器，检查下网络");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 告诉后端「这台手机用自己的密钥」：之后晚间信等定时内容不再由服务端生成，改由手机触发。 */
+export const setOwnKeyFlag = (enabled: boolean) =>
+  put<{ uses_own_key: boolean }>("/api/v1/users/me/own-key", { enabled });
+
+/** 自带密钥的手机定时调用：让后端用这次请求带的密钥，把此刻该做的定时活做掉（晚间信、睡前提醒…）。 */
+export const tickOwnKeyJobs = () =>
+  post<{ accepted: boolean; reason?: string }>("/api/v1/tick").catch(() => null);

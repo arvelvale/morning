@@ -11,17 +11,17 @@ import { HomePetArtwork } from "../../components/HomePetArtwork";
 import { useReducedMotion, useTheme } from "../../design-system";
 import { useGuide } from "../../guide/Guide";
 import { useTarget } from "../../guide/targets";
+import { DEFAULT_EVENING_LETTER, letterPhase, letterWhen, type EveningLetterPlan } from "../../eveningLetter";
 
-/** 晚间来信的送达时间（后端定时任务：东八区 21:30）。 */
-const LETTER_TIME = "21:30";
-
-export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji }: {
+export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji, plan = DEFAULT_EVENING_LETTER }: {
   /** 今天的信已经到了 */
   arrived: boolean;
   onOpen: () => void;
   petName: string;
   petPresetId: string | null;
   petEmoji: string;
+  /** 晚间来信的设置：来信时间跟随用户设定。 */
+  plan?: EveningLetterPlan;
 }) {
   const theme = useTheme();
   const reduced = useReducedMotion();
@@ -47,11 +47,10 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
     }
     guide.emit("envelope");
     if (arrived && !guide.active) onOpen();
-    else say(arrived ? "信到啦，拆开看看？" : `还没到点哦，${LETTER_TIME} 见`);
+    else say(arrived ? "信到啦，拆开看看？" : !plan.enabled ? "信已经关掉啦，想收的话在「我的」里打开" : phase === "writing" ? "我正在写呢，等一小会儿" : `还没到点哦，${letterWhen(plan, phase)} 见`);
   };
 
-  const now = new Date();
-  const late = now.getHours() * 60 + now.getMinutes() >= 21 * 60 + 30;
+  const phase = letterPhase(plan);
 
   return (
     // 2026-10 收紧：上下留白原来是 40/20，米露要探出横幅 26px 才不压字。
@@ -81,7 +80,7 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
         transform: [{ rotate: wiggle.interpolate({ inputRange: [0, 0.2, 0.45, 0.7, 1], outputRange: ["0deg", "-2.4deg", "2deg", "-1deg", "0deg"] }) }],
       }}>
         <Pressable
-          accessibilityHint={arrived ? "拆开今天的信" : `今晚 ${LETTER_TIME} 送达`}
+          accessibilityHint={arrived ? "拆开今天的信" : `${letterWhen(plan, phase)} 送达`}
           accessibilityLabel="今晚的信"
           accessibilityRole="button"
           collapsable={false}
@@ -107,10 +106,10 @@ export function TonightLetter({ arrived, onOpen, petName, petPresetId, petEmoji 
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[theme.typography.textStyles.emotionalTitle, { fontSize: 17, lineHeight: 24, color: theme.colors.textPrimary }]}>
-              {arrived ? "今天的信到了" : `今晚 ${LETTER_TIME} 的信`}
+              {arrived ? "今天的信到了" : `${letterWhen(plan, phase)} 的信`}
             </Text>
             <Text numberOfLines={1} style={[theme.typography.textStyles.caption, { color: theme.colors.textMuted }]}>
-              {arrived ? "点一下拆开" : late ? `${petName}还在写…` : `${petName}在攒今天的事…`}
+              {arrived ? "点一下拆开" : phase === "writing" ? `${petName}还在写…` : `${petName}在攒今天的事…`}
             </Text>
           </View>
         </Pressable>

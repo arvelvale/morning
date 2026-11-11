@@ -31,11 +31,12 @@ import { LetterPaper } from "./Letters";
 import { LetterList } from "./LetterList";
 import { TonightLetter } from "./TonightLetter";
 import { useGuide } from "../../guide/Guide";
+import { DEFAULT_EVENING_LETTER, type EveningLetterPlan } from "../../eveningLetter";
 
 /** 底部导航栏（BottomNavigation，绝对定位压在内容上）的高度；选择模式的「删除所选」条要坐在它上面，不然被盖住。 */
 const NAV_BAR_HEIGHT = 78;
 
-export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "你的伙伴", petPresetId = null, petEmoji = "✨" }: {
+export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "你的伙伴", petPresetId = null, petEmoji = "✨", eveningLetter = DEFAULT_EVENING_LETTER }: {
   onReplyLetter: (letter: { title: string; body: string } | null) => void;
   onToast?: (msg: string) => void;
   /** 接受场景邀请后进入片场演绎（sceneId + 预设剧场 id，dynamic_image 时 theaterId 为 null） */
@@ -43,6 +44,8 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
   petName?: string;
   petPresetId?: string | null;
   petEmoji?: string;
+  /** 晚间来信的设置（关闭时不再在顶上摆「今晚的信」）。 */
+  eveningLetter?: EveningLetterPlan;
 }) {
   const { theme, C } = useMailboxSurface();
   const guide = useGuide();
@@ -242,8 +245,8 @@ export function MailboxScreen({ onReplyLetter, onToast, onPlayScene, petName = "
       onToggle={id => setSelected(s => toggleId(s, id))}
       onSelectAll={ids => setSelected(s => toggleSelectAll(ids, s))}
       onReadAll={readAll} onClearAll={() => setConfirming("all")}
-      header={!todaysLetter || guide.active ? (
-        <TonightLetter arrived={!!todaysLetter} onOpen={openTodaysLetter}
+      header={(!todaysLetter && eveningLetter.enabled) || guide.active ? (
+        <TonightLetter arrived={!!todaysLetter} onOpen={openTodaysLetter} plan={eveningLetter}
           petEmoji={petEmoji} petName={petName} petPresetId={petPresetId} />
       ) : null} />
   );

@@ -51,8 +51,8 @@ export const GUIDE_STEPS: Step[] = [
     act: (f, pet) => (f.dumpOpen ? `写几句，或点下面的句子，再点「倒给${pet}」` : "点这里"),
   },
   {
-    key: "caughtOpen", title: "看它接住了什么", target: () => "count", place: "below", after: 650,
-    say: (f) => `接住了 ${f.count} 件。看看我放哪儿了？`, act: () => "点开这个数字",
+    key: "caughtOpen", title: "看看记了什么", target: () => "count", place: "below", after: 650,
+    say: (f) => `记下了 ${f.count} 件。点开看看吧。`, act: () => "点开这个数字",
     skip: (f) => f.count === 0,
   },
   {

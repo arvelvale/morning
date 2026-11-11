@@ -1,5 +1,5 @@
 /**
- * 首页的两个抽屉（倒出来 / 今天接住的）和飞行中的纸条。
+ * 首页的两个抽屉（倒出来 / 今天记下的）和飞行中的纸条。
  * 它们要盖住底栏，所以挂在 App 根部，状态来自 TodayContext。
  */
 import React, { useEffect, useRef, useState } from "react";
@@ -212,7 +212,7 @@ function CaughtSheet({ onOpenTodos }: { onOpenTodos: () => void }) {
   const firstTodoId = today.items.find((x) => x.kind === "todo" && !x.done && planReminder(x.dueAt) !== null)?.id;
   return (
     <Sheet open={today.caughtOpen}>
-      <SheetHeader onClose={today.closeCaught} sub={`${today.items.length} 件`} title="今天接住的" />
+      <SheetHeader onClose={today.closeCaught} sub={`${today.items.length} 件`} title="今天记下的" />
       <ScrollView style={{ maxHeight: 360, marginTop: 6 }} contentContainerStyle={{ gap: 8 }}>
         {today.items.map((item) => (
           <CaughtRow first={item.id === firstTodoId} item={item} key={item.id} />

@@ -1,8 +1,8 @@
 /**
- * 「今天接住了几件事」的数据层。
+ * 「今天记下了几件事」的数据层。
  *
  * 后端没有单独的「今日」接口，这里把四类存储（待办 / 灵感 / 情绪 / 瞬间）各拉一次，
- * 按本机时区筛出今天新增的，合起来就是今天接住的事。倾倒刚产出的条目先记进本机缓存，
+ * 按本机时区筛出今天新增的，合起来就是今天记下的事。倾倒刚产出的条目先记进本机缓存，
  * 网络慢或断开时首页数字也不会倒退。
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -27,7 +27,7 @@ export type CaughtItem = {
 
 export const KIND_ORDER: CaughtKind[] = ["todo", "idea", "mood", "frag"];
 
-/** 后端中文 kind → 前端四类；小结等其余类别不计入「接住」。 */
+/** 后端中文 kind → 前端四类；小结等其余类别不计入「记下」。 */
 export function kindFromServer(kind: string): CaughtKind | null {
   switch (kind) {
     case "待办": return "todo";
@@ -45,7 +45,7 @@ export const KIND_LABEL: Record<CaughtKind, string> = {
   frag: "瞬间",
 };
 
-/** 每类被放到了哪儿（展开「今天接住的」时的一行说明）。 */
+/** 每类被放到了哪儿（展开「今天记下的」时的一行说明）。 */
 export const KIND_WHERE: Record<CaughtKind, string> = {
   todo: "收进待办",
   idea: "收进灵感",
@@ -90,7 +90,7 @@ function toItem(raw: any, kind: CaughtKind): CaughtItem {
   };
 }
 
-/** 拉今天接住的事：服务器为准，本机缓存补上服务器暂时还没返回的条目。 */
+/** 拉今天记下的事：服务器为准，本机缓存补上服务器暂时还没返回的条目。 */
 export async function loadTodayCaught(): Promise<CaughtItem[]> {
   const since = startOfToday().getTime();
   const sources: [() => Promise<any>, CaughtKind][] = [
