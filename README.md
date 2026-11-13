@@ -353,16 +353,36 @@ npm run typecheck  # TypeScript static check
 
 ### Project Status
 
-Morning is a **prototype under active development**:
+Morning is a **usable product under active development**:
 
 - Core flows for accounts, chat, bedtime unloading, mailbox, memory, companion switching, and scenes are implemented.
 - A responsive design system supports both Web and mobile from one codebase.
 - The daytime interface has completed its primary visual redesign; the current night mode focuses on readability and operability.
 - The Web build is suitable for feature development and rapid acceptance testing; mobile still requires continued device compatibility and performance testing.
-- Production deployment, app-store release, and complete multi-environment configuration are not yet documented.
+- The backend is deployed with Docker Compose and PostgreSQL; app-store release, complete multi-environment configuration, and production hardening are not yet documented.
 
 ### Documentation
 
 - [Backend guide and API verification](backend/README.md)
 - [Product feature overview (Chinese)](Morning项目功能文档-精简版.md)
 - [Frontend visual redesign specification (Chinese)](docs/superpowers/specs/2026-07-25-morning-frontend-visual-redesign.md)
+
+### Legal
+
+- [Privacy Policy](docs/legal/privacy-policy.md)
+- [User Agreement](docs/legal/user-agreement.md)
+- [Sensitive Personal Information Consent](docs/legal/sensitive-data-consent.md)
+
+### License
+
+Copyright (c) 2026 孙明锐 and the Morning 喵灵 contributors. All rights reserved.
+
+This project is proprietary. No permission is granted to use, copy, modify,
+distribute, sublicense, or sell any part without prior written permission.
+
+The Agent 2048 platform is granted a limited, non-exclusive, non-transferable,
+revocable license to access, display, and evaluate the project for onboarding
+review and listing. This does not grant rights to copy, modify, distribute, or
+commercialize the project.
+
+For licensing or commercial inquiries: djia54995@gmail.com
